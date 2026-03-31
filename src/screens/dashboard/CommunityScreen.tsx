@@ -1,12 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, FlatList, Animated, Dimensions,
+  TextInput, Dimensions, RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card, Badge, Button } from '../../components';
+import { Card, Badge, Button, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { postsService } from '../../services/posts.service';
+import { useAuthStore } from '../../stores/auth.store';
+import type { Post, Comment } from '../../lib/types';
+import { getRelativeTime } from '../../lib/utils/formatters';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -89,8 +93,12 @@ function StoryBar() {
   );
 }
 
-function PostComposer() {
-  const [text, setText] = useState('');
+function PostComposer({ text, setText, onPublish, publishing }: { 
+  text: string; 
+  setText: (t: string) => void; 
+  onPublish: () => void;
+  publishing: boolean;
+}) {
   return (
     <Card variant="elevated" style={s.newPostCard}>
       <View style={s.newPostHeader}>
@@ -115,41 +123,45 @@ function PostComposer() {
             <Ionicons name="happy-outline" size={20} color={Colors.gray400} />
           </TouchableOpacity>
         </View>
-        <Button onPress={() => setText('')} size="sm" disabled={!text.trim()}>
-          Publier
+        <Button onPress={onPublish} size="sm" disabled={!text.trim() || publishing}>
+          {publishing ? 'Publication...' : 'Publier'}
         </Button>
       </View>
     </Card>
   );
 }
 
-function PostItem({ post }: { post: typeof POSTS[0] }) {
-  const [liked, setLiked] = useState(post.liked);
-  const [likeCount, setLikeCount] = useState(post.likes);
+function PostItem({ post, onLike }: { post: Post; onLike: (id: string) => void }) {
+  const userName = post.user?.name || 'Utilisateur';
+  const initials = userName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+  const gradients: readonly [string, string] = ['#6366F1', '#8B5CF6'];
+  const liked = post.isLiked || false;
+  const likeCount = post._count?.likes || 0;
+  const commentCount = post._count?.comments || 0;
 
   return (
     <Card style={s.postCard}>
       <View style={s.postHeader}>
-        <LinearGradient colors={[...post.avatarGradient]} style={s.postAvatar}>
-          <Text style={s.postAvatarText}>{post.initials}</Text>
+        <LinearGradient colors={gradients} style={s.postAvatar}>
+          <Text style={s.postAvatarText}>{initials}</Text>
         </LinearGradient>
         <View style={{ flex: 1 }}>
-          <Text style={s.postAuthor}>{post.author}</Text>
-          <Text style={s.postTime}>{post.time}</Text>
+          <Text style={s.postAuthor}>{userName}</Text>
+          <Text style={s.postTime}>{getRelativeTime(post.createdAt)}</Text>
         </View>
         <TouchableOpacity>
           <Ionicons name="ellipsis-horizontal" size={20} color={Colors.gray400} />
         </TouchableOpacity>
       </View>
-      <Text style={s.postText}>{post.text}</Text>
+      <Text style={s.postText}>{post.message}</Text>
       <View style={s.postActions}>
-        <TouchableOpacity style={s.postAction} onPress={() => { setLiked(!liked); setLikeCount(liked ? likeCount - 1 : likeCount + 1); }}>
+        <TouchableOpacity style={s.postAction} onPress={() => onLike(post.id)}>
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color={liked ? Colors.error : Colors.gray400} />
           <Text style={[s.postActionText, liked && { color: Colors.error }]}>{likeCount}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.postAction}>
           <Ionicons name="chatbubble-outline" size={20} color={Colors.gray400} />
-          <Text style={s.postActionText}>{post.comments}</Text>
+          <Text style={s.postActionText}>{commentCount}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.postAction}>
           <Ionicons name="share-outline" size={20} color={Colors.gray400} />
@@ -209,6 +221,89 @@ function StatKPI({ icon, label, value, change, color, isUp }: { icon: string; la
 
 export function CommunityScreen() {
   const [activeTab, setActiveTab] = useState<CommunityTab>('feed');
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [myPosts, setMyPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [postText, setPostText] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const { user } = useAuthStore();
+
+  const loadPosts = useCallback(async () => {
+    try {
+      const feedResponse = await postsService.getFeed(1, 20);
+      setPosts(feedResponse.data || []);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    }
+  }, []);
+
+  const loadMyPosts = useCallback(async () => {
+    try {
+      const myPostsResponse = await postsService.getMyPosts(1, 20);
+      setMyPosts(myPostsResponse.data || []);
+    } catch (error) {
+      console.error('Error loading my posts:', error);
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([loadPosts(), loadMyPosts()]);
+    setLoading(false);
+  }, [loadPosts, loadMyPosts]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  const handlePublish = async () => {
+    if (!postText.trim()) return;
+    setPublishing(true);
+    try {
+      const newPost = await postsService.create({ message: postText.trim() });
+      setPosts((prev) => [newPost, ...prev]);
+      setMyPosts((prev) => [newPost, ...prev]);
+      setPostText('');
+      Alert.alert('Succès', 'Votre publication a été créée !');
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible de publier pour le moment');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleLike = async (postId: string) => {
+    try {
+      await postsService.toggleLike(postId);
+      const updateLike = (postList: Post[]) => 
+        postList.map((p) => {
+          if (p.id === postId) {
+            const wasLiked = p.isLiked;
+            return {
+              ...p,
+              isLiked: !wasLiked,
+              _count: { 
+                ...p._count, 
+                likes: (p._count?.likes || 0) + (wasLiked ? -1 : 1),
+                comments: p._count?.comments || 0,
+              },
+            };
+          }
+          return p;
+        });
+      setPosts(updateLike);
+      setMyPosts(updateLike);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
 
   const TABS: { key: CommunityTab; label: string; icon: string }[] = [
     { key: 'feed', label: 'Fil', icon: 'newspaper-outline' },
@@ -245,17 +340,35 @@ export function CommunityScreen() {
 
       {/* ═══ FEED TAB ═══ */}
       {activeTab === 'feed' && (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        >
           <StoryBar />
-          <PostComposer />
-          {POSTS.map((post) => <PostItem key={post.id} post={post} />)}
+          <PostComposer text={postText} setText={setPostText} onPublish={handlePublish} publishing={publishing} />
+          {loading ? (
+            <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : posts.length === 0 ? (
+            <EmptyState
+              icon="chatbubbles-outline"
+              title="Aucune publication"
+              message="Soyez le premier à partager votre parcours skincare !"
+            />
+          ) : (
+            posts.map((post) => <PostItem key={post.id} post={post} onLike={handleLike} />)
+          )}
           <View style={{ height: 30 }} />
         </ScrollView>
       )}
 
       {/* ═══ PROFILE TAB ═══ */}
       {activeTab === 'profile' && (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        >
           {/* Profile Hero */}
           <Card style={s.profileCard}>
             <LinearGradient colors={Gradients.secondary} style={s.profileCover} />
@@ -265,29 +378,29 @@ export function CommunityScreen() {
                   <Ionicons name="person" size={32} color={Colors.white} />
                 </LinearGradient>
               </View>
-              <Text style={s.profileName}>Mon Profil</Text>
-              <Text style={s.profileHandle}>@utilisateur</Text>
+              <Text style={s.profileName}>{user?.name || 'Mon Profil'}</Text>
+              <Text style={s.profileHandle}>@{user?.name?.toLowerCase().replace(/\s+/g, '') || 'utilisateur'}</Text>
               <Text style={s.profileBio}>Bienvenue dans la communauté DeepSkyn ! 💙</Text>
               <View style={s.profileStats}>
                 <View style={s.profileStat}>
-                  <Text style={s.profileStatNum}>{POSTS.length}</Text>
+                  <Text style={s.profileStatNum}>{myPosts.length}</Text>
                   <Text style={s.profileStatLabel}>Posts</Text>
                 </View>
                 <View style={s.profileStatDivider} />
                 <View style={s.profileStat}>
-                  <Text style={s.profileStatNum}>1.2K</Text>
+                  <Text style={s.profileStatNum}>--</Text>
                   <Text style={s.profileStatLabel}>Abonnés</Text>
                 </View>
                 <View style={s.profileStatDivider} />
                 <View style={s.profileStat}>
-                  <Text style={s.profileStatNum}>340</Text>
+                  <Text style={s.profileStatNum}>--</Text>
                   <Text style={s.profileStatLabel}>Abonnements</Text>
                 </View>
               </View>
             </View>
           </Card>
-          <PostComposer />
-          {POSTS.map((post) => <PostItem key={post.id} post={post} />)}
+          <PostComposer text={postText} setText={setPostText} onPublish={handlePublish} publishing={publishing} />
+          {myPosts.map((post) => <PostItem key={post.id} post={post} onLike={handleLike} />)}
           <View style={{ height: 30 }} />
         </ScrollView>
       )}

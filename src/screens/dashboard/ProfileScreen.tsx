@@ -1,55 +1,116 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card, Button, Input, Badge } from '../../components';
+import { Card, Button, Input, Badge, LoadingSpinner, LoadingOverlay } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAuthStore } from '../../stores/auth.store';
+import { usersService, User } from '../../services/users.service';
+import { skinProfileService } from '../../services/skin-profile.service';
+import { analysisService } from '../../services/analysis.service';
+import type { SkinProfile, AnalysisStats } from '../../lib/types';
+import { formatDate, getRelativeTime } from '../../lib/utils';
 
-export function ProfileScreen() {
-  const user = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    age: '28',
-    gender: 'Male',
-    location: 'Paris, France',
-    initials: 'JD',
+export function ProfileScreen({ navigation }: any) {
+  const { user: authUser, loadUser, logout } = useAuthStore();
+  const [profile, setProfile] = useState<User | null>(null);
+  const [skinProfile, setSkinProfile] = useState<SkinProfile | null>(null);
+  const [stats, setStats] = useState<AnalysisStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const loadProfileData = useCallback(async () => {
+    try {
+      const [userProfile, skinProf, analysisStats] = await Promise.all([
+        usersService.getMe().catch(() => null),
+        skinProfileService.getMyProfile().catch(() => null),
+        analysisService.getStats().catch(() => null),
+      ]);
+      setProfile(userProfile);
+      setSkinProfile(skinProf);
+      setStats(analysisStats);
+    } catch (error) {
+      console.error('Profile load error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadProfileData();
   };
 
-  const stats = [
-    { label: 'Analyses', value: '12' },
-    { label: 'Streak', value: '10 days' },
-    { label: 'Score', value: '82' },
+  const handleLogout = () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Déconnexion', style: 'destructive', onPress: logout },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingSpinner message="Chargement du profil..." />
+      </View>
+    );
+  }
+
+  const user = profile || authUser;
+  const userName = user?.name || authUser?.firstName || 'Utilisateur';
+  const userEmail = user?.email || authUser?.email || '';
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const statsData = [
+    { label: 'Analyses', value: stats?.totalAnalyses?.toString() || '0' },
+    { label: 'Score Moy.', value: stats?.averageHealthScore ? Math.round(stats.averageHealthScore).toString() : '-' },
+    { label: 'Conditions', value: stats?.commonConditions?.length?.toString() || '0' },
   ];
 
-  const skinProfile = [
-    { label: 'Skin Type', value: 'Combination' },
-    { label: 'Fitzpatrick', value: 'Type III' },
-    { label: 'Concerns', value: 'Acne, Dryness' },
-  ];
-
-  const recentActivity = [
-    { text: 'Morning routine completed', time: '2h ago', color: Colors.success, icon: 'checkmark-circle' },
-    { text: 'Skin analysis performed', time: '1d ago', color: Colors.primary, icon: 'scan' },
-    { text: 'Profile updated', time: '3d ago', color: Colors.amber, icon: 'person' },
-  ];
+  const skinProfileData = skinProfile ? [
+    { label: 'Type de peau', value: skinProfile.skinType || 'Non défini' },
+    { label: 'Fitzpatrick', value: skinProfile.fitzpatrickType ? `Type ${skinProfile.fitzpatrickType}` : 'Non défini' },
+    { label: 'Préoccupations', value: skinProfile.concerns?.join(', ') || 'Aucune' },
+  ] : [];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+      }
+    >
       {/* Avatar Section */}
       <View style={styles.avatarSection}>
-        <LinearGradient colors={Gradients.primary} style={styles.avatar}>
-          <Text style={styles.avatarText}>{user.initials}</Text>
-        </LinearGradient>
+        {user?.avatar ? (
+          <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+        ) : (
+          <LinearGradient colors={Gradients.primary} style={styles.avatar}>
+            <Text style={styles.avatarText}>{userInitials}</Text>
+          </LinearGradient>
+        )}
         <TouchableOpacity style={styles.cameraButton}>
           <Ionicons name="camera" size={16} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userEmail}>{user.email}</Text>
+        <Text style={styles.userName}>{userName}</Text>
+        <Text style={styles.userEmail}>{userEmail}</Text>
       </View>
 
       {/* Stats Row */}
       <View style={styles.statsRow}>
-        {stats.map((stat, index) => (
+        {statsData.map((stat, index) => (
           <View key={index} style={styles.statItem}>
             <Text style={styles.statValue}>{stat.value}</Text>
             <Text style={styles.statLabel}>{stat.label}</Text>
@@ -58,55 +119,83 @@ export function ProfileScreen() {
       </View>
 
       {/* Skin Profile Summary */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Skin Profile</Text>
-        <Card style={styles.profileCard}>
-          {skinProfile.map((item, index) => (
-            <View key={index} style={[styles.profileRow, index < skinProfile.length - 1 ? styles.profileRowBorder : undefined]}>
-              <Text style={styles.profileLabel}>{item.label}</Text>
-              <Text style={styles.profileValue}>{item.value}</Text>
-            </View>
-          ))}
-        </Card>
-      </View>
+      {skinProfileData.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Profil Peau</Text>
+          <Card style={styles.profileCard}>
+            {skinProfileData.map((item, index) => (
+              <View key={index} style={[styles.profileRow, index < skinProfileData.length - 1 ? styles.profileRowBorder : undefined]}>
+                <Text style={styles.profileLabel}>{item.label}</Text>
+                <Text style={styles.profileValue}>{item.value}</Text>
+              </View>
+            ))}
+          </Card>
+        </View>
+      )}
 
       {/* Personal Info Form */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Information</Text>
+        <Text style={styles.sectionTitle}>Informations Personnelles</Text>
         <Card variant="elevated" style={styles.formCard}>
-          <Input label="Full Name" value={user.name} editable={false} icon={<Ionicons name="person-outline" size={20} color={Colors.gray400} />} />
-          <Input label="Email" value={user.email} editable={false} icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />} />
-          <View style={styles.formRow}>
-            <View style={{ flex: 1 }}>
-              <Input label="Age" value={user.age} editable={false} icon={<Ionicons name="calendar-outline" size={20} color={Colors.gray400} />} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input label="Gender" value={user.gender} editable={false} icon={<Ionicons name="people-outline" size={20} color={Colors.gray400} />} />
-            </View>
-          </View>
-          <Input label="Location" value={user.location} editable={false} icon={<Ionicons name="location-outline" size={20} color={Colors.gray400} />} />
-          <Button onPress={() => {}} fullWidth>
-            Edit Profile
+          <Input 
+            label="Nom complet" 
+            value={userName} 
+            editable={false} 
+            icon={<Ionicons name="person-outline" size={20} color={Colors.gray400} />} 
+          />
+          <Input 
+            label="Email" 
+            value={userEmail} 
+            editable={false} 
+            icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />} 
+          />
+          {user?.dateOfBirth && (
+            <Input 
+              label="Date de naissance" 
+              value={formatDate(user.dateOfBirth)} 
+              editable={false} 
+              icon={<Ionicons name="calendar-outline" size={20} color={Colors.gray400} />} 
+            />
+          )}
+          {user?.gender && (
+            <Input 
+              label="Genre" 
+              value={user.gender} 
+              editable={false} 
+              icon={<Ionicons name="people-outline" size={20} color={Colors.gray400} />} 
+            />
+          )}
+          <Button onPress={() => navigation.navigate('Settings')} fullWidth variant="secondary">
+            Modifier le profil
           </Button>
         </Card>
       </View>
 
-      {/* Recent Activity */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Activity History</Text>
-        <Card>
-          {recentActivity.map((activity, index) => (
-            <View key={index} style={[styles.activityRow, index < recentActivity.length - 1 ? styles.activityRowBorder : undefined]}>
-              <View style={[styles.activityIcon, { backgroundColor: activity.color + '20' }]}>
-                <Ionicons name={activity.icon as any} size={18} color={activity.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.activityText}>{activity.text}</Text>
-                <Text style={styles.activityTime}>{activity.time}</Text>
-              </View>
+      {/* Common Conditions */}
+      {stats?.commonConditions && stats.commonConditions.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Conditions Fréquentes</Text>
+          <Card>
+            <View style={styles.conditionsRow}>
+              {stats.commonConditions.map((condition, index) => (
+                <Badge key={index} text={condition} variant="warning" />
+              ))}
             </View>
-          ))}
-        </Card>
+          </Card>
+        </View>
+      )}
+
+      {/* Actions */}
+      <View style={styles.section}>
+        <Button 
+          onPress={handleLogout} 
+          fullWidth 
+          variant="secondary"
+          style={styles.logoutButton}
+        >
+          <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+          <Text style={styles.logoutText}>  Déconnexion</Text>
+        </Button>
       </View>
 
       <View style={{ height: 30 }} />
@@ -116,10 +205,14 @@ export function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.gray50 },
+  loadingContainer: { flex: 1, backgroundColor: Colors.gray50, justifyContent: 'center', alignItems: 'center' },
   avatarSection: { alignItems: 'center', paddingTop: Spacing['2xl'] },
   avatar: {
     width: 96, height: 96, borderRadius: 48,
     alignItems: 'center', justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 96, height: 96, borderRadius: 48,
   },
   avatarText: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.white },
   cameraButton: {
@@ -147,15 +240,9 @@ const styles = StyleSheet.create({
   },
   profileRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   profileLabel: { fontSize: FontSizes.sm, color: Colors.gray500 },
-  profileValue: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.gray900 },
+  profileValue: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.gray900, maxWidth: '60%', textAlign: 'right' },
   formCard: { padding: Spacing.xl },
-  formRow: { flexDirection: 'row', gap: Spacing.md },
-  activityRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base },
-  activityRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
-  activityIcon: {
-    width: 36, height: 36, borderRadius: BorderRadius.sm,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  activityText: { fontSize: FontSizes.sm, color: Colors.gray700 },
-  activityTime: { fontSize: FontSizes.xs, color: Colors.gray400, marginTop: 2 },
+  conditionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.md },
+  logoutButton: { borderColor: Colors.error },
+  logoutText: { color: Colors.error, fontWeight: FontWeights.medium },
 });

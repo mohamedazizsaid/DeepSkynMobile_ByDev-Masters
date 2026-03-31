@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Routine, ShareRoutineDto } from '../../lib/types';
-import { routineService } from '../routine.service';
+import { routineService } from '../../services/routine.service';
 
 export function useShareRoutine() {
   const [isModalVisible, setIsModalVisible] = useState(false);

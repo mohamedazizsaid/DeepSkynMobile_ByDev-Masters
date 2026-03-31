@@ -16,6 +16,7 @@ export interface RoutineStep {
   id?: string;
   ingredients?: string[];
   conflicts?: string[];
+  
 }
 
 export interface Routine {

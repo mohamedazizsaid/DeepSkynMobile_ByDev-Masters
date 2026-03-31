@@ -1,76 +1,158 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, Badge } from '../../components';
+import { Card, Badge, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useNotificationStore } from '../../stores/notification.store';
+import { getRelativeTime } from '../../lib/utils';
+import type { Notification, NotificationType } from '../../lib/types';
+
+const getNotificationIcon = (type: NotificationType): { icon: keyof typeof Ionicons.glyphMap; color: string } => {
+  switch (type) {
+    case 'success':
+      return { icon: 'checkmark-circle', color: Colors.success };
+    case 'warning':
+      return { icon: 'warning', color: Colors.warning };
+    case 'error':
+      return { icon: 'alert-circle', color: Colors.error };
+    default:
+      return { icon: 'information-circle', color: Colors.primary };
+  }
+};
 
 export function NotificationScreen({ navigation }: any) {
-  const notifications = [
-    {
-      id: '1', type: 'routine', read: false,
-      icon: 'checkmark-circle' as const, color: Colors.success,
-      title: 'Routine Reminder', message: 'Time for your evening skincare routine!',
-      time: '5 min ago',
-    },
-    {
-      id: '2', type: 'analysis', read: false,
-      icon: 'scan' as const as any, color: Colors.primary,
-      title: 'Analysis Complete', message: 'Your skin analysis results are ready.',
-      time: '1h ago',
-    },
-    {
-      id: '3', type: 'community', read: true,
-      icon: 'heart' as const, color: Colors.error,
-      title: 'New Like', message: 'Sarah K. liked your post.',
-      time: '3h ago',
-    },
-    {
-      id: '4', type: 'ai', read: true,
-      icon: 'sparkles' as const, color: Colors.purple,
-      title: 'AI Insight', message: 'Your hydration levels have improved 12% this week!',
-      time: '1d ago',
-    },
-    {
-      id: '5', type: 'subscription', read: true,
-      icon: 'star' as const, color: Colors.amber,
-      title: 'Premium Offer', message: 'Get 50% off Premium for the next 24 hours.',
-      time: '2d ago',
-    },
-  ];
+  const { 
+    notifications, 
+    unreadCount, 
+    fetchNotifications, 
+    fetchUnreadCount, 
+    markAsRead, 
+    markAllAsRead,
+    removeNotification,
+  } = useNotificationStore();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      await Promise.all([fetchNotifications(), fetchUnreadCount()]);
+    } catch (error) {
+      console.error('Notifications load error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [fetchNotifications, fetchUnreadCount]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadNotifications();
+  };
+
+  const handleMarkAllRead = () => {
+    if (unreadCount === 0) return;
+    Alert.alert(
+      'Tout marquer comme lu',
+      'Voulez-vous marquer toutes les notifications comme lues ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Oui', onPress: markAllAsRead },
+      ]
+    );
+  };
+
+  const handleNotificationPress = async (notif: Notification) => {
+    if (!notif.isRead) {
+      await markAsRead(notif.id);
+    }
+    if (notif.actionUrl) {
+      // Navigation basée sur l'URL d'action
+      console.log('Navigate to:', notif.actionUrl);
+    }
+  };
+
+  const handleDelete = (notifId: string) => {
+    Alert.alert(
+      'Supprimer',
+      'Voulez-vous supprimer cette notification ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer', style: 'destructive', onPress: () => removeNotification(notifId) },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingSpinner message="Chargement des notifications..." />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+      }
+    >
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color={Colors.gray700} />
           </TouchableOpacity>
           <Text style={styles.title}>Notifications</Text>
-          <TouchableOpacity>
-            <Text style={styles.markRead}>Mark all read</Text>
+          <TouchableOpacity onPress={handleMarkAllRead} disabled={unreadCount === 0}>
+            <Text style={[styles.markRead, unreadCount === 0 && styles.markReadDisabled]}>
+              Tout lire
+            </Text>
           </TouchableOpacity>
         </View>
+        {unreadCount > 0 && (
+          <View style={styles.unreadBanner}>
+            <Badge text={`${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`} variant="primary" />
+          </View>
+        )}
       </View>
 
-      {notifications.map((notif) => (
-        <TouchableOpacity
-          key={notif.id}
-          style={[styles.notifRow, !notif.read ? styles.notifRowUnread : undefined]}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.notifIcon, { backgroundColor: notif.color + '20' }]}>
-            <Ionicons name={notif.icon} size={20} color={notif.color} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.notifTitleRow}>
-              <Text style={styles.notifTitle}>{notif.title}</Text>
-              {!notif.read && <View style={styles.unreadDot} />}
-            </View>
-            <Text style={styles.notifMessage}>{notif.message}</Text>
-            <Text style={styles.notifTime}>{notif.time}</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
+      {notifications.length === 0 ? (
+        <EmptyState
+          icon="notifications-off-outline"
+          title="Aucune notification"
+          description="Vous n'avez pas encore de notifications"
+        />
+      ) : (
+        notifications.map((notif) => {
+          const iconData = getNotificationIcon(notif.type);
+          return (
+            <TouchableOpacity
+              key={notif.id}
+              style={[styles.notifRow, !notif.isRead ? styles.notifRowUnread : undefined]}
+              activeOpacity={0.7}
+              onPress={() => handleNotificationPress(notif)}
+              onLongPress={() => handleDelete(notif.id)}
+            >
+              <View style={[styles.notifIcon, { backgroundColor: iconData.color + '20' }]}>
+                <Ionicons name={iconData.icon} size={20} color={iconData.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.notifTitleRow}>
+                  <Text style={styles.notifTitle}>{notif.title}</Text>
+                  {!notif.isRead && <View style={styles.unreadDot} />}
+                </View>
+                <Text style={styles.notifMessage}>{notif.message}</Text>
+                <Text style={styles.notifTime}>{getRelativeTime(notif.createdAt)}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
 
       <View style={{ height: 30 }} />
     </ScrollView>
@@ -79,10 +161,13 @@ export function NotificationScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
+  loadingContainer: { flex: 1, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: Spacing.xl, paddingTop: 60, paddingBottom: Spacing.base },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900 },
   markRead: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },
+  markReadDisabled: { color: Colors.gray400 },
+  unreadBanner: { marginTop: Spacing.md },
   notifRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md,
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,

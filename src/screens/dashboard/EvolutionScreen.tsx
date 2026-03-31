@@ -1,33 +1,120 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, Badge } from '../../components';
-import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Card, Badge, EmptyState } from '../../components';
+import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { analysisService } from '../../services/analysis.service';
+import type { Analysis, AnalysisStats } from '../../lib/types';
+import { formatDate } from '../../lib/utils/formatters';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function EvolutionScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState('1M');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<AnalysisStats | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<Analysis[]>([]);
+  
   const periods = ['1W', '1M', '3M', '6M', '1Y'];
 
+  const loadData = useCallback(async () => {
+    try {
+      const [statsData, historyData] = await Promise.all([
+        analysisService.getStats(),
+        analysisService.getAll(1, 20),
+      ]);
+      setStats(statsData);
+      setAnalysisHistory(historyData.analyses || []);
+    } catch (error) {
+      console.error('Error loading evolution data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  const getScoreChange = (analyses: Analysis[]): number => {
+    if (analyses.length < 2) return 0;
+    const latest = analyses[0]?.healthScore || analyses[0]?.results?.healthScore || 0;
+    const previous = analyses[analyses.length - 1]?.healthScore || analyses[analyses.length - 1]?.results?.healthScore || 0;
+    return latest - previous;
+  };
+
+  const getHealthScore = (analysis: Analysis): number => {
+    return analysis.healthScore || analysis.results?.healthScore || 0;
+  };
+
   const summaryCards = [
-    { label: 'Overall', value: '+8%', trend: 'up', color: Colors.primary },
-    { label: 'Hydration', value: '+12%', trend: 'up', color: '#06B6D4' },
-    { label: 'Texture', value: '+5%', trend: 'up', color: '#8B5CF6' },
-    { label: 'Wrinkles', value: '-3%', trend: 'down', color: '#F59E0B' },
+    { 
+      label: 'Score Global', 
+      value: stats?.averageHealthScore ? `${Math.round(stats.averageHealthScore)}%` : '--', 
+      trend: getScoreChange(analysisHistory) >= 0 ? 'up' : 'down',
+      color: Colors.primary 
+    },
+    { 
+      label: 'Analyses', 
+      value: stats?.totalAnalyses?.toString() || '0', 
+      trend: 'up',
+      color: '#06B6D4' 
+    },
+    { 
+      label: 'Score Max', 
+      value: analysisHistory[0] 
+        ? `${getHealthScore(analysisHistory[0])}%` 
+        : '--', 
+      trend: 'up',
+      color: '#8B5CF6' 
+    },
+    { 
+      label: 'Progression', 
+      value: getScoreChange(analysisHistory) >= 0 
+        ? `+${getScoreChange(analysisHistory)}%` 
+        : `${getScoreChange(analysisHistory)}%`, 
+      trend: getScoreChange(analysisHistory) >= 0 ? 'up' : 'down',
+      color: '#F59E0B' 
+    },
   ];
 
-  const timeline = [
-    { date: 'Feb 10', score: 82, change: '+2' },
-    { date: 'Feb 3', score: 80, change: '+1' },
-    { date: 'Jan 27', score: 79, change: '+3' },
-    { date: 'Jan 20', score: 76, change: '+1' },
-    { date: 'Jan 13', score: 75, change: '-1' },
-  ];
+  // Create chart data from analysis history
+  const chartData = analysisHistory
+    .slice(0, 7)
+    .reverse()
+    .map((analysis) => ({
+      score: getHealthScore(analysis),
+      date: formatDate(analysis.createdAt),
+    }));
+
+  const maxScore = Math.max(...chartData.map(d => d.score), 100);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{ marginTop: Spacing.md, color: Colors.gray500 }}>Chargement...</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>Evolution</Text>
-        <Text style={styles.subtitle}>Track your skin progress over time</Text>
+        <Text style={styles.title}>Évolution</Text>
+        <Text style={styles.subtitle}>Suivez les progrès de votre peau</Text>
       </View>
 
       {/* Period Selector */}
@@ -62,33 +149,93 @@ export function EvolutionScreen() {
         ))}
       </ScrollView>
 
-      {/* Chart Placeholder */}
+      {/* Chart */}
       <Card variant="elevated" style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Score Evolution</Text>
-        <View style={styles.chartPlaceholder}>
-          <Ionicons name="analytics-outline" size={48} color={Colors.gray300} />
-          <Text style={styles.chartPlaceholderText}>Chart visualization</Text>
+        <View style={styles.chartHeader}>
+          <Text style={styles.chartTitle}>Score de santé</Text>
+          {analysisHistory.length > 0 && (
+            <Badge 
+              text={`${analysisHistory.length} analyses`} 
+              variant="info" 
+              size="sm" 
+            />
+          )}
         </View>
+        
+        {chartData.length > 0 ? (
+          <View style={styles.chartContainer}>
+            {/* Simple bar chart */}
+            <View style={styles.barChart}>
+              {chartData.map((item, index) => (
+                <View key={index} style={styles.barColumn}>
+                  <View style={styles.barWrapper}>
+                    <LinearGradient
+                      colors={Gradients.primary}
+                      style={[
+                        styles.bar,
+                        { height: `${(item.score / maxScore) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.barLabel}>{item.score}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.chartLegend}>
+              <Text style={styles.legendText}>Dernières analyses</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.chartPlaceholder}>
+            <Ionicons name="analytics-outline" size={48} color={Colors.gray300} />
+            <Text style={styles.chartPlaceholderText}>Pas encore de données</Text>
+          </View>
+        )}
       </Card>
 
       {/* Timeline */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Analysis Timeline</Text>
-        {timeline.map((item, index) => (
-          <Card key={index} style={styles.timelineCard}>
-            <View style={styles.timelineRow}>
-              <View>
-                <Text style={styles.timelineDate}>{item.date}</Text>
-                <Text style={styles.timelineScore}>Score: {item.score}</Text>
-              </View>
-              <Badge
-                text={item.change}
-                variant={item.change.startsWith('+') ? 'success' : 'error'}
-                size="md"
-              />
-            </View>
-          </Card>
-        ))}
+        <Text style={styles.sectionTitle}>Historique des analyses</Text>
+        {analysisHistory.length === 0 ? (
+          <EmptyState
+            icon="camera-outline"
+            title="Aucune analyse"
+            message="Faites votre première analyse pour commencer le suivi"
+          />
+        ) : (
+          analysisHistory.map((analysis, index) => {
+            const prevScore = analysisHistory[index + 1] ? getHealthScore(analysisHistory[index + 1]) : null;
+            const currentScore = getHealthScore(analysis);
+            const change = prevScore ? currentScore - prevScore : 0;
+            const skinType = analysis.results?.skinType;
+            
+            return (
+              <Card key={analysis.id} style={styles.timelineCard}>
+                <View style={styles.timelineRow}>
+                  <View style={styles.timelineDot}>
+                    <LinearGradient colors={Gradients.primary} style={styles.dotGradient}>
+                      <Ionicons name="pulse-outline" size={14} color={Colors.white} />
+                    </LinearGradient>
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineDate}>{formatDate(analysis.createdAt)}</Text>
+                    <Text style={styles.timelineScore}>Score: {currentScore}%</Text>
+                    {skinType && (
+                      <Text style={styles.timelineMeta}>Type: {skinType}</Text>
+                    )}
+                  </View>
+                  {prevScore && (
+                    <Badge
+                      text={change >= 0 ? `+${change}` : `${change}`}
+                      variant={change >= 0 ? 'success' : 'error'}
+                      size="md"
+                    />
+                  )}
+                </View>
+              </Card>
+            );
+          })
+        )}
       </View>
 
       <View style={{ height: 30 }} />
@@ -125,7 +272,20 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing['2xl'] },
   sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   timelineCard: { marginBottom: Spacing.sm, padding: Spacing.base },
-  timelineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  timelineRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  timelineDot: { width: 32, height: 32 },
+  dotGradient: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  timelineContent: { flex: 1 },
   timelineDate: { fontSize: FontSizes.base, fontWeight: FontWeights.medium, color: Colors.gray900 },
   timelineScore: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: 2 },
+  timelineMeta: { fontSize: FontSizes.xs, color: Colors.gray400, marginTop: 2 },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
+  chartContainer: { paddingTop: Spacing.md },
+  barChart: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 150, paddingBottom: Spacing.sm },
+  barColumn: { alignItems: 'center', flex: 1 },
+  barWrapper: { width: 24, height: 120, justifyContent: 'flex-end' },
+  bar: { width: 24, borderRadius: BorderRadius.sm, minHeight: 8 },
+  barLabel: { fontSize: FontSizes.xs, color: Colors.gray500, marginTop: Spacing.xs, fontWeight: FontWeights.semibold },
+  chartLegend: { alignItems: 'center', marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.gray100 },
+  legendText: { fontSize: FontSizes.xs, color: Colors.gray400 },
 });

@@ -179,7 +179,7 @@ export function ShareRoutineModal({
                     </View>
                     {step.duration && (
                       <Text style={styles.stepDuration}>
-                        ⏱️ {Math.round(step.duration / 60)}min
+                        ⏱️ {Math.round(Number(step.duration) / 60)}min
                       </Text>
                     )}
                   </View>

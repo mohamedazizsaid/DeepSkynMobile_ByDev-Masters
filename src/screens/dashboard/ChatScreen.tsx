@@ -1,29 +1,178 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card, Button } from '../../components';
+import { Card, Button, LoadingSpinner } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { chatService } from '../../services/chat.service';
+import type { ChatHistory, ChatMessage } from '../../lib/types';
+
+interface DisplayMessage {
+  id: string;
+  type: 'user' | 'ai';
+  text: string;
+  timestamp?: string;
+}
 
 export function ChatScreen() {
   const [message, setMessage] = useState('');
-
-  const messages = [
-    { id: '1', type: 'ai', text: 'Hello! I\'m your AI skincare coach. How can I help you today?' },
-    { id: '2', type: 'user', text: 'My skin feels dry lately, what should I do?' },
-    { id: '3', type: 'ai', text: 'I see from your profile that you have combination skin. For dryness, I recommend:\n\n1. Use a gentle hydrating cleanser\n2. Apply hyaluronic acid serum\n3. Use a rich moisturizer\n4. Drink more water throughout the day' },
-    { id: '4', type: 'user', text: 'Thanks! Any product recommendations?' },
-    { id: '5', type: 'ai', text: 'Based on your skin profile, I\'d suggest trying CeraVe Hydrating Cleanser and The Ordinary Hyaluronic Acid 2% + B5. Both are gentle and effective for your skin type.' },
-  ];
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const suggestions = [
-    'Routine advice',
-    'Product help',
-    'Skin concern',
-    'Diet tips',
+    'Conseils routine',
+    'Aide produits',
+    'Problème de peau',
+    'Conseils nutrition',
   ];
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setLoading(true);
+      const history = await chatService.getHistory(1, 0);
+      if (history.length > 0) {
+        const latestChat = history[0];
+        setCurrentChatId(latestChat.id);
+        
+        const displayMessages: DisplayMessage[] = [];
+        if (latestChat.messages) {
+          latestChat.messages.forEach((msg: ChatMessage, index: number) => {
+            displayMessages.push({
+              id: `${latestChat.id}-${index}`,
+              type: msg.role === 'user' ? 'user' : 'ai',
+              text: msg.content,
+              timestamp: msg.timestamp,
+            });
+          });
+        } else {
+          if (latestChat.message) {
+            displayMessages.push({
+              id: `${latestChat.id}-user`,
+              type: 'user',
+              text: latestChat.message,
+            });
+          }
+          if (latestChat.assistantResponse) {
+            displayMessages.push({
+              id: `${latestChat.id}-ai`,
+              type: 'ai',
+              text: latestChat.assistantResponse,
+            });
+          }
+        }
+        setMessages(displayMessages);
+      } else {
+        setMessages([{
+          id: 'welcome',
+          type: 'ai',
+          text: 'Bonjour ! Je suis votre coach skincare IA. Comment puis-je vous aider aujourd\'hui ?',
+        }]);
+      }
+    } catch (error) {
+      console.error('Load history error:', error);
+      setMessages([{
+        id: 'welcome',
+        type: 'ai',
+        text: 'Bonjour ! Je suis votre coach skincare IA. Comment puis-je vous aider aujourd\'hui ?',
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const sendMessage = async () => {
+    if (!message.trim() || sending) return;
+
+    const userMessage = message.trim();
+    setMessage('');
+    setSending(true);
+
+    const userDisplayMessage: DisplayMessage = {
+      id: `user-${Date.now()}`,
+      type: 'user',
+      text: userMessage,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userDisplayMessage]);
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+
+    try {
+      const response = await chatService.sendMessage({
+        message: userMessage,
+        chatId: currentChatId || undefined,
+      });
+
+      setCurrentChatId(response.id);
+
+      const aiResponse = response.assistantResponse || 'Je n\'ai pas pu traiter votre demande.';
+      const aiDisplayMessage: DisplayMessage = {
+        id: `ai-${Date.now()}`,
+        type: 'ai',
+        text: aiResponse,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, aiDisplayMessage]);
+    } catch (error) {
+      console.error('Send message error:', error);
+      const errorMessage: DisplayMessage = {
+        id: `error-${Date.now()}`,
+        type: 'ai',
+        text: 'Désolé, une erreur s\'est produite. Veuillez réessayer.',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setSending(false);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
+  const handleSuggestion = (suggestion: string) => {
+    setMessage(suggestion);
+  };
+
+  const startNewChat = () => {
+    Alert.alert(
+      'Nouvelle conversation',
+      'Voulez-vous commencer une nouvelle conversation ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Oui',
+          onPress: () => {
+            setCurrentChatId(null);
+            setMessages([{
+              id: 'welcome',
+              type: 'ai',
+              text: 'Bonjour ! Comment puis-je vous aider avec votre peau aujourd\'hui ?',
+            }]);
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingSpinner message="Chargement de la conversation..." />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -33,14 +182,24 @@ export function ChatScreen() {
           <LinearGradient colors={Gradients.primary} style={styles.headerIcon}>
             <Ionicons name="sparkles" size={20} color={Colors.white} />
           </LinearGradient>
-          <View>
-            <Text style={styles.headerTitle}>AI Skin Coach</Text>
-            <Text style={styles.headerSubtitle}>Online • Powered by AI</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Coach Skincare IA</Text>
+            <Text style={styles.headerSubtitle}>
+              {sending ? 'Réflexion...' : 'En ligne • Propulsé par l\'IA'}
+            </Text>
           </View>
+          <TouchableOpacity onPress={startNewChat} style={styles.newChatButton}>
+            <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
 
         {/* Messages */}
-        <ScrollView style={styles.messagesList} contentContainerStyle={styles.messagesContent}>
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.messagesList} 
+          contentContainerStyle={styles.messagesContent}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        >
           {messages.map((msg) => (
             <View
               key={msg.id}
@@ -59,31 +218,54 @@ export function ChatScreen() {
             </View>
           ))}
 
+          {sending && (
+            <View style={styles.messageBubbleWrapper}>
+              <LinearGradient colors={Gradients.primary} style={styles.aiBubbleAvatar}>
+                <Ionicons name="sparkles" size={14} color={Colors.white} />
+              </LinearGradient>
+              <View style={[styles.messageBubble, styles.aiBubble]}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
+            </View>
+          )}
+
           {/* Quick Suggestions */}
-          <View style={styles.suggestionsRow}>
-            {suggestions.map((suggestion, index) => (
-              <TouchableOpacity key={index} style={styles.suggestionPill}>
-                <Text style={styles.suggestionText}>{suggestion}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {messages.length <= 2 && (
+            <View style={styles.suggestionsRow}>
+              {suggestions.map((suggestion, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.suggestionPill}
+                  onPress={() => handleSuggestion(suggestion)}
+                >
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </ScrollView>
 
         {/* Input Bar */}
         <View style={styles.inputBar}>
           <TextInput
             style={styles.input}
-            placeholder="Ask me anything about skincare..."
+            placeholder="Posez-moi une question sur votre peau..."
             placeholderTextColor={Colors.gray400}
             value={message}
             onChangeText={setMessage}
             multiline
+            editable={!sending}
           />
           <TouchableOpacity
-            style={[styles.sendButton, !message.trim() ? styles.sendButtonDisabled : undefined]}
-            disabled={!message.trim()}
+            style={[styles.sendButton, (!message.trim() || sending) ? styles.sendButtonDisabled : undefined]}
+            disabled={!message.trim() || sending}
+            onPress={sendMessage}
           >
-            <Ionicons name="send" size={20} color={Colors.white} />
+            {sending ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <Ionicons name="send" size={20} color={Colors.white} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -93,6 +275,7 @@ export function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.gray50 },
+  loadingContainer: { flex: 1, backgroundColor: Colors.gray50, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,
@@ -104,6 +287,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.bold, color: Colors.gray900 },
   headerSubtitle: { fontSize: FontSizes.xs, color: Colors.success },
+  newChatButton: { padding: Spacing.xs },
   messagesList: { flex: 1 },
   messagesContent: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base },
   messageBubbleWrapper: {

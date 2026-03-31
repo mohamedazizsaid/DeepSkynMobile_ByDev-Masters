@@ -1,41 +1,118 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card, Button } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAuthStore } from '../../stores/auth.store';
+import { useAccessibilityStore } from '../../stores/accessibility.store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export function SettingsScreen({ navigation }: any) {
+  const { user, logout } = useAuthStore();
+  const { 
+    reduceMotion, 
+    contrastMode, 
+    zoomLevel,
+    toggleReduceMotion,
+    setContrastMode,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+  } = useAccessibilityStore();
+  
   const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [twoFactor, setTwoFactor] = useState(false);
   const [routineReminder, setRoutineReminder] = useState(true);
+  const [language, setLanguage] = useState('Français');
 
-  const user = { name: 'John Doe', email: 'john@example.com', initials: 'JD' };
+  const userName = user?.name || 'Utilisateur';
+  const userEmail = user?.email || 'email@example.com';
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+
+  const highContrast = contrastMode === 'high';
+  const setHighContrast = (value: boolean) => setContrastMode(value ? 'high' : 'off');
+  const largeText = zoomLevel > 100;
+  const setLargeText = (value: boolean) => value ? zoomIn() : resetZoom();
+
+  const handleLogout = useCallback(() => {
+    Alert.alert(
+      'Déconnexion',
+      'Voulez-vous vraiment vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { 
+          text: 'Déconnexion', 
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.removeItem('auth_token');
+            logout();
+          }
+        },
+      ]
+    );
+  }, [logout]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      'Supprimer le compte',
+      'Cette action est irréversible. Toutes vos données seront supprimées définitivement.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { 
+          text: 'Supprimer', 
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Info', 'Contactez le support pour supprimer votre compte.');
+          }
+        },
+      ]
+    );
+  }, []);
+
+  const handleContactSupport = () => {
+    Linking.openURL('mailto:support@deepskyn.com?subject=Support%20Mobile%20App');
+  };
+
+  const handlePrivacyPolicy = () => {
+    Linking.openURL('https://deepskyn.com/privacy');
+  };
+
+  const handleTermsOfService = () => {
+    Linking.openURL('https://deepskyn.com/terms');
+  };
 
   const accountSettings = [
-    { icon: 'person-outline', label: 'Edit Profile', type: 'link' },
-    { icon: 'lock-closed-outline', label: 'Change Password', type: 'link' },
-    { icon: 'shield-outline', label: 'Two-Factor Auth', type: 'toggle', value: twoFactor, onToggle: setTwoFactor },
-    { icon: 'language-outline', label: 'Language', type: 'value', value: 'English' },
+    { icon: 'person-outline', label: 'Modifier le profil', type: 'link', onPress: () => navigation?.navigate?.('Profile') },
+    { icon: 'lock-closed-outline', label: 'Changer le mot de passe', type: 'link', onPress: () => Alert.alert('Info', 'Utilisez l\'option "Mot de passe oublié" sur la page de connexion') },
+    { icon: 'language-outline', label: 'Langue', type: 'value', value: language },
   ];
 
   const preferenceSettings = [
-    { icon: 'notifications-outline', label: 'Push Notifications', type: 'toggle', value: notifications, onToggle: setNotifications },
-    { icon: 'moon-outline', label: 'Dark Mode', type: 'toggle', value: darkMode, onToggle: setDarkMode },
-    { icon: 'alarm-outline', label: 'Routine Reminders', type: 'toggle', value: routineReminder, onToggle: setRoutineReminder },
-    { icon: 'globe-outline', label: 'Units', type: 'value', value: 'Metric' },
+    { icon: 'notifications-outline', label: 'Notifications push', type: 'toggle', value: notifications, onToggle: setNotifications },
+    { icon: 'alarm-outline', label: 'Rappels routine', type: 'toggle', value: routineReminder, onToggle: setRoutineReminder },
+  ];
+
+  const accessibilitySettings = [
+    { icon: 'contrast-outline', label: 'Contraste élevé', type: 'toggle', value: highContrast, onToggle: setHighContrast },
+    { icon: 'text-outline', label: 'Texte agrandi', type: 'toggle', value: largeText, onToggle: setLargeText },
+    { icon: 'flash-off-outline', label: 'Réduire les animations', type: 'toggle', value: reduceMotion, onToggle: toggleReduceMotion },
   ];
 
   const supportSettings = [
-    { icon: 'help-circle-outline', label: 'Help Center', type: 'link' },
-    { icon: 'chatbubble-outline', label: 'Contact Support', type: 'link' },
-    { icon: 'document-text-outline', label: 'Privacy Policy', type: 'link' },
-    { icon: 'newspaper-outline', label: 'Terms of Service', type: 'link' },
+    { icon: 'help-circle-outline', label: 'Centre d\'aide', type: 'link', onPress: () => Linking.openURL('https://deepskyn.com/help') },
+    { icon: 'chatbubble-outline', label: 'Contacter le support', type: 'link', onPress: handleContactSupport },
+    { icon: 'document-text-outline', label: 'Politique de confidentialité', type: 'link', onPress: handlePrivacyPolicy },
+    { icon: 'newspaper-outline', label: 'Conditions d\'utilisation', type: 'link', onPress: handleTermsOfService },
   ];
 
   const renderSettingRow = (item: any, index: number, isLast: boolean) => (
-    <TouchableOpacity key={index} style={[styles.settingRow, !isLast ? styles.settingRowBorder : undefined]} activeOpacity={0.6}>
+    <TouchableOpacity 
+      key={index} 
+      style={[styles.settingRow, !isLast ? styles.settingRowBorder : undefined]} 
+      activeOpacity={0.6}
+      onPress={item.onPress}
+      disabled={item.type === 'toggle'}
+    >
       <View style={styles.settingLeft}>
         <Ionicons name={item.icon} size={22} color={Colors.gray500} />
         <Text style={styles.settingLabel}>{item.label}</Text>
@@ -56,26 +133,28 @@ export function SettingsScreen({ navigation }: any) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>Paramètres</Text>
       </View>
 
       {/* User Info Card */}
-      <Card variant="elevated" style={styles.userCard}>
-        <View style={styles.userRow}>
-          <LinearGradient colors={Gradients.primary} style={styles.userAvatar}>
-            <Text style={styles.userAvatarText}>{user.initials}</Text>
-          </LinearGradient>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userEmail}>{user.email}</Text>
+      <TouchableOpacity onPress={() => navigation?.navigate?.('Profile')}>
+        <Card variant="elevated" style={styles.userCard}>
+          <View style={styles.userRow}>
+            <LinearGradient colors={Gradients.primary} style={styles.userAvatar}>
+              <Text style={styles.userAvatarText}>{userInitials}</Text>
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.userName}>{userName}</Text>
+              <Text style={styles.userEmail}>{userEmail}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.gray400} />
           </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.gray400} />
-        </View>
-      </Card>
+        </Card>
+      </TouchableOpacity>
 
       {/* Account */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionTitle}>Compte</Text>
         <Card style={styles.settingsCard}>
           {accountSettings.map((item, i) => renderSettingRow(item, i, i === accountSettings.length - 1))}
         </Card>
@@ -83,9 +162,17 @@ export function SettingsScreen({ navigation }: any) {
 
       {/* Preferences */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
+        <Text style={styles.sectionTitle}>Préférences</Text>
         <Card style={styles.settingsCard}>
           {preferenceSettings.map((item, i) => renderSettingRow(item, i, i === preferenceSettings.length - 1))}
+        </Card>
+      </View>
+
+      {/* Accessibility */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Accessibilité</Text>
+        <Card style={styles.settingsCard}>
+          {accessibilitySettings.map((item, i) => renderSettingRow(item, i, i === accessibilitySettings.length - 1))}
         </Card>
       </View>
 
@@ -101,19 +188,20 @@ export function SettingsScreen({ navigation }: any) {
       <View style={styles.section}>
         <Button
           variant="outline"
-          onPress={() => {}}
+          onPress={handleLogout}
           fullWidth
           style={{ borderColor: Colors.error }}
         >
-          <Text style={{ color: Colors.error }}>Log Out</Text>
+          <Text style={{ color: Colors.error }}>Déconnexion</Text>
         </Button>
-        <TouchableOpacity style={styles.deleteButton}>
-          <Text style={styles.deleteText}>Delete Account</Text>
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+          <Text style={styles.deleteText}>Supprimer mon compte</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>DeepSkyn v1.0.0</Text>
+        <Text style={styles.footerText}>© 2024 DeepSkyn. Tous droits réservés.</Text>
       </View>
 
       <View style={{ height: 30 }} />

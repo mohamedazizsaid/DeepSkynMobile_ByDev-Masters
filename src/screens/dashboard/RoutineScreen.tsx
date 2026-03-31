@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, Image, Linking, ActivityIndicator, Switch, TextInput } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, Image, Linking, ActivityIndicator, Switch, TextInput, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card, Badge } from '../../components';
+import { Card, Badge, Button, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { routineService } from '../../services/routine.service';
 import { usersService } from '../../services/users.service';
-import type { ProductRecommendation } from '../../lib/types';
+import type { ProductRecommendation, Routine, RoutineStep } from '../../lib/types';
 
 function RoutineReminderCard() {
   const [loading, setLoading] = useState(true);
@@ -126,22 +126,57 @@ export function RoutineScreen() {
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [recommendation, setRecommendation] = useState<ProductRecommendation | null>(null);
   const [recommendStepName, setRecommendStepName] = useState('');
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
-  const morningRoutine = [
-    { order: 1, name: 'Gentle Cleanser', type: 'cleanser', duration: '60 sec', icon: 'water-outline' },
-    { order: 2, name: 'Vitamin C Serum', type: 'serum', duration: '30 sec', icon: 'flask-outline' },
-    { order: 3, name: 'Hyaluronic Acid', type: 'moisturizer', duration: '30 sec', icon: 'water-outline' },
-    { order: 4, name: 'SPF 50+ Sunscreen', type: 'sunscreen', duration: '45 sec', icon: 'sunny-outline' },
+  const loadRoutines = useCallback(async () => {
+    try {
+      const allRoutines = await routineService.getAll({ isActive: true });
+      setRoutines(allRoutines);
+    } catch (error) {
+      console.error('Load routines error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRoutines();
+  }, [loadRoutines]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadRoutines();
+  };
+
+  const morningRoutine = routines.find(r => r.type === 'AM');
+  const eveningRoutine = routines.find(r => r.type === 'PM');
+  const currentRoutine = activeTab === 'morning' ? morningRoutine : eveningRoutine;
+
+  const defaultMorningSteps = [
+    { order: 1, name: 'Nettoyant Doux', category: 'cleanser', duration: '60 sec', icon: 'water-outline' },
+    { order: 2, name: 'Sérum Vitamine C', category: 'serum', duration: '30 sec', icon: 'flask-outline' },
+    { order: 3, name: 'Acide Hyaluronique', category: 'moisturizer', duration: '30 sec', icon: 'water-outline' },
+    { order: 4, name: 'Protection SPF 50+', category: 'sunscreen', duration: '45 sec', icon: 'sunny-outline' },
   ];
 
-  const eveningRoutine = [
-    { order: 1, name: 'Oil Cleanser', type: 'makeup_remover', duration: '90 sec', icon: 'water-outline' },
-    { order: 2, name: 'Gentle Cleanser', type: 'cleanser', duration: '60 sec', icon: 'water-outline' },
-    { order: 3, name: 'Retinol Serum', type: 'serum', duration: '30 sec', icon: 'flask-outline' },
-    { order: 4, name: 'Night Cream', type: 'night_cream', duration: '45 sec', icon: 'moon-outline' },
+  const defaultEveningSteps = [
+    { order: 1, name: 'Nettoyant Huile', category: 'makeup_remover', duration: '90 sec', icon: 'water-outline' },
+    { order: 2, name: 'Nettoyant Doux', category: 'cleanser', duration: '60 sec', icon: 'water-outline' },
+    { order: 3, name: 'Sérum Rétinol', category: 'serum', duration: '30 sec', icon: 'flask-outline' },
+    { order: 4, name: 'Crème de Nuit', category: 'night_cream', duration: '45 sec', icon: 'moon-outline' },
   ];
 
-  const routine = activeTab === 'morning' ? morningRoutine : eveningRoutine;
+  const routine = currentRoutine?.steps?.map((step, index) => ({
+    order: step.order || index + 1,
+    name: step.name || step.productName || 'Étape',
+    category: step.category || 'unknown',
+    duration: typeof step.duration === 'number' ? `${step.duration} sec` : (step.duration || '30 sec'),
+    icon: getStepIcon(step.category),
+  })) || (activeTab === 'morning' ? defaultMorningSteps : defaultEveningSteps);
 
   const handleRecommend = async (step: typeof routine[0]) => {
     setRecommendStepName(step.name);
@@ -152,13 +187,27 @@ export function RoutineScreen() {
     try {
       const result = await routineService.recommendProduct({
         stepName: step.name,
-        stepCategory: step.type,
+        stepCategory: step.category,
       });
       setRecommendation(result);
     } catch {
       setRecommendation(null);
     } finally {
       setRecommendLoading(false);
+    }
+  };
+
+  const generateRoutine = async (type: 'AM' | 'PM') => {
+    setGenerating(true);
+    try {
+      await routineService.generateAI({ type });
+      await loadRoutines();
+      Alert.alert('Succès', `Routine ${type === 'AM' ? 'matin' : 'soir'} générée par l'IA !`);
+    } catch (error) {
+      console.error('Generate routine error:', error);
+      Alert.alert('Erreur', 'Impossible de générer la routine. Veuillez réessayer.');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -173,11 +222,25 @@ export function RoutineScreen() {
     alternative: Colors.amber,
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingSpinner message="Chargement des routines..." />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+      }
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>My Routine</Text>
-        <Text style={styles.subtitle}>Personalized skincare steps</Text>
+        <Text style={styles.title}>Ma Routine</Text>
+        <Text style={styles.subtitle}>Étapes skincare personnalisées</Text>
       </View>
 
       {/* AM/PM Toggle */}
@@ -191,7 +254,7 @@ export function RoutineScreen() {
             style={styles.tabGradient}
           >
             <Ionicons name="sunny" size={20} color={activeTab === 'morning' ? Colors.white : Colors.gray400} />
-            <Text style={[styles.tabText, activeTab === 'morning' ? styles.tabTextActive : undefined]}>Morning</Text>
+            <Text style={[styles.tabText, activeTab === 'morning' ? styles.tabTextActive : undefined]}>Matin</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -204,16 +267,34 @@ export function RoutineScreen() {
             style={styles.tabGradient}
           >
             <Ionicons name="moon" size={20} color={activeTab === 'evening' ? Colors.white : Colors.gray400} />
-            <Text style={[styles.tabText, activeTab === 'evening' ? styles.tabTextActive : undefined]}>Evening</Text>
+            <Text style={[styles.tabText, activeTab === 'evening' ? styles.tabTextActive : undefined]}>Soir</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Generate AI Button */}
+      {!currentRoutine && (
+        <View style={styles.generateSection}>
+          <Card style={styles.generateCard}>
+            <Ionicons name="sparkles" size={32} color={Colors.primary} />
+            <Text style={styles.generateTitle}>Aucune routine {activeTab === 'morning' ? 'matin' : 'soir'}</Text>
+            <Text style={styles.generateText}>Générez une routine personnalisée avec l'IA basée sur votre profil de peau</Text>
+            <Button 
+              onPress={() => generateRoutine(activeTab === 'morning' ? 'AM' : 'PM')}
+              disabled={generating}
+              style={{ marginTop: Spacing.md }}
+            >
+              {generating ? 'Génération...' : 'Générer avec l\'IA'}
+            </Button>
+          </Card>
+        </View>
+      )}
 
       {/* Info Tip */}
       <View style={styles.infoTip}>
         <Ionicons name="sparkles" size={14} color={Colors.primary} />
         <Text style={styles.infoTipText}>
-          Tap ✨ to get an AI product recommendation for each step
+          Appuyez sur ✨ pour obtenir une recommandation produit IA
         </Text>
       </View>
 
@@ -243,7 +324,7 @@ export function RoutineScreen() {
               <View style={styles.stepInfo}>
                 <Text style={styles.stepName}>{step.name}</Text>
                 <View style={styles.stepMeta}>
-                  <Badge text={step.type} variant="primary" />
+                  <Badge text={step.category} variant="primary" />
                   <Text style={styles.stepDuration}>
                     <Ionicons name="time-outline" size={12} color={Colors.gray400} /> {step.duration}
                   </Text>
@@ -451,6 +532,22 @@ export function RoutineScreen() {
   );
 }
 
+function getStepIcon(category?: string): keyof typeof Ionicons.glyphMap {
+  const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
+    cleanser: 'water-outline',
+    serum: 'flask-outline',
+    moisturizer: 'water-outline',
+    sunscreen: 'sunny-outline',
+    makeup_remover: 'water-outline',
+    night_cream: 'moon-outline',
+    toner: 'color-fill-outline',
+    mask: 'happy-outline',
+    eye_cream: 'eye-outline',
+    exfoliator: 'sparkles-outline',
+  };
+  return icons[category || ''] || 'ellipse-outline';
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.gray50 },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
@@ -595,4 +692,10 @@ const styles = StyleSheet.create({
   reminderIcon: { padding: Spacing.sm, borderRadius: BorderRadius.base, backgroundColor: Colors.gray100 },
   reminderLabel: { fontSize: FontSizes.sm, fontWeight: FontWeights.semibold, color: Colors.gray900 },
   reminderTime: { fontSize: FontSizes.xs, color: Colors.gray500, padding: 0, margin: 0 },
+
+  // Generate routine styles
+  generateSection: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  generateCard: { alignItems: 'center', padding: Spacing['2xl'] },
+  generateTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginTop: Spacing.md },
+  generateText: { fontSize: FontSizes.sm, color: Colors.gray500, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 20 },
 });

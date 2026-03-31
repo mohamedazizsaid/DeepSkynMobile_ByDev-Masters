@@ -1,87 +1,281 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, Button } from '../../components';
+import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { analysisService } from '../../services/analysis.service';
+import type { Analysis, GeminiAnalysisResult } from '../../lib/types';
+import { formatDate } from '../../lib/utils';
+
+type ScreenMode = 'results' | 'upload';
 
 export function AnalysisScreen() {
-  const overallScore = 82;
+  const [mode, setMode] = useState<ScreenMode>('results');
+  const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
 
-  const categories = [
-    { label: 'Hydration', score: 75, status: 'Good', color: '#06B6D4' },
-    { label: 'Texture', score: 88, status: 'Excellent', color: '#8B5CF6' },
-    { label: 'Wrinkles', score: 65, status: 'Fair', color: '#F59E0B' },
-    { label: 'Elasticity', score: 70, status: 'Good', color: '#10B981' },
-    { label: 'Dark Spots', score: 90, status: 'Excellent', color: '#EC4899' },
-    { label: 'Pores', score: 72, status: 'Good', color: '#6366F1' },
-  ];
+  const loadLatestAnalysis = useCallback(async () => {
+    try {
+      const analysis = await analysisService.getLatest();
+      setLatestAnalysis(analysis);
+      setMode('results');
+    } catch (error) {
+      console.log('No analysis found or error:', error);
+      setLatestAnalysis(null);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-  const insights = [
-    'Your hydration levels have improved by 12% this month.',
-    'Consider using SPF 50+ sunscreen for better protection.',
-    'Your evening routine is showing positive results on texture.',
-  ];
+  useEffect(() => {
+    loadLatestAnalysis();
+  }, [loadLatestAnalysis]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadLatestAnalysis();
+  };
+
+  const handleImageSelected = (uri: string, base64?: string) => {
+    setSelectedImage({ uri, base64 });
+  };
+
+  const startNewAnalysis = () => {
+    setMode('upload');
+    setSelectedImage(null);
+  };
+
+  const cancelUpload = () => {
+    setMode('results');
+    setSelectedImage(null);
+  };
+
+  const performAnalysis = async () => {
+    if (!selectedImage?.base64) {
+      Alert.alert('Erreur', 'Veuillez sélectionner une photo.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const result = await analysisService.scan({
+        image: selectedImage.base64,
+        mimeType: 'image/jpeg',
+        saveAnalysis: true,
+        saveImage: true,
+      });
+
+      if (result) {
+        await loadLatestAnalysis();
+        setMode('results');
+        Alert.alert('Succès', 'Votre analyse a été effectuée avec succès !');
+      }
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      Alert.alert(
+        'Erreur',
+        error?.response?.data?.message || 'Impossible d\'effectuer l\'analyse. Veuillez réessayer.'
+      );
+    } finally {
+      setUploading(false);
+      setSelectedImage(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner message="Chargement de l'analyse..." />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const results = latestAnalysis?.results;
+  const overallScore = latestAnalysis?.healthScore ?? 0;
+
+  const categories = results?.detailedAnalysis ? [
+    { label: 'Hydratation', score: results.detailedAnalysis.hydration?.score ?? 0, status: getStatus(results.detailedAnalysis.hydration?.score), color: '#06B6D4' },
+    { label: 'Texture', score: results.detailedAnalysis.texture?.score ?? 0, status: getStatus(results.detailedAnalysis.texture?.score), color: '#8B5CF6' },
+    { label: 'Rides', score: results.detailedAnalysis.wrinkles?.score ?? 0, status: getStatus(results.detailedAnalysis.wrinkles?.score), color: '#F59E0B' },
+    { label: 'Élasticité', score: results.detailedAnalysis.elasticity?.score ?? 0, status: getStatus(results.detailedAnalysis.elasticity?.score), color: '#10B981' },
+    { label: 'Pigmentation', score: results.detailedAnalysis.pigmentation?.score ?? 0, status: getStatus(results.detailedAnalysis.pigmentation?.score), color: '#EC4899' },
+    { label: 'Pores', score: results.detailedAnalysis.pores?.score ?? 0, status: getStatus(results.detailedAnalysis.pores?.score), color: '#6366F1' },
+  ] : [];
+
+  const insights = results?.recommendations?.lifestyle?.slice(0, 3) || [];
+
+  // Upload mode
+  if (mode === 'upload') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LoadingOverlay visible={uploading} message="Analyse en cours..." />
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Nouvelle Analyse</Text>
+            <Text style={styles.subtitle}>Prenez une photo de votre visage</Text>
+          </View>
+
+          <View style={styles.uploadSection}>
+            <ImagePicker
+              onImageSelected={handleImageSelected}
+              label="Prendre une photo de votre visage"
+              showPreview={true}
+            />
+          </View>
+
+          <View style={styles.tipsCard}>
+            <Card>
+              <Text style={styles.tipsTitle}>💡 Conseils pour une bonne photo</Text>
+              <View style={styles.tipRow}>
+                <Ionicons name="sunny-outline" size={18} color={Colors.amber} />
+                <Text style={styles.tipText}>Bonne lumière naturelle</Text>
+              </View>
+              <View style={styles.tipRow}>
+                <Ionicons name="water-outline" size={18} color={Colors.teal} />
+                <Text style={styles.tipText}>Visage propre sans maquillage</Text>
+              </View>
+              <View style={styles.tipRow}>
+                <Ionicons name="phone-portrait-outline" size={18} color={Colors.purple} />
+                <Text style={styles.tipText}>Tenez l'appareil droit face à vous</Text>
+              </View>
+            </Card>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <Button variant="secondary" onPress={cancelUpload} style={{ flex: 1 }}>
+              Annuler
+            </Button>
+            <Button
+              onPress={performAnalysis}
+              disabled={!selectedImage}
+              style={{ flex: 1 }}
+            >
+              Analyser
+            </Button>
+          </View>
+
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Results mode (or empty state)
+  if (!latestAnalysis || !results) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <EmptyState
+            icon="scan-outline"
+            title="Aucune analyse"
+            description="Faites votre première analyse pour découvrir l'état de votre peau"
+            actionLabel="Commencer l'analyse"
+            onAction={startNewAnalysis}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>Skin Analysis</Text>
-          <Text style={styles.subtitle}>Last analyzed: Today</Text>
+          <Text style={styles.title}>Analyse de Peau</Text>
+          <Text style={styles.subtitle}>
+            Dernière analyse : {latestAnalysis.createdAt ? formatDate(latestAnalysis.createdAt) : 'Aujourd\'hui'}
+          </Text>
         </View>
 
         {/* Overall Score */}
         <Card variant="elevated" style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>Overall Score</Text>
+          <Text style={styles.scoreLabel}>Score Global</Text>
           <View style={styles.scoreCircle}>
             <Text style={styles.scoreNumber}>{overallScore}</Text>
             <Text style={styles.scoreMax}>/100</Text>
           </View>
-          <Badge text="Great condition" variant="success" size="md" />
+          <Badge 
+            text={getOverallStatus(overallScore)} 
+            variant={overallScore >= 70 ? 'success' : overallScore >= 50 ? 'warning' : 'error'} 
+            size="md" 
+          />
+          {results.skinType && (
+            <Text style={styles.skinType}>Type de peau : {results.skinType}</Text>
+          )}
         </Card>
 
         {/* Detailed Breakdown */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detailed Breakdown</Text>
-          {categories.map((cat, index) => (
-            <Card key={index} style={styles.categoryCard}>
-              <View style={styles.categoryHeader}>
-                <View style={styles.categoryLeft}>
-                  <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
-                  <Text style={styles.categoryLabel}>{cat.label}</Text>
+        {categories.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Analyse Détaillée</Text>
+            {categories.map((cat, index) => (
+              <Card key={index} style={styles.categoryCard}>
+                <View style={styles.categoryHeader}>
+                  <View style={styles.categoryLeft}>
+                    <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
+                    <Text style={styles.categoryLabel}>{cat.label}</Text>
+                  </View>
+                  <View style={styles.categoryRight}>
+                    <Text style={[styles.categoryScore, { color: cat.color }]}>{cat.score}%</Text>
+                    <Badge text={cat.status} variant={cat.score >= 80 ? 'success' : cat.score >= 60 ? 'warning' : 'error'} />
+                  </View>
                 </View>
-                <View style={styles.categoryRight}>
-                  <Text style={[styles.categoryScore, { color: cat.color }]}>{cat.score}%</Text>
-                  <Badge text={cat.status} variant={cat.score >= 80 ? 'success' : cat.score >= 60 ? 'warning' : 'error'} />
-                </View>
-              </View>
-              <ProgressBar progress={cat.score} color={cat.color} height={6} />
-            </Card>
-          ))}
-        </View>
+                <ProgressBar progress={cat.score} color={cat.color} height={6} />
+              </Card>
+            ))}
+          </View>
+        )}
 
         {/* AI Insights */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI Insights</Text>
-          <Card style={styles.insightsCard}>
-            <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
-              <Ionicons name="sparkles" size={24} color={Colors.white} />
-            </LinearGradient>
-            {insights.map((insight, index) => (
-              <View key={index} style={styles.insightRow}>
-                <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                <Text style={styles.insightText}>{insight}</Text>
-              </View>
-            ))}
-          </Card>
-        </View>
+        {insights.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Conseils IA</Text>
+            <Card style={styles.insightsCard}>
+              <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
+                <Ionicons name="sparkles" size={24} color={Colors.white} />
+              </LinearGradient>
+              {insights.map((insight, index) => (
+                <View key={index} style={styles.insightRow}>
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                  <Text style={styles.insightText}>{insight}</Text>
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
 
-        {/* Upload New Photo */}
+        {/* Conditions detected */}
+        {latestAnalysis.conditions && latestAnalysis.conditions.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Conditions Détectées</Text>
+            <Card>
+              <View style={styles.conditionsRow}>
+                {latestAnalysis.conditions.map((condition, index) => (
+                  <Badge key={index} text={condition} variant="warning" />
+                ))}
+              </View>
+            </Card>
+          </View>
+        )}
+
+        {/* New Analysis Button */}
         <View style={styles.section}>
-          <Button onPress={() => { }} fullWidth size="lg">
-            New Analysis
+          <Button onPress={startNewAnalysis} fullWidth size="lg">
+            Nouvelle Analyse
           </Button>
         </View>
 
@@ -91,9 +285,25 @@ export function AnalysisScreen() {
   );
 }
 
+function getStatus(score?: number): string {
+  if (!score) return 'N/A';
+  if (score >= 80) return 'Excellent';
+  if (score >= 60) return 'Bon';
+  if (score >= 40) return 'Moyen';
+  return 'À améliorer';
+}
+
+function getOverallStatus(score: number): string {
+  if (score >= 80) return 'Excellent état';
+  if (score >= 70) return 'Bon état';
+  if (score >= 50) return 'État moyen';
+  return 'Attention requise';
+}
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.gray50 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
   title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
   subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
@@ -109,6 +319,7 @@ const styles = StyleSheet.create({
   },
   scoreNumber: { fontSize: FontSizes['4xl'], fontWeight: FontWeights.bold, color: Colors.primary },
   scoreMax: { fontSize: FontSizes.sm, color: Colors.gray400 },
+  skinType: { fontSize: FontSizes.sm, color: Colors.gray600, marginTop: Spacing.md },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing['2xl'] },
   sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   categoryCard: { marginBottom: Spacing.md, padding: Spacing.base },
@@ -125,4 +336,12 @@ const styles = StyleSheet.create({
   },
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.md },
   insightText: { fontSize: FontSizes.sm, color: Colors.gray700, flex: 1, lineHeight: 20 },
+  conditionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.md },
+  // Upload mode styles
+  uploadSection: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  tipsCard: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  tipsTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.semibold, color: Colors.gray900, marginBottom: Spacing.md },
+  tipRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  tipText: { fontSize: FontSizes.sm, color: Colors.gray600 },
+  buttonRow: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
 });
