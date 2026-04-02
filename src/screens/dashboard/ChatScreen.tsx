@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, LoadingSpinner } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { chatService } from '../../services/chat.service';
@@ -168,15 +169,16 @@ export function ChatScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <LoadingSpinner message="Chargement de la conversation..." />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <LinearGradient colors={Gradients.primary} style={styles.headerIcon}>
@@ -268,12 +270,14 @@ export function ChatScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.gray50 },
   loadingContainer: { flex: 1, backgroundColor: Colors.gray50, justifyContent: 'center', alignItems: 'center' },
   header: {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Logo } from '../../components';
 import { OnboardingProgressBar } from './OnboardingProgressBar';
 import { WelcomeStep } from './WelcomeStep';
@@ -14,8 +15,10 @@ import { PhotoUploadStep } from './PhotoUploadStep';
 import { Colors, Spacing } from '../../theme';
 import { authService } from '../../services/auth.service';
 import { skinProfileService } from '../../services/skin-profile.service';
+import { useAuthStore } from '../../stores/auth.store';
 
 export function OnboardingScreen({ navigation }: any) {
+  const { markOnboardingComplete, loadUser } = useAuthStore();
   const [currentStep, setCurrentStep] = useState(0);
   const [onboardingData, setOnboardingData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,18 +37,28 @@ export function OnboardingScreen({ navigation }: any) {
   const handleComplete = async () => {
     setIsSubmitting(true);
     try {
-      // Save skin profile to backend
-      await skinProfileService.upsert({
-        skinType: onboardingData.skinType,
-        fitzpatrickType: onboardingData.fitzpatrickType,
-        concerns: onboardingData.concerns,
-        sensitivities: onboardingData.sensitivities,
-      });
+      // Build payload, filtering out undefined values
+      const payload: any = {};
+      if (onboardingData.skinType) payload.skinType = onboardingData.skinType;
+      if (onboardingData.fitzpatrickType) payload.fitzpatrickType = onboardingData.fitzpatrickType;
+      if (onboardingData.concerns) payload.concerns = onboardingData.concerns;
+      if (onboardingData.sensitivities) payload.sensitivities = onboardingData.sensitivities;
 
-      // Navigate to dashboard
-      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-    } catch (error) {
+      console.log('Onboarding payload:', JSON.stringify(payload, null, 2));
+
+      // Save skin profile to backend
+      await skinProfileService.upsert(payload);
+
+      // Mark onboarding as complete
+      await markOnboardingComplete();
+
+      // Reload user to update auth state
+      await loadUser();
+
+      // Navigation will automatically switch to Main due to RootNavigator logic
+    } catch (error: any) {
       console.error('Error completing onboarding:', error);
+      console.error('Error response:', error.response?.data);
       Alert.alert('Erreur', 'Erreur lors de la sauvegarde du profil. Réessayez.');
     } finally {
       setIsSubmitting(false);
@@ -70,7 +83,7 @@ export function OnboardingScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Logo />
       </View>
@@ -88,13 +101,13 @@ export function OnboardingScreen({ navigation }: any) {
       >
         {renderStep()}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  header: { alignItems: 'center', paddingTop: 60, paddingBottom: Spacing.xl },
+  header: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.xl },
   progressWrapper: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
   content: { flex: 1 },
   contentContainer: { paddingBottom: Spacing['3xl'] },

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Input, Badge, LoadingSpinner, LoadingOverlay } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
@@ -61,9 +62,9 @@ export function ProfileScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <LoadingSpinner message="Chargement du profil..." />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -85,13 +86,14 @@ export function ProfileScreen({ navigation }: any) {
   ] : [];
 
   return (
-    <ScrollView 
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
-      }
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
+      >
       {/* Avatar Section */}
       <View style={styles.avatarSection}>
         {user?.avatar ? (
@@ -200,13 +202,15 @@ export function ProfileScreen({ navigation }: any) {
 
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1, backgroundColor: Colors.gray50 },
   loadingContainer: { flex: 1, backgroundColor: Colors.gray50, justifyContent: 'center', alignItems: 'center' },
-  avatarSection: { alignItems: 'center', paddingTop: Spacing['2xl'] },
+  avatarSection: { alignItems: 'center', paddingTop: Spacing.xl },
   avatar: {
     width: 96, height: 96, borderRadius: 48,
     alignItems: 'center', justifyContent: 'center',

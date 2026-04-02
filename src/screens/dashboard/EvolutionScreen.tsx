@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { analysisService } from '../../services/analysis.service';
@@ -99,23 +100,24 @@ export function EvolutionScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={{ marginTop: Spacing.md, color: Colors.gray500 }}>Chargement...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView 
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Évolution</Text>
-        <Text style={styles.subtitle}>Suivez les progrès de votre peau</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Évolution</Text>
+          <Text style={styles.subtitle}>Suivez les progrès de votre peau</Text>
+        </View>
 
       {/* Period Selector */}
       <View style={styles.periodSelector}>
@@ -240,12 +242,14 @@ export function EvolutionScreen() {
 
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
   title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
   subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   periodSelector: {

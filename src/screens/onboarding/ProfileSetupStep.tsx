@@ -7,9 +7,11 @@ import {
   ScrollView,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Animated, {
   FadeInDown,
   FadeInUp,
@@ -17,7 +19,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { usersService } from '../../services/users.service';
 import { useAuthStore } from '../../stores/auth.store';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
@@ -37,8 +38,9 @@ const genderOptions: { value: Gender; label: string; emoji: string }[] = [
 export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
   const { loadUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [formData, setFormData] = useState({
-    dateOfBirth: '',
+    dateOfBirth: null as Date | null,
     gender: '' as Gender,
     avatar: '',
   });
@@ -48,9 +50,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
     usersService.getMe().then(user => {
       setFormData(prev => ({
         ...prev,
-        dateOfBirth: user.dateOfBirth
-          ? new Date(user.dateOfBirth).toISOString().split('T')[0]
-          : '',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth) : null,
         gender: (user.gender as Gender) || '',
         avatar: user.avatar || '',
       }));
@@ -103,7 +103,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
     setLoading(true);
     try {
       await usersService.updateMe({
-        dateOfBirth: new Date(formData.dateOfBirth).toISOString(),
+        dateOfBirth: formData.dateOfBirth!.toISOString(),
         gender: formData.gender,
         avatar: formData.avatar || undefined,
       });
@@ -166,18 +166,46 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
         {/* Date of Birth */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Date de naissance</Text>
-          <View style={styles.dateInputContainer}>
+          <TouchableOpacity
+            style={styles.dateInputContainer}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+          >
             <Feather name="calendar" size={20} color={Colors.gray400} style={styles.inputIcon} />
-            <Input
-              placeholder="AAAA-MM-JJ"
-              value={formData.dateOfBirth}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, dateOfBirth: text }))}
-              keyboardType="numbers-and-punctuation"
-              style={styles.dateInput}
-            />
-          </View>
-          <Text style={styles.inputHint}>Ex: 1995-03-15</Text>
+            <Text style={[
+              styles.dateText,
+              !formData.dateOfBirth && styles.dateTextPlaceholder
+            ]}>
+              {formData.dateOfBirth
+                ? formData.dateOfBirth.toLocaleDateString('fr-FR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                  })
+                : 'Sélectionner une date'}
+            </Text>
+            <Feather name="chevron-down" size={20} color={Colors.gray400} />
+          </TouchableOpacity>
         </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={formData.dateOfBirth || new Date(2000, 0, 1)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            maximumDate={new Date()}
+            minimumDate={new Date(1900, 0, 1)}
+            onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+              setShowDatePicker(Platform.OS === 'ios');
+              if (event.type === 'set' && selectedDate) {
+                setFormData(prev => ({ ...prev, dateOfBirth: selectedDate }));
+              }
+              if (Platform.OS === 'android') {
+                setShowDatePicker(false);
+              }
+            }}
+          />
+        )}
 
         {/* Gender Selection */}
         <View style={styles.inputGroup}>
@@ -332,20 +360,23 @@ const styles = StyleSheet.create({
   dateInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.gray50,
+    borderRadius: BorderRadius.base,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.base,
   },
   inputIcon: {
-    position: 'absolute',
-    left: Spacing.md,
-    zIndex: 1,
+    marginRight: Spacing.sm,
   },
-  dateInput: {
+  dateText: {
     flex: 1,
-    paddingLeft: 44,
+    fontSize: FontSizes.base,
+    color: Colors.gray900,
   },
-  inputHint: {
-    fontSize: FontSizes.xs,
+  dateTextPlaceholder: {
     color: Colors.gray400,
-    marginTop: Spacing.xs,
   },
 
   // Gender

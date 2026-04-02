@@ -145,24 +145,37 @@ export function AccessibilityPanel() {
     reduceMotion,
     dyslexiaFont,
     textSpacing,
+    focusHighlight,
+    linkHighlight,
     isPanelOpen,
+    isSpeaking,
+    speechRate,
+    language,
     toggleTheme,
     setContrastMode,
     resetContrastMode,
     toggleReduceMotion,
     toggleDyslexiaFont,
     toggleTextSpacing,
+    toggleFocusHighlight,
+    toggleLinkHighlight,
     zoomIn,
     zoomOut,
     resetZoom,
     togglePanel,
     closePanel,
+    speak,
+    stopSpeaking,
+    setSpeechRate,
+    setLanguage,
+    resetAll,
   } = useAccessibilityStore();
 
   const [openSections, setOpenSections] = useState({
     appearance: true,
     vision: true,
-    extras: false,
+    speech: false,
+    language: false,
   });
 
   const toggle = useCallback((key: keyof typeof openSections) => {
@@ -170,24 +183,25 @@ export function AccessibilityPanel() {
   }, []);
 
   const handleResetAll = useCallback(() => {
-    resetZoom();
-    resetContrastMode();
-    if (reduceMotion) toggleReduceMotion();
-    if (dyslexiaFont) toggleDyslexiaFont();
-    if (textSpacing) toggleTextSpacing();
-    if (theme === 'dark') toggleTheme();
-  }, [
-    resetZoom,
-    resetContrastMode,
-    reduceMotion,
-    toggleReduceMotion,
-    dyslexiaFont,
-    toggleDyslexiaFont,
-    textSpacing,
-    toggleTextSpacing,
-    theme,
-    toggleTheme,
-  ]);
+    resetAll();
+  }, [resetAll]);
+
+  const handleTestSpeech = useCallback(() => {
+    const testTexts: Record<string, string> = {
+      fr: 'Bonjour, ceci est un test de synthèse vocale DeepSkyn.',
+      en: 'Hello, this is a DeepSkyn text-to-speech test.',
+      ar: 'مرحبا، هذا اختبار تحويل النص إلى كلام.',
+    };
+    speak(testTexts[language] || testTexts.fr);
+  }, [speak, language]);
+
+  const languageOptions = [
+    { code: 'fr', label: 'Français', flag: '🇫🇷' },
+    { code: 'en', label: 'English', flag: '🇬🇧' },
+    { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+  ];
+
+  const isDark = theme === 'dark';
 
   // ── FAB (Floating Action Button) ──────────────────────────────────────
   if (!isPanelOpen) {
@@ -557,7 +571,168 @@ function PanelContent({
                   />
                 }
               />
+
+              <View style={{ height: Spacing.sm }} />
+
+              <FeatureCard
+                icon={<Feather name="target" size={18} color={Colors.white} />}
+                iconBgColor={Colors.orange}
+                title="Surlignage du focus"
+                description="Met en évidence l'élément sélectionné"
+                action={
+                  <ToggleSwitch
+                    checked={focusHighlight}
+                    onChange={toggleFocusHighlight}
+                    accessibilityLabel="Surlignage du focus"
+                  />
+                }
+              />
+
+              <View style={{ height: Spacing.sm }} />
+
+              <FeatureCard
+                icon={<Feather name="link" size={18} color={Colors.white} />}
+                iconBgColor={Colors.pink}
+                title="Surlignage des liens"
+                description="Met en évidence les liens cliquables"
+                action={
+                  <ToggleSwitch
+                    checked={linkHighlight}
+                    onChange={toggleLinkHighlight}
+                    accessibilityLabel="Surlignage des liens"
+                  />
+                }
+              />
             </>
+          )}
+        </View>
+
+        {/* ══════════════════════════════════════════════════════════════
+            TEXT-TO-SPEECH
+           ══════════════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SectionHeader
+            icon={<MaterialCommunityIcons name="text-to-speech" size={15} color={Colors.gray400} />}
+            label="SYNTHÈSE VOCALE"
+            isOpen={openSections.speech}
+            onToggle={() => toggle('speech')}
+          />
+
+          {openSections.speech && (
+            <>
+              <View style={[styles.featureCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                <View style={styles.ttsHeader}>
+                  <View style={[styles.featureIconContainer, { backgroundColor: Colors.primaryAlpha10 }]}>
+                    <MaterialCommunityIcons name="volume-high" size={18} color={Colors.primary} />
+                  </View>
+                  <Text style={[styles.featureTitle, isDark && styles.textLight, { flex: 1 }]}>
+                    Lecture vocale
+                  </Text>
+                </View>
+
+                <View style={styles.ttsControls}>
+                  <TouchableOpacity
+                    onPress={handleTestSpeech}
+                    disabled={isSpeaking}
+                    style={[styles.ttsButton, isSpeaking && styles.ttsButtonDisabled]}
+                    accessibilityLabel="Tester la lecture vocale"
+                  >
+                    <Feather name="play" size={16} color={isSpeaking ? Colors.gray400 : Colors.primary} />
+                    <Text style={[styles.ttsButtonText, isSpeaking && styles.ttsButtonTextDisabled]}>
+                      Tester
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={stopSpeaking}
+                    disabled={!isSpeaking}
+                    style={[styles.ttsButton, !isSpeaking && styles.ttsButtonDisabled]}
+                    accessibilityLabel="Arrêter la lecture"
+                  >
+                    <Feather name="square" size={16} color={!isSpeaking ? Colors.gray400 : Colors.error} />
+                    <Text style={[styles.ttsButtonText, !isSpeaking && styles.ttsButtonTextDisabled]}>
+                      Arrêter
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.speechRateContainer}>
+                  <Text style={[styles.speechRateLabel, isDark && styles.textLight]}>
+                    Vitesse: {speechRate.toFixed(1)}x
+                  </Text>
+                  <View style={styles.speechRateControls}>
+                    <TouchableOpacity
+                      onPress={() => setSpeechRate(Math.max(0.5, speechRate - 0.25))}
+                      disabled={speechRate <= 0.5}
+                      style={[styles.zoomButton, speechRate <= 0.5 && styles.zoomButtonDisabled]}
+                      accessibilityLabel="Réduire la vitesse"
+                    >
+                      <Feather name="minus" size={14} color={Colors.gray700} />
+                    </TouchableOpacity>
+
+                    <View style={styles.zoomTrack}>
+                      <View
+                        style={[
+                          styles.zoomProgress,
+                          { width: `${((speechRate - 0.5) / 1.5) * 100}%` },
+                        ]}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => setSpeechRate(Math.min(2, speechRate + 0.25))}
+                      disabled={speechRate >= 2}
+                      style={[styles.zoomButton, speechRate >= 2 && styles.zoomButtonDisabled]}
+                      accessibilityLabel="Augmenter la vitesse"
+                    >
+                      <Feather name="plus" size={14} color={Colors.gray700} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* ══════════════════════════════════════════════════════════════
+            LANGUE
+           ══════════════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SectionHeader
+            icon={<MaterialCommunityIcons name="translate" size={15} color={Colors.gray400} />}
+            label="LANGUE"
+            isOpen={openSections.language}
+            onToggle={() => toggle('language')}
+          />
+
+          {openSections.language && (
+            <View style={styles.languageGrid}>
+              {languageOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.code}
+                  onPress={() => setLanguage(option.code as 'fr' | 'en' | 'ar')}
+                  style={[
+                    styles.languageCard,
+                    language === option.code && styles.languageCardActive,
+                    isDark && styles.languageCardDark,
+                  ]}
+                  accessibilityLabel={`Sélectionner ${option.label}`}
+                  accessibilityState={{ selected: language === option.code }}
+                >
+                  <Text style={styles.languageFlag}>{option.flag}</Text>
+                  <Text style={[
+                    styles.languageLabel,
+                    language === option.code && styles.languageLabelActive,
+                    isDark && styles.textLight,
+                  ]}>
+                    {option.label}
+                  </Text>
+                  {language === option.code && (
+                    <Feather name="check-circle" size={14} color={Colors.primary} style={styles.languageCheck} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
         </View>
 
@@ -884,5 +1059,101 @@ const styles = StyleSheet.create({
   // Text variants
   textLight: {
     color: Colors.white,
+  },
+
+  // TTS Styles
+  ttsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    width: '100%',
+  },
+  ttsControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  ttsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.base,
+    backgroundColor: Colors.gray100,
+  },
+  ttsButtonDisabled: {
+    opacity: 0.5,
+  },
+  ttsButtonText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: Colors.gray700,
+  },
+  ttsButtonTextDisabled: {
+    color: Colors.gray400,
+  },
+  speechRateContainer: {
+    width: '100%',
+  },
+  speechRateLabel: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.medium,
+    color: Colors.gray600,
+    marginBottom: Spacing.xs,
+  },
+  speechRateControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+
+  // Language Styles
+  languageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  languageCard: {
+    flex: 1,
+    minWidth: '30%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.gray100,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  languageCardActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryAlpha10,
+  },
+  languageCardDark: {
+    backgroundColor: Colors.gray800,
+  },
+  languageFlag: {
+    fontSize: 24,
+    marginBottom: Spacing.xs,
+  },
+  languageLabel: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.medium,
+    color: Colors.gray700,
+    textAlign: 'center',
+  },
+  languageLabelActive: {
+    color: Colors.primary,
+    fontWeight: FontWeights.bold,
+  },
+  languageCheck: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
   },
 });

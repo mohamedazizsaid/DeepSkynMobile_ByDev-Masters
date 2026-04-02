@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card, Button, Badge } from '../../components';
@@ -29,7 +30,8 @@ export function SubscriptionScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Subscription</Text>
         <Text style={styles.subtitle}>Choose the plan that's right for you</Text>
@@ -116,13 +118,15 @@ export function SubscriptionScreen() {
       </View>
 
       <View style={{ height: 30 }} />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base },
   title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
   subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   planCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.xl },

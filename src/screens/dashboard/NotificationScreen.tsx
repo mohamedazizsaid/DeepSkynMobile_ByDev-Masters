@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Badge, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
@@ -88,16 +89,19 @@ export function NotificationScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <LoadingSpinner message="Chargement des notifications..." />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner message="Chargement des notifications..." />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView 
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
       }
@@ -156,13 +160,15 @@ export function NotificationScreen({ navigation }: any) {
 
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.white },
   loadingContainer: { flex: 1, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: 60, paddingBottom: Spacing.base },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: Spacing.base },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900 },
   markRead: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },

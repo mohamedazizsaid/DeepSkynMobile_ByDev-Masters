@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, Button, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { postsService } from '../../services/posts.service';
@@ -313,12 +314,13 @@ export function CommunityScreen() {
   ];
 
   return (
-    <View style={s.container}>
-      {/* Header */}
-      <View style={s.header}>
-        <Text style={s.title}>Communauté</Text>
-        <Text style={s.subtitle}>Partagez votre parcours skincare</Text>
-      </View>
+    <SafeAreaView style={s.safeArea}>
+      <View style={s.container}>
+        {/* Header */}
+        <View style={s.header}>
+          <Text style={s.title}>Communauté</Text>
+          <Text style={s.subtitle}>Partagez votre parcours skincare</Text>
+        </View>
 
       {/* Tab Bar */}
       <View style={s.tabBar}>
@@ -518,13 +520,15 @@ export function CommunityScreen() {
         </ScrollView>
       )}
     </View>
+    </SafeAreaView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────
 const s = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
   title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
   subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
 

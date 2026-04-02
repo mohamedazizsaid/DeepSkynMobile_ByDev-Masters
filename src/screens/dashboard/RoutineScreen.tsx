@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, Image, Linking, ActivityIndicator, Switch, TextInput, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, Button, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { routineService } from '../../services/routine.service';
@@ -224,24 +225,25 @@ export function RoutineScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <LoadingSpinner message="Chargement des routines..." />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView 
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Ma Routine</Text>
-        <Text style={styles.subtitle}>Étapes skincare personnalisées</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Ma Routine</Text>
+          <Text style={styles.subtitle}>Étapes skincare personnalisées</Text>
+        </View>
 
       {/* AM/PM Toggle */}
       <View style={styles.tabContainer}>
@@ -529,6 +531,7 @@ export function RoutineScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -549,8 +552,9 @@ function getStepIcon(category?: string): keyof typeof Ionicons.glyphMap {
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
   title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
   subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   tabContainer: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },

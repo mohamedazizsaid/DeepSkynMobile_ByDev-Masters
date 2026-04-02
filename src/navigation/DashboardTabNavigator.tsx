@@ -15,6 +15,7 @@ import { ProfileScreen } from '../screens/dashboard/ProfileScreen';
 import { SubscriptionScreen } from '../screens/dashboard/SubscriptionScreen';
 import { SettingsScreen } from '../screens/dashboard/SettingsScreen';
 import { CommunityScreen } from '../screens/dashboard/CommunityScreen';
+import { NotificationScreen } from '../screens/dashboard/NotificationScreen';
 
 export type DashboardTabParamList = {
   Home: undefined;
@@ -30,6 +31,7 @@ export type HomeStackParamList = {
   Subscription: undefined;
   Settings: undefined;
   Community: undefined;
+  Notifications: undefined;
 };
 
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
@@ -43,6 +45,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="Subscription" component={SubscriptionScreen} />
       <HomeStack.Screen name="Settings" component={SettingsScreen} />
       <HomeStack.Screen name="Community" component={CommunityScreen} />
+      <HomeStack.Screen name="Notifications" component={NotificationScreen} />
     </HomeStack.Navigator>
   );
 }

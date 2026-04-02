@@ -108,7 +108,7 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
   };
 
   const handleSkip = () => {
-    onNext({ fitzpatrickType: 0 });
+    onNext({ fitzpatrickType: undefined });
   };
 
   return (

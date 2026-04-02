@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuthStore } from '../stores/auth.store';
+import { Colors } from '../theme';
 
 // Auth screens
 import { LandingScreen } from '../screens/auth/LandingScreen';
@@ -25,36 +28,71 @@ export type RootStackParamList = {
   ResetPassword: undefined;
   Onboarding: undefined;
   Main: undefined;
-  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const { isAuthenticated, user, loadUser, needsOnboarding } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      await loadUser();
+      setIsLoading(false);
+    };
+    initAuth();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // Determine initial route based on auth state
+  const getInitialRoute = (): keyof RootStackParamList => {
+    if (!isAuthenticated) return 'Landing';
+    if (needsOnboarding()) return 'Onboarding';
+    return 'Main';
+  };
+
   return (
     <Stack.Navigator
-      initialRouteName="Landing"
+      initialRouteName={getInitialRoute()}
       screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
     >
-      {/* Auth Flow */}
-      <Stack.Screen name="Landing" component={LandingScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-
-      {/* Onboarding */}
-      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-
-      {/* Main App (Tab Navigator) */}
-      <Stack.Screen name="Main" component={DashboardTabNavigator} />
-
-      {/* Modal / Overlay screens */}
-      {/* <Stack.Screen
-        name="Notifications"
-        component={NotificationScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      /> */}
+      {!isAuthenticated ? (
+        // Auth Flow - not authenticated
+        <>
+          <Stack.Screen name="Landing" component={LandingScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        </>
+      ) : needsOnboarding() ? (
+        // Onboarding Flow - authenticated but not onboarded
+        <>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        </>
+      ) : (
+        // Main App - authenticated and onboarded
+        <>
+          <Stack.Screen name="Main" component={DashboardTabNavigator} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.gray50,
+  },
+});

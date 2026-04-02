@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights } from '../../theme';
 
@@ -16,7 +17,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
 
   if (sent) {
     return (
-      <View style={styles.centeredContainer}>
+      <SafeAreaView style={styles.centeredContainer}>
         <Card variant="elevated" style={styles.successCard}>
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
@@ -33,51 +34,54 @@ export function ForgotPasswordScreen({ navigation }: any) {
             <Text style={styles.retryText}>Didn't receive the email? Try again</Text>
           </TouchableOpacity>
         </Card>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={20} color={Colors.gray500} />
-        <Text style={styles.backText}>Back to sign in</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={20} color={Colors.gray500} />
+          <Text style={styles.backText}>Back to sign in</Text>
+        </TouchableOpacity>
 
-      <View style={styles.header}>
-        <Logo size="lg" />
-        <Text style={styles.title}>Reset Password</Text>
-        <Text style={styles.subtitle}>Enter your email to receive reset instructions</Text>
-      </View>
-
-      <Card variant="elevated" style={styles.formCard}>
-        <Input
-          label="Email Address"
-          placeholder="your@email.com"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />}
-        />
-        <Button onPress={handleSubmit} loading={loading} fullWidth>
-          Send Reset Link
-        </Button>
-
-        <View style={styles.loginRow}>
-          <Text style={styles.loginText}>Remember your password? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginLink}>Sign in</Text>
-          </TouchableOpacity>
+        <View style={styles.header}>
+          <Logo size="lg" />
+          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.subtitle}>Enter your email to receive reset instructions</Text>
         </View>
-      </Card>
-    </ScrollView>
+
+        <Card variant="elevated" style={styles.formCard}>
+          <Input
+            label="Email Address"
+            placeholder="your@email.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />}
+          />
+          <Button onPress={handleSubmit} loading={loading} fullWidth>
+            Send Reset Link
+          </Button>
+
+          <View style={styles.loginRow}>
+            <Text style={styles.loginText}>Remember your password? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.gray50 },
-  content: { paddingHorizontal: Spacing.xl, paddingTop: 60, paddingBottom: 40, flexGrow: 1 },
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
+  container: { flex: 1 },
+  content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: 40, flexGrow: 1 },
   centeredContainer: {
     flex: 1, backgroundColor: Colors.gray50,
     justifyContent: 'center', paddingHorizontal: Spacing.xl,

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
@@ -131,10 +132,11 @@ export function SettingsScreen({ navigation }: any) {
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Paramètres</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Paramètres</Text>
+        </View>
 
       {/* User Info Card */}
       <TouchableOpacity onPress={() => navigation?.navigate?.('Profile')}>
@@ -206,12 +208,14 @@ export function SettingsScreen({ navigation }: any) {
 
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
   title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
   userCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.base },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

@@ -2,18 +2,35 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/auth.service';
 
+interface User {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+    onboardingComplete?: boolean;
+    guidedTourCompleted?: boolean;
+    [key: string]: any;
+}
+
 interface AuthState {
-    user: any | null;
+    user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     requiresTwoFactor: boolean;
     tempCredentials: any | null;
+
+    // Computed helpers
+    needsOnboarding: () => boolean;
+    needsGuidedTour: () => boolean;
 
     login: (data: any) => Promise<{ requiresTwoFactor: boolean; success: boolean }>;
     register: (data: any) => Promise<void>;
     faceLogin: (email: string) => Promise<boolean>;
     loadUser: () => Promise<void>;
     logout: () => Promise<void>;
+    markOnboardingComplete: () => Promise<void>;
+    markGuidedTourComplete: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -22,6 +39,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isLoading: false,
     requiresTwoFactor: false,
     tempCredentials: null,
+
+    needsOnboarding: () => {
+        const user = get().user;
+        return user !== null && !user.onboardingComplete;
+    },
+
+    needsGuidedTour: () => {
+        const user = get().user;
+        return user !== null && user.onboardingComplete && !user.guidedTourComplete;
+    },
 
     login: async (data) => {
         set({ isLoading: true });
@@ -114,6 +141,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             await AsyncStorage.removeItem('access_token');
             await AsyncStorage.removeItem('refresh_token');
             set({ user: null, isAuthenticated: false, requiresTwoFactor: false });
+        }
+    },
+
+    markOnboardingComplete: async () => {
+        try {
+            await authService.updateProfile({ onboardingComplete: true });
+            set((state) => ({
+                user: state.user ? { ...state.user, onboardingComplete: true } : null,
+            }));
+        } catch (error) {
+            console.error('Error marking onboarding complete:', error);
+            throw error;
+        }
+    },
+
+    markGuidedTourComplete: async () => {
+        try {
+            await authService.updateProfile({ guidedTourCompleted: true });
+            set((state) => ({
+                user: state.user ? { ...state.user, guidedTourCompleted: true } : null,
+            }));
+        } catch (error) {
+            console.error('Error marking guided tour complete:', error);
+            throw error;
         }
     },
 }));
