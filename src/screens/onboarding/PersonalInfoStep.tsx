@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Input, Card } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface PersonalInfoStepProps {
   onNext: (data: any) => void;
@@ -10,10 +11,38 @@ interface PersonalInfoStepProps {
 }
 
 export function PersonalInfoStep({ onNext, onBack }: PersonalInfoStepProps) {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [location, setLocation] = useState('');
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    selectLabel: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    selectButton: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    selectButtonText: {
+      fontSize: fontSizes.base,
+      color: colors.text,
+    },
+    tipText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+    },
+  }), [colors, fontSizes]);
 
   const handleSubmit = () => {
     onNext({ name, age, gender, location });
@@ -21,8 +50,8 @@ export function PersonalInfoStep({ onNext, onBack }: PersonalInfoStepProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tell Us About Yourself</Text>
-      <Text style={styles.subtitle}>This helps us personalize your skincare experience</Text>
+      <Text style={[styles.title, dynamicStyles.title]}>Tell Us About Yourself</Text>
+      <Text style={[styles.subtitle, dynamicStyles.subtitle]}>This helps us personalize your skincare experience</Text>
 
       <Card variant="elevated" style={styles.card}>
         <Input
@@ -45,9 +74,9 @@ export function PersonalInfoStep({ onNext, onBack }: PersonalInfoStepProps) {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.selectLabel}>Gender</Text>
+            <Text style={[styles.selectLabel, dynamicStyles.selectLabel]}>Gender</Text>
             <View style={styles.selectWrapper}>
-              <TouchableWrapper gender={gender} setGender={setGender} />
+              <TouchableWrapper gender={gender} setGender={setGender} dynamicStyles={dynamicStyles} />
             </View>
           </View>
         </View>
@@ -61,7 +90,7 @@ export function PersonalInfoStep({ onNext, onBack }: PersonalInfoStepProps) {
         />
 
         <View style={styles.tipBox}>
-          <Text style={styles.tipText}>
+          <Text style={[styles.tipText, dynamicStyles.tipText]}>
             💡 <Text style={{ fontWeight: FontWeights.bold }}>Why we ask:</Text> Age and location help us provide climate-specific skincare recommendations.
           </Text>
         </View>
@@ -81,17 +110,17 @@ export function PersonalInfoStep({ onNext, onBack }: PersonalInfoStepProps) {
 
 // Simple gender selector using TouchableOpacity
 
-function TouchableWrapper({ gender, setGender }: { gender: string; setGender: (v: string) => void }) {
+function TouchableWrapper({ gender, setGender, dynamicStyles }: { gender: string; setGender: (v: string) => void; dynamicStyles: any }) {
   const options = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
   const [showOptions, setShowOptions] = useState(false);
 
   return (
     <View>
       <TouchableOpacity
-        style={styles.selectButton}
+        style={[styles.selectButton, dynamicStyles.selectButton]}
         onPress={() => setShowOptions(!showOptions)}
       >
-        <Text style={[styles.selectButtonText, !gender ? { color: Colors.gray400 } : undefined]}>
+        <Text style={[styles.selectButtonText, dynamicStyles.selectButtonText, !gender ? { color: Colors.gray400 } : undefined]}>
           {gender || 'Select gender'}
         </Text>
         <Ionicons name="chevron-down" size={16} color={Colors.gray400} />

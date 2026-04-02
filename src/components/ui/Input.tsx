@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
 import { Colors, BorderRadius, FontSizes, FontWeights, Spacing } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -10,18 +11,20 @@ interface InputProps extends TextInputProps {
 }
 
 export function Input({ label, error, icon, containerStyle, style, ...props }: InputProps) {
+  const { colors, textStyle, fontSizes } = useAccessibilityStyles();
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputWrapper, error ? styles.inputError : undefined]}>
+      {label && <Text style={[styles.label, textStyle, { color: colors.text, fontSize: fontSizes.sm }]}>{label}</Text>}
+      <View style={[styles.inputWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }, error ? styles.inputError : undefined]}>
         {icon && <View style={styles.iconContainer}>{icon}</View>}
         <TextInput
-          style={[styles.input, icon ? { paddingLeft: 0 } : undefined, style]}
-          placeholderTextColor={Colors.gray400}
+          style={[styles.input, textStyle, { color: colors.text, fontSize: fontSizes.base }, icon ? { paddingLeft: 0 } : undefined, style]}
+          placeholderTextColor={colors.textTertiary}
           {...props}
         />
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, textStyle, { color: colors.error, fontSize: fontSizes.xs }]}>{error}</Text>}
     </View>
   );
 }

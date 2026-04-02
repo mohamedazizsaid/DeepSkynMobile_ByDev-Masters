@@ -138,38 +138,40 @@ function ContrastButton({ label, isActive, onPress, gradient }: ContrastButtonPr
 // Main AccessibilityPanel Component
 // ─────────────────────────────────────────────────────────────────────────────
 export function AccessibilityPanel() {
-  const {
-    theme,
-    contrastMode,
-    zoomLevel,
-    reduceMotion,
-    dyslexiaFont,
-    textSpacing,
-    focusHighlight,
-    linkHighlight,
-    isPanelOpen,
-    isSpeaking,
-    speechRate,
-    language,
-    toggleTheme,
-    setContrastMode,
-    resetContrastMode,
-    toggleReduceMotion,
-    toggleDyslexiaFont,
-    toggleTextSpacing,
-    toggleFocusHighlight,
-    toggleLinkHighlight,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    togglePanel,
-    closePanel,
-    speak,
-    stopSpeaking,
-    setSpeechRate,
-    setLanguage,
-    resetAll,
-  } = useAccessibilityStore();
+  const store = useAccessibilityStore();
+  
+  // Safe access with fallback defaults
+  const theme = store?.theme ?? 'light';
+  const contrastMode = store?.contrastMode ?? 'off';
+  const zoomLevel = store?.zoomLevel ?? 100;
+  const reduceMotion = store?.reduceMotion ?? false;
+  const dyslexiaFont = store?.dyslexiaFont ?? false;
+  const textSpacing = store?.textSpacing ?? false;
+  const focusHighlight = store?.focusHighlight ?? false;
+  const linkHighlight = store?.linkHighlight ?? false;
+  const isPanelOpen = store?.isPanelOpen ?? false;
+  const isSpeaking = store?.isSpeaking ?? false;
+  const speechRate = store?.speechRate ?? 1.0;
+  const language = store?.language ?? 'fr';
+  
+  const toggleTheme = store?.toggleTheme;
+  const setContrastMode = store?.setContrastMode;
+  const resetContrastMode = store?.resetContrastMode;
+  const toggleReduceMotion = store?.toggleReduceMotion;
+  const toggleDyslexiaFont = store?.toggleDyslexiaFont;
+  const toggleTextSpacing = store?.toggleTextSpacing;
+  const toggleFocusHighlight = store?.toggleFocusHighlight;
+  const toggleLinkHighlight = store?.toggleLinkHighlight;
+  const zoomIn = store?.zoomIn;
+  const zoomOut = store?.zoomOut;
+  const resetZoom = store?.resetZoom;
+  const togglePanel = store?.togglePanel;
+  const closePanel = store?.closePanel;
+  const speak = store?.speak;
+  const stopSpeaking = store?.stopSpeaking;
+  const setSpeechRate = store?.setSpeechRate;
+  const setLanguage = store?.setLanguage;
+  const resetAll = store?.resetAll;
 
   const [openSections, setOpenSections] = useState({
     appearance: true,
@@ -192,8 +194,11 @@ export function AccessibilityPanel() {
       en: 'Hello, this is a DeepSkyn text-to-speech test.',
       ar: 'مرحبا، هذا اختبار تحويل النص إلى كلام.',
     };
-    speak(testTexts[language] || testTexts.fr);
-  }, [speak, language]);
+    stopSpeaking();
+    setTimeout(() => {
+      speak(testTexts[language] || testTexts.fr);
+    }, 120);
+  }, [speak, stopSpeaking, language]);
 
   const languageOptions = [
     { code: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -248,15 +253,27 @@ export function AccessibilityPanel() {
                 reduceMotion={reduceMotion}
                 dyslexiaFont={dyslexiaFont}
                 textSpacing={textSpacing}
+                focusHighlight={focusHighlight}
+                linkHighlight={linkHighlight}
+                isSpeaking={isSpeaking}
+                speechRate={speechRate}
+                language={language}
                 openSections={openSections}
                 toggleTheme={toggleTheme}
                 setContrastMode={setContrastMode}
                 toggleReduceMotion={toggleReduceMotion}
                 toggleDyslexiaFont={toggleDyslexiaFont}
                 toggleTextSpacing={toggleTextSpacing}
+                toggleFocusHighlight={toggleFocusHighlight}
+                toggleLinkHighlight={toggleLinkHighlight}
                 zoomIn={zoomIn}
                 zoomOut={zoomOut}
                 resetZoom={resetZoom}
+                stopSpeaking={stopSpeaking}
+                setSpeechRate={setSpeechRate}
+                setLanguage={setLanguage}
+                handleTestSpeech={handleTestSpeech}
+                languageOptions={languageOptions}
                 closePanel={closePanel}
                 handleResetAll={handleResetAll}
                 toggle={toggle}
@@ -271,15 +288,27 @@ export function AccessibilityPanel() {
                 reduceMotion={reduceMotion}
                 dyslexiaFont={dyslexiaFont}
                 textSpacing={textSpacing}
+                focusHighlight={focusHighlight}
+                linkHighlight={linkHighlight}
+                isSpeaking={isSpeaking}
+                speechRate={speechRate}
+                language={language}
                 openSections={openSections}
                 toggleTheme={toggleTheme}
                 setContrastMode={setContrastMode}
                 toggleReduceMotion={toggleReduceMotion}
                 toggleDyslexiaFont={toggleDyslexiaFont}
                 toggleTextSpacing={toggleTextSpacing}
+                toggleFocusHighlight={toggleFocusHighlight}
+                toggleLinkHighlight={toggleLinkHighlight}
                 zoomIn={zoomIn}
                 zoomOut={zoomOut}
                 resetZoom={resetZoom}
+                stopSpeaking={stopSpeaking}
+                setSpeechRate={setSpeechRate}
+                setLanguage={setLanguage}
+                handleTestSpeech={handleTestSpeech}
+                languageOptions={languageOptions}
                 closePanel={closePanel}
                 handleResetAll={handleResetAll}
                 toggle={toggle}
@@ -302,18 +331,30 @@ interface PanelContentProps {
   reduceMotion: boolean;
   dyslexiaFont: boolean;
   textSpacing: boolean;
-  openSections: { appearance: boolean; vision: boolean; extras: boolean };
+  focusHighlight: boolean;
+  linkHighlight: boolean;
+  isSpeaking: boolean;
+  speechRate: number;
+  language: 'fr' | 'en' | 'ar';
+  openSections: { appearance: boolean; vision: boolean; speech: boolean; language: boolean };
   toggleTheme: () => void;
   setContrastMode: (mode: 'off' | 'medium' | 'high') => void;
   toggleReduceMotion: () => void;
   toggleDyslexiaFont: () => void;
   toggleTextSpacing: () => void;
+  toggleFocusHighlight: () => void;
+  toggleLinkHighlight: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+  stopSpeaking: () => void;
+  setSpeechRate: (rate: number) => void;
+  setLanguage: (language: 'fr' | 'en' | 'ar') => void;
+  handleTestSpeech: () => void;
+  languageOptions: Array<{ code: 'fr' | 'en' | 'ar'; label: string; flag: string }>;
   closePanel: () => void;
   handleResetAll: () => void;
-  toggle: (key: 'appearance' | 'vision' | 'extras') => void;
+  toggle: (key: 'appearance' | 'vision' | 'speech' | 'language') => void;
 }
 
 function PanelContent({
@@ -323,25 +364,54 @@ function PanelContent({
   reduceMotion,
   dyslexiaFont,
   textSpacing,
+  focusHighlight,
+  linkHighlight,
+  isSpeaking,
+  speechRate,
+  language,
   openSections,
   toggleTheme,
   setContrastMode,
   toggleReduceMotion,
   toggleDyslexiaFont,
   toggleTextSpacing,
+  toggleFocusHighlight,
+  toggleLinkHighlight,
   zoomIn,
   zoomOut,
   resetZoom,
+  stopSpeaking,
+  setSpeechRate,
+  setLanguage,
+  handleTestSpeech,
+  languageOptions,
   closePanel,
   handleResetAll,
   toggle,
 }: PanelContentProps) {
   const isDark = theme === 'dark';
+  const panelThemeStyles = isDark
+    ? {
+        panelBackground: { backgroundColor: Colors.gray900 },
+        sectionText: { color: Colors.gray300 },
+        cardBackground: { backgroundColor: Colors.gray800, borderColor: Colors.gray700 },
+        badgeBackground: { backgroundColor: Colors.primaryAlpha20 },
+        buttonBackground: { backgroundColor: Colors.gray700 },
+        trackBackground: { backgroundColor: Colors.gray700 },
+      }
+    : {
+        panelBackground: { backgroundColor: Colors.white },
+        sectionText: { color: Colors.gray400 },
+        cardBackground: { backgroundColor: Colors.white, borderColor: Colors.gray200 },
+        badgeBackground: { backgroundColor: Colors.primaryAlpha10 },
+        buttonBackground: { backgroundColor: Colors.gray100 },
+        trackBackground: { backgroundColor: Colors.gray200 },
+      };
 
   return (
     <>
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
+      <View style={[styles.header, panelThemeStyles.panelBackground]}>
         <View style={styles.headerLeft}>
           <LinearGradient
             colors={['#0EA5E9', '#06B6D4']}
@@ -365,7 +435,7 @@ function PanelContent({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, isDark && { backgroundColor: Colors.gray700 }]} />
 
       {/* ── Content ────────────────────────────────────────────────────── */}
       <ScrollView
@@ -408,7 +478,13 @@ function PanelContent({
               />
 
               {/* Contrast Selector */}
-              <View style={[styles.featureCard, { marginTop: Spacing.sm }]}>
+              <View
+                style={[
+                  styles.featureCard,
+                  panelThemeStyles.cardBackground,
+                  { marginTop: Spacing.sm, flexDirection: 'column', alignItems: 'stretch' },
+                ]}
+              >
                 <View style={styles.contrastHeader}>
                   <View style={[styles.featureIconContainer, { backgroundColor: Colors.warningAlpha10 }]}>
                     <MaterialCommunityIcons name="contrast-circle" size={20} color={Colors.warning} />
@@ -423,7 +499,7 @@ function PanelContent({
                   </View>
                 </View>
 
-                <View style={styles.contrastButtons}>
+                  <View style={styles.contrastButtons}>
                   <ContrastButton
                     label="Normal"
                     isActive={contrastMode === 'off'}
@@ -460,7 +536,13 @@ function PanelContent({
               </View>
 
               {/* Zoom Controls */}
-              <View style={[styles.featureCard, { marginTop: Spacing.sm }]}>
+              <View
+                style={[
+                  styles.featureCard,
+                  panelThemeStyles.cardBackground,
+                  { marginTop: Spacing.sm, flexDirection: 'column', alignItems: 'stretch' },
+                ]}
+              >
                 <View style={styles.zoomHeader}>
                   <View style={[styles.featureIconContainer, { backgroundColor: Colors.successAlpha10 }]}>
                     <Feather name="type" size={18} color={Colors.success} />
@@ -468,7 +550,7 @@ function PanelContent({
                   <Text style={[styles.featureTitle, isDark && styles.textLight, { flex: 1 }]}>
                     Taille du texte
                   </Text>
-                  <View style={styles.zoomBadge}>
+                  <View style={[styles.zoomBadge, panelThemeStyles.badgeBackground]}>
                     <Text style={styles.zoomBadgeText}>{zoomLevel}%</Text>
                   </View>
                 </View>
@@ -477,13 +559,13 @@ function PanelContent({
                   <TouchableOpacity
                     onPress={zoomOut}
                     disabled={zoomLevel <= 75}
-                    style={[styles.zoomButton, zoomLevel <= 75 && styles.zoomButtonDisabled]}
+                    style={[styles.zoomButton, panelThemeStyles.buttonBackground, zoomLevel <= 75 && styles.zoomButtonDisabled]}
                     accessibilityLabel="Réduire le zoom"
                   >
                     <Feather name="zoom-out" size={16} color={Colors.gray700} />
                   </TouchableOpacity>
 
-                  <View style={styles.zoomTrack}>
+                  <View style={[styles.zoomTrack, panelThemeStyles.trackBackground]}>
                     <View
                       style={[
                         styles.zoomProgress,
@@ -495,7 +577,7 @@ function PanelContent({
                   <TouchableOpacity
                     onPress={zoomIn}
                     disabled={zoomLevel >= 150}
-                    style={[styles.zoomButton, zoomLevel >= 150 && styles.zoomButtonDisabled]}
+                    style={[styles.zoomButton, panelThemeStyles.buttonBackground, zoomLevel >= 150 && styles.zoomButtonDisabled]}
                     accessibilityLabel="Augmenter le zoom"
                   >
                     <Feather name="zoom-in" size={16} color={Colors.gray700} />
@@ -546,7 +628,7 @@ function PanelContent({
                 icon={<MaterialCommunityIcons name="format-font" size={18} color={Colors.white} />}
                 iconBgColor={Colors.info}
                 title="Police dyslexie"
-                description="Améliore la lisibilité pour la dyslexie"
+                description="Police spéciale lisibilité (Courier/monospace)"
                 action={
                   <ToggleSwitch
                     checked={dyslexiaFont}
@@ -562,7 +644,7 @@ function PanelContent({
                 icon={<MaterialCommunityIcons name="format-line-spacing" size={18} color={Colors.white} />}
                 iconBgColor={Colors.teal}
                 title="Espacement du texte"
-                description="Augmente l'espace entre les lettres"
+                description="Augmente lisiblement l'espacement et la hauteur de ligne"
                 action={
                   <ToggleSwitch
                     checked={textSpacing}
@@ -612,7 +694,7 @@ function PanelContent({
            ══════════════════════════════════════════════════════════════ */}
         <View style={styles.section}>
           <SectionHeader
-            icon={<MaterialCommunityIcons name="text-to-speech" size={15} color={Colors.gray400} />}
+            icon={<Feather name="volume-2" size={15} color={Colors.gray400} />}
             label="SYNTHÈSE VOCALE"
             isOpen={openSections.speech}
             onToggle={() => toggle('speech')}
@@ -620,7 +702,7 @@ function PanelContent({
 
           {openSections.speech && (
             <>
-              <View style={[styles.featureCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+              <View style={[styles.featureCard, panelThemeStyles.cardBackground, { flexDirection: 'column', alignItems: 'stretch' }]}>
                 <View style={styles.ttsHeader}>
                   <View style={[styles.featureIconContainer, { backgroundColor: Colors.primaryAlpha10 }]}>
                     <MaterialCommunityIcons name="volume-high" size={18} color={Colors.primary} />
@@ -634,7 +716,7 @@ function PanelContent({
                   <TouchableOpacity
                     onPress={handleTestSpeech}
                     disabled={isSpeaking}
-                    style={[styles.ttsButton, isSpeaking && styles.ttsButtonDisabled]}
+                    style={[styles.ttsButton, panelThemeStyles.buttonBackground, isSpeaking && styles.ttsButtonDisabled]}
                     accessibilityLabel="Tester la lecture vocale"
                   >
                     <Feather name="play" size={16} color={isSpeaking ? Colors.gray400 : Colors.primary} />
@@ -646,7 +728,7 @@ function PanelContent({
                   <TouchableOpacity
                     onPress={stopSpeaking}
                     disabled={!isSpeaking}
-                    style={[styles.ttsButton, !isSpeaking && styles.ttsButtonDisabled]}
+                    style={[styles.ttsButton, panelThemeStyles.buttonBackground, !isSpeaking && styles.ttsButtonDisabled]}
                     accessibilityLabel="Arrêter la lecture"
                   >
                     <Feather name="square" size={16} color={!isSpeaking ? Colors.gray400 : Colors.error} />
@@ -664,13 +746,13 @@ function PanelContent({
                     <TouchableOpacity
                       onPress={() => setSpeechRate(Math.max(0.5, speechRate - 0.25))}
                       disabled={speechRate <= 0.5}
-                      style={[styles.zoomButton, speechRate <= 0.5 && styles.zoomButtonDisabled]}
+                      style={[styles.zoomButton, panelThemeStyles.buttonBackground, speechRate <= 0.5 && styles.zoomButtonDisabled]}
                       accessibilityLabel="Réduire la vitesse"
                     >
                       <Feather name="minus" size={14} color={Colors.gray700} />
                     </TouchableOpacity>
 
-                    <View style={styles.zoomTrack}>
+                    <View style={[styles.zoomTrack, panelThemeStyles.trackBackground]}>
                       <View
                         style={[
                           styles.zoomProgress,
@@ -682,7 +764,7 @@ function PanelContent({
                     <TouchableOpacity
                       onPress={() => setSpeechRate(Math.min(2, speechRate + 0.25))}
                       disabled={speechRate >= 2}
-                      style={[styles.zoomButton, speechRate >= 2 && styles.zoomButtonDisabled]}
+                      style={[styles.zoomButton, panelThemeStyles.buttonBackground, speechRate >= 2 && styles.zoomButtonDisabled]}
                       accessibilityLabel="Augmenter la vitesse"
                     >
                       <Feather name="plus" size={14} color={Colors.gray700} />
@@ -783,12 +865,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   panelContainer: {
+    minHeight: SCREEN_HEIGHT * 0.7,
     maxHeight: SCREEN_HEIGHT * 0.85,
   },
   panel: {
+    flex: 1,
     borderTopLeftRadius: BorderRadius['2xl'],
     borderTopRightRadius: BorderRadius['2xl'],
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
   },
   panelAndroid: {
     backgroundColor: 'rgba(255, 255, 255, 0.98)',

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, GeminiAnalysisResult } from '../../lib/types';
 import { formatDate } from '../../lib/utils';
@@ -12,12 +13,31 @@ import { formatDate } from '../../lib/utils';
 type ScreenMode = 'results' | 'upload';
 
 export function AnalysisScreen() {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [mode, setMode] = useState<ScreenMode>('results');
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+    loadingContainer: { flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text },
+    subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+    scoreLabel: { fontSize: fontSizes.base, color: colors.textSecondary, marginBottom: Spacing.md },
+    scoreNumber: { fontSize: fontSizes['4xl'], fontWeight: FontWeights.bold, color: colors.primary },
+    scoreMax: { fontSize: fontSizes.sm, color: colors.textTertiary },
+    skinType: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.md },
+    sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
+    categoryLabel: { fontSize: fontSizes.base, fontWeight: FontWeights.medium, color: colors.text },
+    categoryScore: { fontSize: fontSizes.base, fontWeight: FontWeights.bold },
+    insightText: { fontSize: fontSizes.sm, color: colors.text, flex: 1, lineHeight: 20 },
+    tipsTitle: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text, marginBottom: Spacing.md },
+    tipText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  }), [colors, fontSizes]);
 
   const loadLatestAnalysis = useCallback(async () => {
     try {
@@ -90,8 +110,8 @@ export function AnalysisScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.safeArea}>
+        <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message="Chargement de l'analyse..." />
         </View>
       </SafeAreaView>
@@ -115,12 +135,12 @@ export function AnalysisScreen() {
   // Upload mode
   if (mode === 'upload') {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea}>
         <LoadingOverlay visible={uploading} message="Analyse en cours..." />
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.title}>Nouvelle Analyse</Text>
-            <Text style={styles.subtitle}>Prenez une photo de votre visage</Text>
+            <Text style={dynamicStyles.title}>Nouvelle Analyse</Text>
+            <Text style={dynamicStyles.subtitle}>Prenez une photo de votre visage</Text>
           </View>
 
           <View style={styles.uploadSection}>
@@ -133,18 +153,18 @@ export function AnalysisScreen() {
 
           <View style={styles.tipsCard}>
             <Card>
-              <Text style={styles.tipsTitle}>💡 Conseils pour une bonne photo</Text>
+              <Text style={dynamicStyles.tipsTitle}>💡 Conseils pour une bonne photo</Text>
               <View style={styles.tipRow}>
                 <Ionicons name="sunny-outline" size={18} color={Colors.amber} />
-                <Text style={styles.tipText}>Bonne lumière naturelle</Text>
+                <Text style={dynamicStyles.tipText}>Bonne lumière naturelle</Text>
               </View>
               <View style={styles.tipRow}>
                 <Ionicons name="water-outline" size={18} color={Colors.teal} />
-                <Text style={styles.tipText}>Visage propre sans maquillage</Text>
+                <Text style={dynamicStyles.tipText}>Visage propre sans maquillage</Text>
               </View>
               <View style={styles.tipRow}>
                 <Ionicons name="phone-portrait-outline" size={18} color={Colors.purple} />
-                <Text style={styles.tipText}>Tenez l'appareil droit face à vous</Text>
+                <Text style={dynamicStyles.tipText}>Tenez l'appareil droit face à vous</Text>
               </View>
             </Card>
           </View>
@@ -171,8 +191,8 @@ export function AnalysisScreen() {
   // Results mode (or empty state)
   if (!latestAnalysis || !results) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
+      <SafeAreaView style={dynamicStyles.safeArea}>
+        <View style={dynamicStyles.container}>
           <EmptyState
             icon="scan-outline"
             title="Aucune analyse"
@@ -186,27 +206,27 @@ export function AnalysisScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView 
-        style={styles.container} 
+        style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Analyse de Peau</Text>
-          <Text style={styles.subtitle}>
+          <Text style={dynamicStyles.title}>Analyse de Peau</Text>
+          <Text style={dynamicStyles.subtitle}>
             Dernière analyse : {latestAnalysis.createdAt ? formatDate(latestAnalysis.createdAt) : 'Aujourd\'hui'}
           </Text>
         </View>
 
         {/* Overall Score */}
         <Card variant="elevated" style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>Score Global</Text>
-          <View style={styles.scoreCircle}>
-            <Text style={styles.scoreNumber}>{overallScore}</Text>
-            <Text style={styles.scoreMax}>/100</Text>
+          <Text style={dynamicStyles.scoreLabel}>Score Global</Text>
+          <View style={[styles.scoreCircle, { borderColor: colors.primary }]}>
+            <Text style={dynamicStyles.scoreNumber}>{overallScore}</Text>
+            <Text style={dynamicStyles.scoreMax}>/100</Text>
           </View>
           <Badge 
             text={getOverallStatus(overallScore)} 
@@ -214,23 +234,23 @@ export function AnalysisScreen() {
             size="md" 
           />
           {results.skinType && (
-            <Text style={styles.skinType}>Type de peau : {results.skinType}</Text>
+            <Text style={dynamicStyles.skinType}>Type de peau : {results.skinType}</Text>
           )}
         </Card>
 
         {/* Detailed Breakdown */}
         {categories.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Analyse Détaillée</Text>
+            <Text style={dynamicStyles.sectionTitle}>Analyse Détaillée</Text>
             {categories.map((cat, index) => (
               <Card key={index} style={styles.categoryCard}>
                 <View style={styles.categoryHeader}>
                   <View style={styles.categoryLeft}>
                     <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
-                    <Text style={styles.categoryLabel}>{cat.label}</Text>
+                    <Text style={dynamicStyles.categoryLabel}>{cat.label}</Text>
                   </View>
                   <View style={styles.categoryRight}>
-                    <Text style={[styles.categoryScore, { color: cat.color }]}>{cat.score}%</Text>
+                    <Text style={[dynamicStyles.categoryScore, { color: cat.color }]}>{cat.score}%</Text>
                     <Badge text={cat.status} variant={cat.score >= 80 ? 'success' : cat.score >= 60 ? 'warning' : 'error'} />
                   </View>
                 </View>
@@ -243,15 +263,15 @@ export function AnalysisScreen() {
         {/* AI Insights */}
         {insights.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Conseils IA</Text>
+            <Text style={dynamicStyles.sectionTitle}>Conseils IA</Text>
             <Card style={styles.insightsCard}>
               <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
                 <Ionicons name="sparkles" size={24} color={Colors.white} />
               </LinearGradient>
               {insights.map((insight, index) => (
                 <View key={index} style={styles.insightRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                  <Text style={styles.insightText}>{insight}</Text>
+                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                  <Text style={dynamicStyles.insightText}>{insight}</Text>
                 </View>
               ))}
             </Card>
@@ -261,7 +281,7 @@ export function AnalysisScreen() {
         {/* Conditions detected */}
         {latestAnalysis.conditions && latestAnalysis.conditions.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Conditions Détectées</Text>
+            <Text style={dynamicStyles.sectionTitle}>Conditions Détectées</Text>
             <Card>
               <View style={styles.conditionsRow}>
                 {latestAnalysis.conditions.map((condition, index) => (
@@ -301,47 +321,32 @@ function getOverallStatus(score: number): string {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   scoreCard: {
     marginHorizontal: Spacing.xl, marginTop: Spacing.xl,
     padding: Spacing['2xl'], alignItems: 'center',
   },
-  scoreLabel: { fontSize: FontSizes.base, color: Colors.gray500, marginBottom: Spacing.md },
   scoreCircle: {
     width: 130, height: 130, borderRadius: 65,
-    borderWidth: 6, borderColor: Colors.primary,
+    borderWidth: 6,
     alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
   },
-  scoreNumber: { fontSize: FontSizes['4xl'], fontWeight: FontWeights.bold, color: Colors.primary },
-  scoreMax: { fontSize: FontSizes.sm, color: Colors.gray400 },
-  skinType: { fontSize: FontSizes.sm, color: Colors.gray600, marginTop: Spacing.md },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing['2xl'] },
-  sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   categoryCard: { marginBottom: Spacing.md, padding: Spacing.base },
   categoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   categoryLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   categoryDot: { width: 10, height: 10, borderRadius: 5 },
-  categoryLabel: { fontSize: FontSizes.base, fontWeight: FontWeights.medium, color: Colors.gray700 },
   categoryRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  categoryScore: { fontSize: FontSizes.base, fontWeight: FontWeights.bold },
   insightsCard: { padding: Spacing.xl },
   insightsIcon: {
     width: 48, height: 48, borderRadius: BorderRadius.base,
     alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xl,
   },
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.md },
-  insightText: { fontSize: FontSizes.sm, color: Colors.gray700, flex: 1, lineHeight: 20 },
   conditionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.md },
   // Upload mode styles
   uploadSection: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   tipsCard: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
-  tipsTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.semibold, color: Colors.gray900, marginBottom: Spacing.md },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  tipText: { fontSize: FontSizes.sm, color: Colors.gray600 },
   buttonRow: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
 });

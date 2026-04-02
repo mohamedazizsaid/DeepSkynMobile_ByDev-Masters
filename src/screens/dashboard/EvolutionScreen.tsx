@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, AnalysisStats } from '../../lib/types';
 import { formatDate } from '../../lib/utils/formatters';
@@ -12,6 +13,7 @@ import { formatDate } from '../../lib/utils/formatters';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function EvolutionScreen() {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [selectedPeriod, setSelectedPeriod] = useState('1M');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,6 +21,32 @@ export function EvolutionScreen() {
   const [analysisHistory, setAnalysisHistory] = useState<Analysis[]>([]);
   
   const periods = ['1W', '1M', '3M', '6M', '1Y'];
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.backgroundSecondary },
+    container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+    loadingText: { marginTop: Spacing.md, color: colors.textSecondary },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text },
+    subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+    periodText: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.textSecondary },
+    periodTextActive: { color: Colors.white },
+    summaryLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
+    summaryValue: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold },
+    chartTitle: { fontSize: fontSizes.base, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.xl },
+    chartPlaceholderText: { fontSize: fontSizes.sm, color: colors.textTertiary, marginTop: Spacing.sm },
+    sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
+    timelineDate: { fontSize: fontSizes.base, fontWeight: FontWeights.medium, color: colors.text },
+    timelineScore: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+    timelineMeta: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: 2 },
+    periodPill: {
+      paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm,
+      borderRadius: BorderRadius.full, backgroundColor: colors.surface,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    periodPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    barLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: Spacing.xs, fontWeight: FontWeights.semibold },
+    legendText: { fontSize: fontSizes.xs, color: colors.textTertiary },
+  }), [colors, fontSizes]);
 
   const loadData = useCallback(async () => {
     try {
@@ -100,23 +128,23 @@ export function EvolutionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={{ marginTop: Spacing.md, color: Colors.gray500 }}>Chargement...</Text>
+      <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={dynamicStyles.loadingText}>Chargement...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView 
-        style={styles.container} 
+        style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Évolution</Text>
-          <Text style={styles.subtitle}>Suivez les progrès de votre peau</Text>
+          <Text style={dynamicStyles.title}>Évolution</Text>
+          <Text style={dynamicStyles.subtitle}>Suivez les progrès de votre peau</Text>
         </View>
 
       {/* Period Selector */}
@@ -124,10 +152,10 @@ export function EvolutionScreen() {
         {periods.map((period) => (
           <TouchableOpacity
             key={period}
-            style={[styles.periodPill, selectedPeriod === period ? styles.periodPillActive : undefined]}
+            style={[dynamicStyles.periodPill, selectedPeriod === period ? dynamicStyles.periodPillActive : undefined]}
             onPress={() => setSelectedPeriod(period)}
           >
-            <Text style={[styles.periodText, selectedPeriod === period ? styles.periodTextActive : undefined]}>
+            <Text style={[dynamicStyles.periodText, selectedPeriod === period ? dynamicStyles.periodTextActive : undefined]}>
               {period}
             </Text>
           </TouchableOpacity>
@@ -138,9 +166,9 @@ export function EvolutionScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.summaryScroll}>
         {summaryCards.map((card, index) => (
           <Card key={index} style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>{card.label}</Text>
+            <Text style={dynamicStyles.summaryLabel}>{card.label}</Text>
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryValue, { color: card.color }]}>{card.value}</Text>
+              <Text style={[dynamicStyles.summaryValue, { color: card.color }]}>{card.value}</Text>
               <Ionicons
                 name={card.trend === 'up' ? 'trending-up' : 'trending-down'}
                 size={18}
@@ -154,7 +182,7 @@ export function EvolutionScreen() {
       {/* Chart */}
       <Card variant="elevated" style={styles.chartCard}>
         <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>Score de santé</Text>
+          <Text style={dynamicStyles.chartTitle}>Score de santé</Text>
           {analysisHistory.length > 0 && (
             <Badge 
               text={`${analysisHistory.length} analyses`} 
@@ -179,25 +207,25 @@ export function EvolutionScreen() {
                       ]}
                     />
                   </View>
-                  <Text style={styles.barLabel}>{item.score}</Text>
+                  <Text style={dynamicStyles.barLabel}>{item.score}</Text>
                 </View>
               ))}
             </View>
-            <View style={styles.chartLegend}>
-              <Text style={styles.legendText}>Dernières analyses</Text>
+            <View style={[styles.chartLegend, { borderTopColor: colors.border }]}>
+              <Text style={dynamicStyles.legendText}>Dernières analyses</Text>
             </View>
           </View>
         ) : (
-          <View style={styles.chartPlaceholder}>
-            <Ionicons name="analytics-outline" size={48} color={Colors.gray300} />
-            <Text style={styles.chartPlaceholderText}>Pas encore de données</Text>
+          <View style={[styles.chartPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
+            <Ionicons name="analytics-outline" size={48} color={colors.border} />
+            <Text style={dynamicStyles.chartPlaceholderText}>Pas encore de données</Text>
           </View>
         )}
       </Card>
 
       {/* Timeline */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Historique des analyses</Text>
+        <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
         {analysisHistory.length === 0 ? (
           <EmptyState
             icon="camera-outline"
@@ -220,10 +248,10 @@ export function EvolutionScreen() {
                     </LinearGradient>
                   </View>
                   <View style={styles.timelineContent}>
-                    <Text style={styles.timelineDate}>{formatDate(analysis.createdAt)}</Text>
-                    <Text style={styles.timelineScore}>Score: {currentScore}%</Text>
+                    <Text style={dynamicStyles.timelineDate}>{formatDate(analysis.createdAt)}</Text>
+                    <Text style={dynamicStyles.timelineScore}>Score: {currentScore}%</Text>
                     {skinType && (
-                      <Text style={styles.timelineMeta}>Type: {skinType}</Text>
+                      <Text style={dynamicStyles.timelineMeta}>Type: {skinType}</Text>
                     )}
                   </View>
                   {prevScore && (
@@ -247,49 +275,27 @@ export function EvolutionScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   periodSelector: {
     flexDirection: 'row', gap: Spacing.sm,
     paddingHorizontal: Spacing.xl, marginTop: Spacing.xl,
   },
-  periodPill: {
-    paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full, backgroundColor: Colors.white,
-    borderWidth: 1, borderColor: Colors.gray200,
-  },
-  periodPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  periodText: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.gray500 },
-  periodTextActive: { color: Colors.white },
   summaryScroll: { marginTop: Spacing.xl, paddingLeft: Spacing.xl },
   summaryCard: { width: 120, marginRight: Spacing.md, padding: Spacing.base },
-  summaryLabel: { fontSize: FontSizes.xs, color: Colors.gray500 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.xs },
-  summaryValue: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold },
   chartCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.xl },
-  chartTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.xl },
-  chartPlaceholder: { height: 200, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray50, borderRadius: BorderRadius.base },
-  chartPlaceholderText: { fontSize: FontSizes.sm, color: Colors.gray400, marginTop: Spacing.sm },
+  chartPlaceholder: { height: 200, alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.base },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing['2xl'] },
-  sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   timelineCard: { marginBottom: Spacing.sm, padding: Spacing.base },
   timelineRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   timelineDot: { width: 32, height: 32 },
   dotGradient: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   timelineContent: { flex: 1 },
-  timelineDate: { fontSize: FontSizes.base, fontWeight: FontWeights.medium, color: Colors.gray900 },
-  timelineScore: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: 2 },
-  timelineMeta: { fontSize: FontSizes.xs, color: Colors.gray400, marginTop: 2 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
   chartContainer: { paddingTop: Spacing.md },
   barChart: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 150, paddingBottom: Spacing.sm },
   barColumn: { alignItems: 'center', flex: 1 },
   barWrapper: { width: 24, height: 120, justifyContent: 'flex-end' },
   bar: { width: 24, borderRadius: BorderRadius.sm, minHeight: 8 },
-  barLabel: { fontSize: FontSizes.xs, color: Colors.gray500, marginTop: Spacing.xs, fontWeight: FontWeights.semibold },
-  chartLegend: { alignItems: 'center', marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.gray100 },
-  legendText: { fontSize: FontSizes.xs, color: Colors.gray400 },
+  chartLegend: { alignItems: 'center', marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1 },
 });

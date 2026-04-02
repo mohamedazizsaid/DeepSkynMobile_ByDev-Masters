@@ -121,7 +121,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 return;
             }
             const user = await authService.getProfile();
-            set({ user, isAuthenticated: true });
+            // Load guided tour status from local storage
+            const guidedTourCompleted = await AsyncStorage.getItem('guidedTourCompleted');
+            set({ 
+                user: { ...user, guidedTourCompleted: guidedTourCompleted === 'true' }, 
+                isAuthenticated: true 
+            });
         } catch {
             await AsyncStorage.removeItem('access_token');
             await AsyncStorage.removeItem('refresh_token');
@@ -145,26 +150,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     markOnboardingComplete: async () => {
-        try {
-            await authService.updateProfile({ onboardingComplete: true });
-            set((state) => ({
-                user: state.user ? { ...state.user, onboardingComplete: true } : null,
-            }));
-        } catch (error) {
-            console.error('Error marking onboarding complete:', error);
-            throw error;
-        }
+        // Update store locally - backend already sets onboardingComplete when skin profile is saved
+        set((state) => ({
+            user: state.user ? { ...state.user, onboardingComplete: true } : null,
+        }));
     },
 
     markGuidedTourComplete: async () => {
-        try {
-            await authService.updateProfile({ guidedTourCompleted: true });
-            set((state) => ({
-                user: state.user ? { ...state.user, guidedTourCompleted: true } : null,
-            }));
-        } catch (error) {
-            console.error('Error marking guided tour complete:', error);
-            throw error;
-        }
+        // Store locally - guided tour is a local UI preference
+        await AsyncStorage.setItem('guidedTourCompleted', 'true');
+        set((state) => ({
+            user: state.user ? { ...state.user, guidedTourCompleted: true } : null,
+        }));
     },
 }));

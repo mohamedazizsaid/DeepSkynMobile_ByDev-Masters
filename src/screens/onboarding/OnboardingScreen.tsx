@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Logo } from '../../components';
@@ -16,14 +16,20 @@ import { Colors, Spacing } from '../../theme';
 import { authService } from '../../services/auth.service';
 import { skinProfileService } from '../../services/skin-profile.service';
 import { useAuthStore } from '../../stores/auth.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 export function OnboardingScreen({ navigation }: any) {
   const { markOnboardingComplete, loadUser } = useAuthStore();
+  const { colors } = useAccessibilityStyles();
   const [currentStep, setCurrentStep] = useState(0);
   const [onboardingData, setOnboardingData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const steps = ['Welcome', 'Profile', 'Skin Type', 'Fitzpatrick', 'Concerns', 'Sensitivities', 'Summary'];
+
+  const dynamicStyles = useMemo(() => ({
+    container: { flex: 1, backgroundColor: colors.background },
+  }), [colors]);
 
   const handleNext = (data?: any) => {
     if (data) setOnboardingData((prev: any) => ({ ...prev, ...data }));
@@ -46,13 +52,13 @@ export function OnboardingScreen({ navigation }: any) {
 
       console.log('Onboarding payload:', JSON.stringify(payload, null, 2));
 
-      // Save skin profile to backend
+      // Save skin profile to backend (this also marks onboarding as complete on the server)
       await skinProfileService.upsert(payload);
 
-      // Mark onboarding as complete
-      await markOnboardingComplete();
+      // Mark onboarding complete in store for immediate navigation
+      markOnboardingComplete();
 
-      // Reload user to update auth state
+      // Reload user to sync all data from server
       await loadUser();
 
       // Navigation will automatically switch to Main due to RootNavigator logic
@@ -83,7 +89,7 @@ export function OnboardingScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
       <View style={styles.header}>
         <Logo />
       </View>

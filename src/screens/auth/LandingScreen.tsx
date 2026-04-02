@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,39 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Logo, Card } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 export function LandingScreen({ navigation }: any) {
+  const { colors, fontSizes } = useAccessibilityStyles();
+
+  const dynamicStyles = useMemo(() => ({
+    container: { flex: 1, backgroundColor: colors.background },
+    heroBadgeText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.medium },
+    heroTitle: { fontSize: fontSizes['4xl'], fontWeight: FontWeights.bold, color: colors.text, lineHeight: 44, marginBottom: Spacing.base },
+    heroSubtitle: { fontSize: fontSizes.lg, color: colors.textSecondary, lineHeight: 28, marginBottom: Spacing['2xl'] },
+    statNumber: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.primary },
+    statLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    scoreCard: { marginHorizontal: Spacing.xl, marginBottom: Spacing['2xl'], backgroundColor: colors.surface },
+    scoreLabel: { fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: 4 },
+    scoreValue: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.primary },
+    sectionTitle: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.sm, textAlign: 'center' as const },
+    sectionSubtitle: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center' as const, marginBottom: Spacing.xl },
+    featureCard: { marginBottom: Spacing.md, backgroundColor: colors.surface },
+    featureTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.xs },
+    featureDesc: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22 },
+    benefitText: { fontSize: fontSizes.base, color: colors.text, flex: 1 },
+    testimonialCard: { marginBottom: Spacing.md, backgroundColor: colors.surface },
+    testimonialText: { fontSize: fontSizes.base, color: colors.text, fontStyle: 'italic' as const, marginBottom: Spacing.md, lineHeight: 24 },
+    testimonialName: { fontSize: fontSizes.base, fontWeight: FontWeights.bold, color: colors.text },
+    testimonialRole: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    pricingCard: { marginBottom: Spacing.base, backgroundColor: colors.surface },
+    planName: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.sm },
+    planPrice: { fontSize: fontSizes.base, color: colors.textSecondary, marginBottom: Spacing.base },
+    planFeatureText: { fontSize: fontSizes.base, color: colors.text },
+    footerText: { fontSize: fontSizes.sm, color: colors.textTertiary, textAlign: 'center' as const, marginTop: Spacing.sm },
+    footerCopy: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: Spacing.base },
+  }), [colors, fontSizes]);
+
   const features = [
     { icon: 'sparkles' as const, title: 'AI-Powered Analysis', description: 'Advanced AI technology analyzes your skin with medical-grade precision' },
     { icon: 'calendar-outline' as const, title: 'Personalized Routines', description: 'Custom skincare routines tailored to your unique skin profile' },
@@ -37,22 +68,22 @@ export function LandingScreen({ navigation }: any) {
   ];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.gray50 }}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
         {/* Hero Section */}
         <View style={styles.hero}>
-          <View style={styles.heroBadge}>
-            <Ionicons name="sparkles" size={14} color={Colors.primary} />
-            <Text style={styles.heroBadgeText}>AI-Powered Dermatology</Text>
+          <View style={[styles.heroBadge, { backgroundColor: colors.primary + '15' }]}>
+            <Ionicons name="sparkles" size={14} color={colors.primary} />
+            <Text style={dynamicStyles.heroBadgeText}>AI-Powered Dermatology</Text>
           </View>
 
-          <Text style={styles.heroTitle}>
+          <Text style={dynamicStyles.heroTitle}>
             Your Personal{'\n'}
-            <Text style={styles.heroTitleGradient}>Skin Health</Text>
+            <Text style={{ color: colors.primary }}>Skin Health</Text>
             {'\n'}Companion
           </Text>
 
-          <Text style={styles.heroSubtitle}>
+          <Text style={dynamicStyles.heroSubtitle}>
             Discover your skin's true potential with AI-powered analysis, personalized routines, and expert guidance tailored just for you.
           </Text>
 
@@ -67,26 +98,26 @@ export function LandingScreen({ navigation }: any) {
 
           <View style={styles.stats}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>50K+</Text>
-              <Text style={styles.statLabel}>Active Users</Text>
+              <Text style={dynamicStyles.statNumber}>50K+</Text>
+              <Text style={dynamicStyles.statLabel}>Active Users</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4.9★</Text>
-              <Text style={styles.statLabel}>User Rating</Text>
+              <Text style={dynamicStyles.statNumber}>4.9★</Text>
+              <Text style={dynamicStyles.statLabel}>User Rating</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>95%</Text>
-              <Text style={styles.statLabel}>Satisfaction</Text>
+              <Text style={dynamicStyles.statNumber}>95%</Text>
+              <Text style={dynamicStyles.statLabel}>Satisfaction</Text>
             </View>
           </View>
         </View>
 
         {/* Skin Health Score Preview Card */}
-        <Card style={styles.scoreCard} variant="elevated">
+        <Card style={dynamicStyles.scoreCard} variant="elevated">
           <View style={styles.scoreRow}>
             <View>
-              <Text style={styles.scoreLabel}>Skin Health Score</Text>
-              <Text style={styles.scoreValue}>87/100</Text>
+              <Text style={dynamicStyles.scoreLabel}>Skin Health Score</Text>
+              <Text style={dynamicStyles.scoreValue}>87/100</Text>
             </View>
             <LinearGradient
               colors={Gradients.primary}
@@ -99,27 +130,27 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Features Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Powerful Features</Text>
-          <Text style={styles.sectionSubtitle}>Everything you need for perfect skin health</Text>
+          <Text style={dynamicStyles.sectionTitle}>Powerful Features</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>Everything you need for perfect skin health</Text>
 
           {features.map((feature, index) => (
-            <Card key={index} style={styles.featureCard}>
-              <View style={styles.featureIconBox}>
-                <Ionicons name={feature.icon as any} size={28} color={Colors.primary} />
+            <Card key={index} style={dynamicStyles.featureCard}>
+              <View style={[styles.featureIconBox, { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons name={feature.icon as any} size={28} color={colors.primary} />
               </View>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureDesc}>{feature.description}</Text>
+              <Text style={dynamicStyles.featureTitle}>{feature.title}</Text>
+              <Text style={dynamicStyles.featureDesc}>{feature.description}</Text>
             </Card>
           ))}
         </View>
 
         {/* Benefits Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
+          <Text style={dynamicStyles.sectionTitle}>
             Why Choose{'\n'}
-            <Text style={{ color: Colors.primary }}>DeepSkyn?</Text>
+            <Text style={{ color: colors.primary }}>DeepSkyn?</Text>
           </Text>
-          <Text style={styles.sectionSubtitle}>
+          <Text style={dynamicStyles.sectionSubtitle}>
             Our comprehensive platform combines cutting-edge AI technology with dermatological expertise.
           </Text>
 
@@ -128,44 +159,44 @@ export function LandingScreen({ navigation }: any) {
               <View style={styles.benefitCheck}>
                 <Ionicons name="checkmark" size={14} color={Colors.white} />
               </View>
-              <Text style={styles.benefitText}>{benefit}</Text>
+              <Text style={dynamicStyles.benefitText}>{benefit}</Text>
             </View>
           ))}
         </View>
 
         {/* Testimonials Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Loved by Thousands</Text>
-          <Text style={styles.sectionSubtitle}>See what our users are saying</Text>
+          <Text style={dynamicStyles.sectionTitle}>Loved by Thousands</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>See what our users are saying</Text>
 
           {testimonials.map((testimonial, index) => (
-            <Card key={index} style={styles.testimonialCard}>
+            <Card key={index} style={dynamicStyles.testimonialCard}>
               <View style={styles.starsRow}>
                 {[...Array(testimonial.rating)].map((_, i) => (
                   <Ionicons key={i} name="star" size={18} color={Colors.gold} />
                 ))}
               </View>
-              <Text style={styles.testimonialText}>"{testimonial.text}"</Text>
-              <Text style={styles.testimonialName}>{testimonial.name}</Text>
-              <Text style={styles.testimonialRole}>{testimonial.role}</Text>
+              <Text style={dynamicStyles.testimonialText}>"{testimonial.text}"</Text>
+              <Text style={dynamicStyles.testimonialName}>{testimonial.name}</Text>
+              <Text style={dynamicStyles.testimonialRole}>{testimonial.role}</Text>
             </Card>
           ))}
         </View>
 
         {/* Pricing Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Simple, Transparent Pricing</Text>
-          <Text style={styles.sectionSubtitle}>Choose the plan that's right for you</Text>
+          <Text style={dynamicStyles.sectionTitle}>Simple, Transparent Pricing</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>Choose the plan that's right for you</Text>
 
-          <Card style={styles.pricingCard}>
-            <Text style={styles.planName}>Free</Text>
-            <Text style={styles.planPrice}>
-              <Text style={styles.planPriceAmount}>$0</Text>/month
+          <Card style={dynamicStyles.pricingCard}>
+            <Text style={dynamicStyles.planName}>Free</Text>
+            <Text style={dynamicStyles.planPrice}>
+              <Text style={[styles.planPriceAmount, { color: colors.primary }]}>$0</Text>/month
             </Text>
             {['Basic skin analysis', 'Personalized routine', 'Monthly reports'].map((item, i) => (
               <View key={i} style={styles.planFeatureRow}>
-                <Ionicons name="checkmark" size={18} color={Colors.primary} />
-                <Text style={styles.planFeatureText}>{item}</Text>
+                <Ionicons name="checkmark" size={18} color={colors.primary} />
+                <Text style={dynamicStyles.planFeatureText}>{item}</Text>
               </View>
             ))}
             <Button variant="outline" onPress={() => navigation.navigate('Signup')} fullWidth style={{ marginTop: Spacing.base }}>
@@ -173,20 +204,20 @@ export function LandingScreen({ navigation }: any) {
             </Button>
           </Card>
 
-          <Card style={{ ...styles.pricingCard, ...styles.premiumCard }}>
+          <Card style={[dynamicStyles.pricingCard, { borderWidth: 2, borderColor: colors.primary }]}>
             <View style={styles.popularBadge}>
               <LinearGradient colors={Gradients.primary} style={styles.popularBadgeGradient}>
                 <Text style={styles.popularBadgeText}>Most Popular</Text>
               </LinearGradient>
             </View>
-            <Text style={styles.planName}>Premium</Text>
-            <Text style={[styles.planPrice, { color: Colors.primary }]}>
-              <Text style={[styles.planPriceAmount, { color: Colors.primary }]}>$19</Text>/month
+            <Text style={dynamicStyles.planName}>Premium</Text>
+            <Text style={[dynamicStyles.planPrice, { color: colors.primary }]}>
+              <Text style={[styles.planPriceAmount, { color: colors.primary }]}>$19</Text>/month
             </Text>
             {['Advanced AI analysis', 'AI dermatology coach', 'Unlimited tracking', 'Priority support'].map((item, i) => (
               <View key={i} style={styles.planFeatureRow}>
-                <Ionicons name="checkmark" size={18} color={Colors.primary} />
-                <Text style={styles.planFeatureText}>{item}</Text>
+                <Ionicons name="checkmark" size={18} color={colors.primary} />
+                <Text style={dynamicStyles.planFeatureText}>{item}</Text>
               </View>
             ))}
             <Button onPress={() => navigation.navigate('Signup')} fullWidth style={{ marginTop: Spacing.base }}>
@@ -213,8 +244,8 @@ export function LandingScreen({ navigation }: any) {
         {/* Footer */}
         <View style={styles.footer}>
           <Logo size="sm" />
-          <Text style={styles.footerText}>AI-powered skincare companion for your best skin ever.</Text>
-          <Text style={styles.footerCopy}>© 2026 DeepSkyn. All rights reserved.</Text>
+          <Text style={dynamicStyles.footerText}>AI-powered skincare companion for your best skin ever.</Text>
+          <Text style={dynamicStyles.footerCopy}>© 2026 DeepSkyn. All rights reserved.</Text>
         </View>
 
         {/* Bottom Auth Buttons */}

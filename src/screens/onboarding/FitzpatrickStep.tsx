@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import Animated, {
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -98,8 +99,44 @@ const fitzpatrickTypes = [
 ];
 
 export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickStepProps) {
+  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
   const [selected, setSelected] = useState<number | null>(initialValue || null);
   const [showInfo, setShowInfo] = useState(false);
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    infoBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    infoText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    typeLabel: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    shortDesc: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+    },
+    description: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+    },
+    skipText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+  }), [colors, fontSizes]);
 
   const handleSubmit = () => {
     if (selected !== null) {
@@ -118,8 +155,8 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.header}>
-        <Animated.View entering={ZoomIn.delay(300).duration(400)}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(200)).duration(getAnimDuration(500))} style={styles.header}>
+        <Animated.View entering={ZoomIn.delay(getAnimDuration(300)).duration(getAnimDuration(400))}>
           <LinearGradient
             colors={['#FBBF24', '#F59E0B']}
             style={styles.iconBadge}
@@ -129,7 +166,7 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
         </Animated.View>
 
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Phototype de peau</Text>
+          <Text style={[styles.title, dynamicStyles.title]}>Phototype de peau</Text>
           <TouchableOpacity
             onPress={() => setShowInfo(!showInfo)}
             style={styles.infoButton}
@@ -137,15 +174,15 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
             <Feather name="help-circle" size={20} color={Colors.gray400} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           Comment votre peau réagit-elle au soleil ?
         </Text>
       </Animated.View>
 
       {/* Info Box */}
       {showInfo && (
-        <Animated.View entering={FadeInDown.duration(300)} style={styles.infoBox}>
-          <Text style={styles.infoText}>
+        <Animated.View entering={FadeInDown.duration(getAnimDuration(300))} style={[styles.infoBox, dynamicStyles.infoBox]}>
+          <Text style={[styles.infoText, dynamicStyles.infoText]}>
             Le phototype (échelle Fitzpatrick) détermine la sensibilité de votre peau au soleil. 
             Cela nous aide à vous recommander la protection solaire adaptée.
           </Text>
@@ -160,7 +197,7 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
           return (
             <Animated.View
               key={type.type}
-              entering={FadeInDown.delay(300 + index * 70).duration(400)}
+              entering={FadeInDown.delay(getAnimDuration(300 + index * 70)).duration(getAnimDuration(400))}
             >
               <TouchableOpacity
                 onPress={() => setSelected(type.type)}
@@ -189,12 +226,12 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
                     ]}
                   />
                   <View style={styles.swatchInfo}>
-                    <Text style={styles.typeLabel}>{type.label}</Text>
-                    <Text style={styles.shortDesc}>{type.shortDesc}</Text>
+                    <Text style={[styles.typeLabel, dynamicStyles.typeLabel]}>{type.label}</Text>
+                    <Text style={[styles.shortDesc, dynamicStyles.shortDesc]}>{type.shortDesc}</Text>
                   </View>
                 </View>
 
-                <Text style={styles.description}>{type.description}</Text>
+                <Text style={[styles.description, dynamicStyles.description]}>{type.description}</Text>
 
                 {isSelected && (
                   <View style={styles.expandedInfo}>
@@ -213,11 +250,11 @@ export function FitzpatrickStep({ onNext, onBack, initialValue }: FitzpatrickSte
 
       {/* Skip Option */}
       <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-        <Text style={styles.skipText}>Passer cette étape</Text>
+        <Text style={[styles.skipText, dynamicStyles.skipText]}>Passer cette étape</Text>
       </TouchableOpacity>
 
       {/* Navigation Buttons */}
-      <Animated.View entering={FadeInUp.delay(900).duration(400)} style={styles.buttons}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(900)).duration(getAnimDuration(400))} style={styles.buttons}>
         <Button
           variant="outline"
           onPress={onBack}

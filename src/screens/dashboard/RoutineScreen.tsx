@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, Image, Linking, ActivityIndicator, Switch, TextInput, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, Button, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { routineService } from '../../services/routine.service';
 import { usersService } from '../../services/users.service';
 import type { ProductRecommendation, Routine, RoutineStep } from '../../lib/types';
@@ -122,6 +123,7 @@ function RoutineReminderCard() {
 }
 
 export function RoutineScreen() {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [activeTab, setActiveTab] = useState<'morning' | 'evening'>('morning');
   const [showRecommendModal, setShowRecommendModal] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
@@ -131,6 +133,23 @@ export function RoutineScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+    loadingContainer: { flex: 1, backgroundColor: colors.backgroundSecondary, justifyContent: 'center' as const, alignItems: 'center' as const },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text },
+    subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+    tabText: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.textTertiary },
+    tabTextActive: { color: Colors.white },
+    generateTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.sm, textAlign: 'center' as const },
+    generateText: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center' as const, marginTop: Spacing.xs },
+    infoTipText: { fontSize: fontSizes.xs, color: colors.textSecondary, marginLeft: 6 },
+    stepName: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text },
+    stepDuration: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: 2 },
+    streakText: { fontSize: fontSizes.base, color: colors.text, fontWeight: FontWeights.semibold },
+    streakDesc: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
+  }), [colors, fontSizes]);
 
   const loadRoutines = useCallback(async () => {
     try {
@@ -225,24 +244,24 @@ export function RoutineScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.loadingContainer}>
         <LoadingSpinner message="Chargement des routines..." />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView 
-        style={styles.container} 
+        style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Ma Routine</Text>
-          <Text style={styles.subtitle}>Étapes skincare personnalisées</Text>
+          <Text style={dynamicStyles.title}>Ma Routine</Text>
+          <Text style={dynamicStyles.subtitle}>Étapes skincare personnalisées</Text>
         </View>
 
       {/* AM/PM Toggle */}
@@ -256,7 +275,7 @@ export function RoutineScreen() {
             style={styles.tabGradient}
           >
             <Ionicons name="sunny" size={20} color={activeTab === 'morning' ? Colors.white : Colors.gray400} />
-            <Text style={[styles.tabText, activeTab === 'morning' ? styles.tabTextActive : undefined]}>Matin</Text>
+            <Text style={[dynamicStyles.tabText, activeTab === 'morning' ? dynamicStyles.tabTextActive : undefined]}>Matin</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -269,7 +288,7 @@ export function RoutineScreen() {
             style={styles.tabGradient}
           >
             <Ionicons name="moon" size={20} color={activeTab === 'evening' ? Colors.white : Colors.gray400} />
-            <Text style={[styles.tabText, activeTab === 'evening' ? styles.tabTextActive : undefined]}>Soir</Text>
+            <Text style={[dynamicStyles.tabText, activeTab === 'evening' ? dynamicStyles.tabTextActive : undefined]}>Soir</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -279,8 +298,8 @@ export function RoutineScreen() {
         <View style={styles.generateSection}>
           <Card style={styles.generateCard}>
             <Ionicons name="sparkles" size={32} color={Colors.primary} />
-            <Text style={styles.generateTitle}>Aucune routine {activeTab === 'morning' ? 'matin' : 'soir'}</Text>
-            <Text style={styles.generateText}>Générez une routine personnalisée avec l'IA basée sur votre profil de peau</Text>
+            <Text style={dynamicStyles.generateTitle}>Aucune routine {activeTab === 'morning' ? 'matin' : 'soir'}</Text>
+            <Text style={dynamicStyles.generateText}>Générez une routine personnalisée avec l'IA basée sur votre profil de peau</Text>
             <Button 
               onPress={() => generateRoutine(activeTab === 'morning' ? 'AM' : 'PM')}
               disabled={generating}
@@ -295,7 +314,7 @@ export function RoutineScreen() {
       {/* Info Tip */}
       <View style={styles.infoTip}>
         <Ionicons name="sparkles" size={14} color={Colors.primary} />
-        <Text style={styles.infoTipText}>
+        <Text style={dynamicStyles.infoTipText}>
           Appuyez sur ✨ pour obtenir une recommandation produit IA
         </Text>
       </View>
@@ -324,10 +343,10 @@ export function RoutineScreen() {
                 <Text style={styles.stepOrderText}>{step.order}</Text>
               </View>
               <View style={styles.stepInfo}>
-                <Text style={styles.stepName}>{step.name}</Text>
+                <Text style={dynamicStyles.stepName}>{step.name}</Text>
                 <View style={styles.stepMeta}>
                   <Badge text={step.category} variant="primary" />
-                  <Text style={styles.stepDuration}>
+                  <Text style={dynamicStyles.stepDuration}>
                     <Ionicons name="time-outline" size={12} color={Colors.gray400} /> {step.duration}
                   </Text>
                 </View>
@@ -377,7 +396,7 @@ export function RoutineScreen() {
               </View>
             ))}
           </View>
-          <Text style={styles.streakText}>10/14 days completed</Text>
+          <Text style={dynamicStyles.streakText}>10/14 days completed</Text>
         </Card>
       </View>
 
@@ -552,11 +571,7 @@ function getStepIcon(category?: string): keyof typeof Ionicons.glyphMap {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   tabContainer: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   tab: { flex: 1, borderRadius: BorderRadius.base, overflow: 'hidden' },
   tabActive: {},
@@ -564,8 +579,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.base,
   },
-  tabText: { fontSize: FontSizes.base, fontWeight: FontWeights.semibold, color: Colors.gray400 },
-  tabTextActive: { color: Colors.white },
   infoTip: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     marginHorizontal: Spacing.xl, marginTop: Spacing.md,
@@ -575,7 +588,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(14,165,233,0.1)',
   },
-  infoTipText: { fontSize: FontSizes.xs, color: Colors.primary },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   stepCard: { marginBottom: Spacing.md, padding: Spacing.base },
@@ -597,9 +609,7 @@ const styles = StyleSheet.create({
   },
   stepOrderText: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: Colors.primary },
   stepInfo: { flex: 1 },
-  stepName: { fontSize: FontSizes.base, fontWeight: FontWeights.medium, color: Colors.gray900, marginBottom: Spacing.xs },
   stepMeta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepDuration: { fontSize: FontSizes.xs, color: Colors.gray400 },
   tipsCard: { backgroundColor: Colors.warningAlpha10, borderColor: Colors.amber },
   tipsHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   tipsTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.bold, color: Colors.amber },
@@ -609,7 +619,6 @@ const styles = StyleSheet.create({
   streakDay: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   streakDayDone: { backgroundColor: Colors.success },
   streakDayMissed: { backgroundColor: Colors.errorAlpha10 },
-  streakText: { fontSize: FontSizes.sm, color: Colors.gray500, fontWeight: FontWeights.medium },
 
   // Modal styles
   modalOverlay: {
@@ -700,6 +709,4 @@ const styles = StyleSheet.create({
   // Generate routine styles
   generateSection: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   generateCard: { alignItems: 'center', padding: Spacing['2xl'] },
-  generateTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginTop: Spacing.md },
-  generateText: { fontSize: FontSizes.sm, color: Colors.gray500, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 20 },
 });

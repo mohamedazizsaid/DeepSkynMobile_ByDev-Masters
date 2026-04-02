@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,10 +7,12 @@ import { Card, Button } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuthStore();
+  const { colors, fontSizes } = useAccessibilityStyles();
   const { 
     reduceMotion, 
     contrastMode, 
@@ -25,6 +27,22 @@ export function SettingsScreen({ navigation }: any) {
   const [notifications, setNotifications] = useState(true);
   const [routineReminder, setRoutineReminder] = useState(true);
   const [language, setLanguage] = useState('Français');
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.background },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text },
+    userCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.base, backgroundColor: colors.surface },
+    userName: { fontSize: fontSizes.base, fontWeight: FontWeights.bold, color: colors.text },
+    userEmail: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    sectionTitle: { fontSize: fontSizes.sm, fontWeight: FontWeights.bold, color: colors.textSecondary, textTransform: 'uppercase' as const, marginBottom: Spacing.sm },
+    settingsCard: { padding: 0, backgroundColor: colors.surface },
+    settingLabel: { fontSize: fontSizes.base, color: colors.text },
+    settingValue: { fontSize: fontSizes.sm, color: colors.textTertiary },
+    settingRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+    deleteText: { fontSize: fontSizes.sm, color: colors.error },
+    footerText: { fontSize: fontSizes.xs, color: colors.textTertiary },
+  }), [colors, fontSizes]);
 
   const userName = user?.name || 'Utilisateur';
   const userEmail = user?.email || 'email@example.com';
@@ -109,79 +127,79 @@ export function SettingsScreen({ navigation }: any) {
   const renderSettingRow = (item: any, index: number, isLast: boolean) => (
     <TouchableOpacity 
       key={index} 
-      style={[styles.settingRow, !isLast ? styles.settingRowBorder : undefined]} 
+      style={[styles.settingRow, !isLast ? dynamicStyles.settingRowBorder : undefined]} 
       activeOpacity={0.6}
       onPress={item.onPress}
       disabled={item.type === 'toggle'}
     >
       <View style={styles.settingLeft}>
-        <Ionicons name={item.icon} size={22} color={Colors.gray500} />
-        <Text style={styles.settingLabel}>{item.label}</Text>
+        <Ionicons name={item.icon} size={22} color={colors.textSecondary} />
+        <Text style={dynamicStyles.settingLabel}>{item.label}</Text>
       </View>
-      {item.type === 'link' && <Ionicons name="chevron-forward" size={20} color={Colors.gray400} />}
-      {item.type === 'value' && <Text style={styles.settingValue}>{item.value}</Text>}
+      {item.type === 'link' && <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />}
+      {item.type === 'value' && <Text style={dynamicStyles.settingValue}>{item.value}</Text>}
       {item.type === 'toggle' && (
         <Switch
           value={item.value}
           onValueChange={item.onToggle}
-          trackColor={{ false: Colors.gray300, true: Colors.primaryAlpha30 }}
-          thumbColor={item.value ? Colors.primary : Colors.gray100}
+          trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
+          thumbColor={item.value ? Colors.primary : colors.border}
         />
       )}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
+      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Paramètres</Text>
+          <Text style={dynamicStyles.title}>Paramètres</Text>
         </View>
 
       {/* User Info Card */}
       <TouchableOpacity onPress={() => navigation?.navigate?.('Profile')}>
-        <Card variant="elevated" style={styles.userCard}>
+        <Card variant="elevated" style={dynamicStyles.userCard}>
           <View style={styles.userRow}>
             <LinearGradient colors={Gradients.primary} style={styles.userAvatar}>
               <Text style={styles.userAvatarText}>{userInitials}</Text>
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={styles.userName}>{userName}</Text>
-              <Text style={styles.userEmail}>{userEmail}</Text>
+              <Text style={dynamicStyles.userName}>{userName}</Text>
+              <Text style={dynamicStyles.userEmail}>{userEmail}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.gray400} />
+            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
           </View>
         </Card>
       </TouchableOpacity>
 
       {/* Account */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Compte</Text>
-        <Card style={styles.settingsCard}>
+        <Text style={dynamicStyles.sectionTitle}>Compte</Text>
+        <Card style={dynamicStyles.settingsCard}>
           {accountSettings.map((item, i) => renderSettingRow(item, i, i === accountSettings.length - 1))}
         </Card>
       </View>
 
       {/* Preferences */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Préférences</Text>
-        <Card style={styles.settingsCard}>
+        <Text style={dynamicStyles.sectionTitle}>Préférences</Text>
+        <Card style={dynamicStyles.settingsCard}>
           {preferenceSettings.map((item, i) => renderSettingRow(item, i, i === preferenceSettings.length - 1))}
         </Card>
       </View>
 
       {/* Accessibility */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Accessibilité</Text>
-        <Card style={styles.settingsCard}>
+        <Text style={dynamicStyles.sectionTitle}>Accessibilité</Text>
+        <Card style={dynamicStyles.settingsCard}>
           {accessibilitySettings.map((item, i) => renderSettingRow(item, i, i === accessibilitySettings.length - 1))}
         </Card>
       </View>
 
       {/* Support */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Support</Text>
-        <Card style={styles.settingsCard}>
+        <Text style={dynamicStyles.sectionTitle}>Support</Text>
+        <Card style={dynamicStyles.settingsCard}>
           {supportSettings.map((item, i) => renderSettingRow(item, i, i === supportSettings.length - 1))}
         </Card>
       </View>
@@ -197,13 +215,13 @@ export function SettingsScreen({ navigation }: any) {
           <Text style={{ color: Colors.error }}>Déconnexion</Text>
         </Button>
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <Text style={styles.deleteText}>Supprimer mon compte</Text>
+          <Text style={dynamicStyles.deleteText}>Supprimer mon compte</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>DeepSkyn v1.0.0</Text>
-        <Text style={styles.footerText}>© 2024 DeepSkyn. Tous droits réservés.</Text>
+        <Text style={dynamicStyles.footerText}>DeepSkyn v1.0.0</Text>
+        <Text style={dynamicStyles.footerText}>© 2024 DeepSkyn. Tous droits réservés.</Text>
       </View>
 
       <View style={{ height: 30 }} />
@@ -213,32 +231,19 @@ export function SettingsScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  userCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.base },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   userAvatar: {
     width: 52, height: 52, borderRadius: 26,
     alignItems: 'center', justifyContent: 'center',
   },
   userAvatarText: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.white },
-  userName: { fontSize: FontSizes.base, fontWeight: FontWeights.bold, color: Colors.gray900 },
-  userEmail: { fontSize: FontSizes.sm, color: Colors.gray500 },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
-  sectionTitle: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: Colors.gray500, textTransform: 'uppercase', marginBottom: Spacing.sm },
-  settingsCard: { padding: 0 },
   settingRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.base, paddingVertical: Spacing.md,
   },
-  settingRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  settingLabel: { fontSize: FontSizes.base, color: Colors.gray700 },
-  settingValue: { fontSize: FontSizes.sm, color: Colors.gray400 },
   deleteButton: { alignItems: 'center', marginTop: Spacing.md, padding: Spacing.sm },
-  deleteText: { fontSize: FontSizes.sm, color: Colors.error },
   footer: { alignItems: 'center', marginTop: Spacing['2xl'] },
-  footerText: { fontSize: FontSizes.xs, color: Colors.gray400 },
 });

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface OnboardingProgressBarProps {
   currentStep: number;
@@ -10,6 +11,42 @@ interface OnboardingProgressBarProps {
 }
 
 export function OnboardingProgressBar({ currentStep, totalSteps, steps }: OnboardingProgressBarProps) {
+  const { colors, fontSizes } = useAccessibilityStyles();
+
+  const dynamicStyles = useMemo(() => ({
+    circle: {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+    },
+    circleCompleted: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    circleCurrent: {
+      borderColor: colors.primary,
+    },
+    circleText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+    circleTextCurrent: {
+      color: colors.primary,
+    },
+    stepLabel: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+    },
+    stepLabelCurrent: {
+      color: colors.primary,
+    },
+    line: {
+      backgroundColor: colors.border,
+    },
+    lineCompleted: {
+      backgroundColor: colors.primary,
+    },
+  }), [colors, fontSizes]);
+
   return (
     <View style={styles.container}>
       {steps.map((step, index) => {
@@ -22,24 +59,25 @@ export function OnboardingProgressBar({ currentStep, totalSteps, steps }: Onboar
             <View style={styles.stepColumn}>
               <View style={[
                 styles.circle,
-                isCompleted ? styles.circleCompleted : undefined,
-                isCurrent ? styles.circleCurrent : undefined,
+                dynamicStyles.circle,
+                isCompleted ? [styles.circleCompleted, dynamicStyles.circleCompleted] : undefined,
+                isCurrent ? [styles.circleCurrent, dynamicStyles.circleCurrent] : undefined,
               ]}>
                 {isCompleted ? (
                   <Ionicons name="checkmark" size={18} color={Colors.white} />
                 ) : (
-                  <Text style={[styles.circleText, isCurrent ? { color: Colors.primary } : undefined]}>
+                  <Text style={[styles.circleText, dynamicStyles.circleText, isCurrent ? dynamicStyles.circleTextCurrent : undefined]}>
                     {stepNumber}
                   </Text>
                 )}
               </View>
-              <Text style={[styles.stepLabel, isCurrent ? { color: Colors.primary } : undefined]} numberOfLines={1}>
+              <Text style={[styles.stepLabel, dynamicStyles.stepLabel, isCurrent ? dynamicStyles.stepLabelCurrent : undefined]} numberOfLines={1}>
                 {step}
               </Text>
             </View>
             {index < totalSteps - 1 && (
               <View style={styles.lineWrapper}>
-                <View style={[styles.line, isCompleted ? styles.lineCompleted : undefined]} />
+                <View style={[styles.line, dynamicStyles.line, isCompleted ? [styles.lineCompleted, dynamicStyles.lineCompleted] : undefined]} />
               </View>
             )}
           </View>

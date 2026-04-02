@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import Animated, {
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface SummaryStepProps {
   data: {
@@ -47,12 +48,32 @@ const fitzpatrickLabels: Record<string, string> = {
 };
 
 export function SummaryStep({ data, onSubmit, onBack, isSubmitting }: SummaryStepProps) {
+  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
   const [showConfetti, setShowConfetti] = useState(false);
 
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    sectionValue: {
+      fontSize: fontSizes.base,
+      color: colors.text,
+    },
+    privacyText: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+    },
+  }), [colors, fontSizes]);
+
   useEffect(() => {
-    const timer = setTimeout(() => setShowConfetti(true), 600);
+    const timer = setTimeout(() => setShowConfetti(true), getAnimDuration(600));
     return () => clearTimeout(timer);
-  }, []);
+  }, [getAnimDuration]);
 
   const sections = [
     {
@@ -103,8 +124,8 @@ export function SummaryStep({ data, onSubmit, onBack, isSubmitting }: SummarySte
           {[...Array(12)].map((_, i) => (
             <Animated.View
               key={i}
-              entering={FadeInDown.delay(i * 80)
-                .duration(2000)}
+              entering={FadeInDown.delay(getAnimDuration(i * 80))
+                .duration(getAnimDuration(2000))}
               style={[
                 styles.confetti,
                 {
@@ -125,8 +146,8 @@ export function SummaryStep({ data, onSubmit, onBack, isSubmitting }: SummarySte
       )}
 
       {/* Header */}
-      <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.header}>
-        <Animated.View entering={ZoomIn.delay(300).duration(400)}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(200)).duration(getAnimDuration(500))} style={styles.header}>
+        <Animated.View entering={ZoomIn.delay(getAnimDuration(300)).duration(getAnimDuration(400))}>
           <View style={styles.iconWrapper}>
             <View style={styles.iconGlow} />
             <LinearGradient
@@ -138,21 +159,21 @@ export function SummaryStep({ data, onSubmit, onBack, isSubmitting }: SummarySte
           </View>
         </Animated.View>
 
-        <Text style={styles.title}>Récapitulatif</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, dynamicStyles.title]}>Récapitulatif</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           Vérifiez vos informations avant de continuer
         </Text>
       </Animated.View>
 
       {/* Summary Card */}
       <Animated.View
-        entering={FadeInUp.delay(500).duration(400)}
+        entering={FadeInUp.delay(getAnimDuration(500)).duration(getAnimDuration(400))}
         style={styles.summaryCard}
       >
         {sections.map((section, index) => (
           <Animated.View
             key={index}
-            entering={FadeInDown.delay(600 + index * 100).duration(400)}
+            entering={FadeInDown.delay(getAnimDuration(600 + index * 100)).duration(getAnimDuration(400))}
             style={styles.sectionItem}
           >
             <LinearGradient
@@ -164,7 +185,7 @@ export function SummaryStep({ data, onSubmit, onBack, isSubmitting }: SummarySte
 
             <View style={styles.sectionContent}>
               <Text style={styles.sectionLabel}>{section.label}</Text>
-              <Text style={styles.sectionValue}>{section.value}</Text>
+              <Text style={[styles.sectionValue, dynamicStyles.sectionValue]}>{section.value}</Text>
             </View>
 
             <View style={styles.checkContainer}>
@@ -175,15 +196,15 @@ export function SummaryStep({ data, onSubmit, onBack, isSubmitting }: SummarySte
       </Animated.View>
 
       {/* Privacy Note */}
-      <Animated.View entering={FadeInUp.delay(1000).duration(400)} style={styles.privacyNote}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(1000)).duration(getAnimDuration(400))} style={styles.privacyNote}>
         <MaterialCommunityIcons name="shimmer" size={16} color={Colors.primary} />
-        <Text style={styles.privacyText}>
+        <Text style={[styles.privacyText, dynamicStyles.privacyText]}>
           Vos données sont sécurisées et confidentielles
         </Text>
       </Animated.View>
 
       {/* Navigation Buttons */}
-      <Animated.View entering={FadeInUp.delay(1100).duration(400)} style={styles.buttons}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(1100)).duration(getAnimDuration(400))} style={styles.buttons}>
         <Button
           variant="outline"
           onPress={onBack}

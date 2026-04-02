@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 export function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const { colors, fontSizes } = useAccessibilityStyles();
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    centeredContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, paddingHorizontal: Spacing.xl },
+    backText: { fontSize: fontSizes.base, color: colors.textSecondary },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
+    subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' as const },
+    formCard: { padding: Spacing['2xl'], backgroundColor: colors.surface },
+    loginText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    loginLink: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.medium },
+    successCard: { padding: Spacing['2xl'], alignItems: 'center' as const, backgroundColor: colors.surface },
+    successTitle: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
+    successText: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center' as const, marginBottom: Spacing['2xl'], lineHeight: 24 },
+    retryText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  }), [colors, fontSizes]);
 
   const handleSubmit = () => {
     setLoading(true);
@@ -17,21 +34,21 @@ export function ForgotPasswordScreen({ navigation }: any) {
 
   if (sent) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <Card variant="elevated" style={styles.successCard}>
+      <SafeAreaView style={dynamicStyles.centeredContainer}>
+        <Card variant="elevated" style={dynamicStyles.successCard}>
           <View style={styles.successIcon}>
-            <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
           </View>
-          <Text style={styles.successTitle}>Check Your Email</Text>
-          <Text style={styles.successText}>
+          <Text style={dynamicStyles.successTitle}>Check Your Email</Text>
+          <Text style={dynamicStyles.successText}>
             We've sent password reset instructions to{' '}
-            <Text style={{ fontWeight: FontWeights.medium, color: Colors.gray900 }}>{email}</Text>
+            <Text style={{ fontWeight: FontWeights.medium, color: colors.text }}>{email}</Text>
           </Text>
           <Button onPress={() => navigation.navigate('Login')} fullWidth>
             Back to Sign In
           </Button>
           <TouchableOpacity onPress={() => setSent(false)} style={styles.retryButton}>
-            <Text style={styles.retryText}>Didn't receive the email? Try again</Text>
+            <Text style={dynamicStyles.retryText}>Didn't receive the email? Try again</Text>
           </TouchableOpacity>
         </Card>
       </SafeAreaView>
@@ -39,20 +56,20 @@ export function ForgotPasswordScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color={Colors.gray500} />
-          <Text style={styles.backText}>Back to sign in</Text>
+          <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+          <Text style={dynamicStyles.backText}>Back to sign in</Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
           <Logo size="lg" />
-          <Text style={styles.title}>Reset Password</Text>
-          <Text style={styles.subtitle}>Enter your email to receive reset instructions</Text>
+          <Text style={dynamicStyles.title}>Reset Password</Text>
+          <Text style={dynamicStyles.subtitle}>Enter your email to receive reset instructions</Text>
         </View>
 
-        <Card variant="elevated" style={styles.formCard}>
+        <Card variant="elevated" style={dynamicStyles.formCard}>
           <Input
             label="Email Address"
             placeholder="your@email.com"
@@ -60,16 +77,16 @@ export function ForgotPasswordScreen({ navigation }: any) {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />}
+            icon={<Ionicons name="mail-outline" size={20} color={colors.textTertiary} />}
           />
           <Button onPress={handleSubmit} loading={loading} fullWidth>
             Send Reset Link
           </Button>
 
           <View style={styles.loginRow}>
-            <Text style={styles.loginText}>Remember your password? </Text>
+            <Text style={dynamicStyles.loginText}>Remember your password? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Sign in</Text>
+              <Text style={dynamicStyles.loginLink}>Sign in</Text>
             </TouchableOpacity>
           </View>
         </Card>
@@ -79,30 +96,15 @@ export function ForgotPasswordScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1 },
   content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: 40, flexGrow: 1 },
-  centeredContainer: {
-    flex: 1, backgroundColor: Colors.gray50,
-    justifyContent: 'center', paddingHorizontal: Spacing.xl,
-  },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing['2xl'] },
-  backText: { fontSize: FontSizes.base, color: Colors.gray500 },
   header: { alignItems: 'center', marginBottom: Spacing['2xl'] },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900, marginTop: Spacing.base },
-  subtitle: { fontSize: FontSizes.base, color: Colors.gray500, marginTop: Spacing.xs, textAlign: 'center' },
-  formCard: { padding: Spacing['2xl'] },
   loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.xl },
-  loginText: { fontSize: FontSizes.sm, color: Colors.gray500 },
-  loginLink: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },
-  successCard: { padding: Spacing['2xl'], alignItems: 'center' },
   successIcon: {
     width: 64, height: 64, borderRadius: 32,
     backgroundColor: Colors.successAlpha10, alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing.xl,
   },
-  successTitle: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
-  successText: { fontSize: FontSizes.base, color: Colors.gray500, textAlign: 'center', marginBottom: Spacing['2xl'], lineHeight: 24 },
   retryButton: { marginTop: Spacing.base },
-  retryText: { fontSize: FontSizes.sm, color: Colors.gray500 },
 });

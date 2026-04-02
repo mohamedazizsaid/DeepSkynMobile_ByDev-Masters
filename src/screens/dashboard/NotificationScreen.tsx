@@ -1,10 +1,11 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Badge, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useNotificationStore } from '../../stores/notification.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { getRelativeTime } from '../../lib/utils';
 import type { Notification, NotificationType } from '../../lib/types';
 
@@ -31,8 +32,27 @@ export function NotificationScreen({ navigation }: any) {
     markAllAsRead,
     removeNotification,
   } = useNotificationStore();
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.background },
+    loadingContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, alignItems: 'center' as const },
+    title: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text },
+    markRead: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.medium },
+    markReadDisabled: { color: colors.textTertiary },
+    notifRow: {
+      flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: Spacing.md,
+      paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    notifRowUnread: { backgroundColor: colors.surface },
+    notifTitle: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text },
+    notifMessage: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2, lineHeight: 20 },
+    notifTime: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: 4 },
+  }), [colors, fontSizes]);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -89,8 +109,8 @@ export function NotificationScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.safeArea}>
+        <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message="Chargement des notifications..." />
         </View>
       </SafeAreaView>
@@ -98,22 +118,22 @@ export function NotificationScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView 
-        style={styles.container} 
+        style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
       }
     >
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={Colors.gray700} />
+            <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Notifications</Text>
+          <Text style={dynamicStyles.title}>Notifications</Text>
           <TouchableOpacity onPress={handleMarkAllRead} disabled={unreadCount === 0}>
-            <Text style={[styles.markRead, unreadCount === 0 && styles.markReadDisabled]}>
+            <Text style={[dynamicStyles.markRead, unreadCount === 0 && dynamicStyles.markReadDisabled]}>
               Tout lire
             </Text>
           </TouchableOpacity>
@@ -137,7 +157,7 @@ export function NotificationScreen({ navigation }: any) {
           return (
             <TouchableOpacity
               key={notif.id}
-              style={[styles.notifRow, !notif.isRead ? styles.notifRowUnread : undefined]}
+              style={[dynamicStyles.notifRow, !notif.isRead ? dynamicStyles.notifRowUnread : undefined]}
               activeOpacity={0.7}
               onPress={() => handleNotificationPress(notif)}
               onLongPress={() => handleDelete(notif.id)}
@@ -147,11 +167,11 @@ export function NotificationScreen({ navigation }: any) {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.notifTitleRow}>
-                  <Text style={styles.notifTitle}>{notif.title}</Text>
-                  {!notif.isRead && <View style={styles.unreadDot} />}
+                  <Text style={dynamicStyles.notifTitle}>{notif.title}</Text>
+                  {!notif.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
                 </View>
-                <Text style={styles.notifMessage}>{notif.message}</Text>
-                <Text style={styles.notifTime}>{getRelativeTime(notif.createdAt)}</Text>
+                <Text style={dynamicStyles.notifMessage}>{notif.message}</Text>
+                <Text style={dynamicStyles.notifTime}>{getRelativeTime(notif.createdAt)}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -165,28 +185,13 @@ export function NotificationScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
-  container: { flex: 1, backgroundColor: Colors.white },
-  loadingContainer: { flex: 1, backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: Spacing.base },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900 },
-  markRead: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },
-  markReadDisabled: { color: Colors.gray400 },
   unreadBanner: { marginTop: Spacing.md },
-  notifRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md,
-    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,
-    borderBottomWidth: 1, borderBottomColor: Colors.gray100,
-  },
-  notifRowUnread: { backgroundColor: Colors.primaryAlpha5 },
   notifIcon: {
     width: 44, height: 44, borderRadius: BorderRadius.base,
     alignItems: 'center', justifyContent: 'center',
   },
   notifTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  notifTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.semibold, color: Colors.gray900 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
-  notifMessage: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: 2, lineHeight: 20 },
-  notifTime: { fontSize: FontSizes.xs, color: Colors.gray400, marginTop: 4 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4 },
 });

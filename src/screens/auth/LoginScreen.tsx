@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,17 +16,43 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { FaceIDScanner } from '../../components/auth/FaceIDScanner';
 import { authService } from '../../services/auth.service';
 
 export function LoginScreen({ navigation }: any) {
   const { login, faceLogin, isLoading } = useAuthStore();
+  const { colors, fontSizes, settings } = useAccessibilityStyles();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showFaceID, setShowFaceID] = useState(false);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
+
+  // Dynamic styles based on accessibility
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    backText: { fontSize: fontSizes.base, color: colors.textSecondary },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
+    subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' as const },
+    formCard: { padding: Spacing.xl, backgroundColor: colors.surface },
+    forgotText: { fontSize: fontSizes.sm, color: colors.primary },
+    faceIdText: { fontSize: fontSizes.sm, color: colors.primary },
+    dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+    dividerText: { paddingHorizontal: Spacing.md, fontSize: fontSizes.sm, color: colors.textTertiary },
+    socialButton: { 
+      flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const,
+      gap: Spacing.sm, padding: Spacing.md, borderRadius: BorderRadius.base,
+      borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+    },
+    socialText: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.text },
+    signupText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    signupLink: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.primary },
+    twoFactorTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
+    twoFactorSubtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center' as const, marginTop: Spacing.xs },
+    cancel2faText: { color: colors.textSecondary, fontWeight: FontWeights.medium },
+  }), [colors, fontSizes]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -96,7 +122,7 @@ export function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -108,19 +134,19 @@ export function LoginScreen({ navigation }: any) {
         >
           {/* Back Button */}
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={Colors.gray500} />
-            <Text style={styles.backText}>Back to home</Text>
+            <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+            <Text style={dynamicStyles.backText}>Back to home</Text>
           </TouchableOpacity>
 
           {/* Logo & Header */}
           <View style={styles.header}>
             <Logo size="lg" />
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue your skin journey</Text>
+            <Text style={dynamicStyles.title}>Welcome Back</Text>
+            <Text style={dynamicStyles.subtitle}>Sign in to continue your skin journey</Text>
           </View>
 
           {/* Form Card */}
-          <Card variant="elevated" style={styles.formCard}>
+          <Card variant="elevated" style={dynamicStyles.formCard}>
             {!showTwoFactor ? (
               <>
                 <Input
@@ -130,7 +156,7 @@ export function LoginScreen({ navigation }: any) {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />}
+                  icon={<Ionicons name="mail-outline" size={20} color={colors.textTertiary} />}
                 />
 
                 <Input
@@ -139,12 +165,12 @@ export function LoginScreen({ navigation }: any) {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
-                  icon={<Ionicons name="lock-closed-outline" size={20} color={Colors.gray400} />}
+                  icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
                 />
 
                 <View style={styles.optionsRow}>
                   <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                    <Text style={styles.forgotText}>Forgot password?</Text>
+                    <Text style={dynamicStyles.forgotText}>Forgot password?</Text>
                   </TouchableOpacity>
 
                   {/* FaceID Option */}
@@ -152,8 +178,8 @@ export function LoginScreen({ navigation }: any) {
                     style={styles.faceIdLink}
                     onPress={() => email ? setShowFaceID(true) : Alert.alert('Info', 'Enter email first for FaceID')}
                   >
-                    <Ionicons name="scan-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.faceIdText}>Face ID</Text>
+                    <Ionicons name="scan-outline" size={18} color={colors.primary} />
+                    <Text style={dynamicStyles.faceIdText}>Face ID</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -165,10 +191,10 @@ export function LoginScreen({ navigation }: any) {
               <View style={styles.twoFactorContainer}>
                 <View style={styles.twoFactorHeader}>
                   <View style={styles.twoFactorIcon}>
-                    <Ionicons name="shield-checkmark" size={32} color={Colors.primary} />
+                    <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
                   </View>
-                  <Text style={styles.twoFactorTitle}>2FA Verification</Text>
-                  <Text style={styles.twoFactorSubtitle}>Enter the 6-digit code from your authenticator app</Text>
+                  <Text style={dynamicStyles.twoFactorTitle}>2FA Verification</Text>
+                  <Text style={dynamicStyles.twoFactorSubtitle}>Enter the 6-digit code from your authenticator app</Text>
                 </View>
 
                 <Input
@@ -190,36 +216,36 @@ export function LoginScreen({ navigation }: any) {
                   onPress={() => { setShowTwoFactor(false); setTwoFactorCode(''); }}
                   style={styles.cancel2fa}
                 >
-                  <Text style={styles.cancel2faText}>Cancel</Text>
+                  <Text style={dynamicStyles.cancel2faText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {/* Divider */}
             <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Or continue with</Text>
-              <View style={styles.dividerLine} />
+              <View style={dynamicStyles.dividerLine} />
+              <Text style={dynamicStyles.dividerText}>Or continue with</Text>
+              <View style={dynamicStyles.dividerLine} />
             </View>
 
             {/* Social Buttons */}
             <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialButton} onPress={openGoogleAuth}>
+              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openGoogleAuth}>
                 <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <Text style={styles.socialText}>Google</Text>
+                <Text style={dynamicStyles.socialText}>Google</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.socialButton} onPress={openFacebookAuth}>
+              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openFacebookAuth}>
                 <Ionicons name="logo-facebook" size={20} color="#4267B2" />
-                <Text style={styles.socialText}>Facebook</Text>
+                <Text style={dynamicStyles.socialText}>Facebook</Text>
               </TouchableOpacity>
             </View>
 
             {/* Sign up link */}
             <View style={styles.signupRow}>
-              <Text style={styles.signupText}>Don't have an account? </Text>
+              <Text style={dynamicStyles.signupText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-                <Text style={styles.signupLink}>Sign up</Text>
+                <Text style={dynamicStyles.signupLink}>Sign up</Text>
               </TouchableOpacity>
             </View>
           </Card>
@@ -227,7 +253,7 @@ export function LoginScreen({ navigation }: any) {
       </KeyboardAvoidingView>
 
       {/* FaceID Scanner Modal */}
-      <Modal visible={showFaceID} animationType="slide">
+      <Modal visible={showFaceID} animationType={settings.reduceMotion ? 'none' : 'slide'}>
         <FaceIDScanner
           email={email}
           onSuccess={handleFaceIDSuccess}

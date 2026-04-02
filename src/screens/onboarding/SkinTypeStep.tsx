@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button, Card } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface SkinTypeStepProps {
   onNext: (data: { skinType: string }) => void;
@@ -55,7 +56,27 @@ const skinTypes = [
 ];
 
 export function SkinTypeStep({ onNext, onBack, initialValue }: SkinTypeStepProps) {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [selectedType, setSelectedType] = useState(initialValue || '');
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    skinTypeLabel: {
+      fontSize: fontSizes.lg,
+      color: colors.text,
+    },
+    skinTypeDesc: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+  }), [colors, fontSizes]);
 
   const handleSubmit = () => {
     onNext({ skinType: selectedType });
@@ -68,8 +89,8 @@ export function SkinTypeStep({ onNext, onBack, initialValue }: SkinTypeStepProps
           <MaterialCommunityIcons name="water" size={32} color={Colors.white} />
         </LinearGradient>
 
-        <Text style={styles.title}>Votre type de peau</Text>
-        <Text style={styles.subtitle}>Sélectionnez le type qui correspond le mieux à votre peau</Text>
+        <Text style={[styles.title, dynamicStyles.title]}>Votre type de peau</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Sélectionnez le type qui correspond le mieux à votre peau</Text>
 
         {/* Skin Type Selection */}
         <Card variant="elevated" style={styles.card}>
@@ -91,8 +112,8 @@ export function SkinTypeStep({ onNext, onBack, initialValue }: SkinTypeStepProps
                 )}
                 <Text style={styles.skinTypeEmoji}>{skin.emoji}</Text>
                 <View style={styles.skinTypeContent}>
-                  <Text style={styles.skinTypeLabel}>{skin.label}</Text>
-                  <Text style={styles.skinTypeDesc}>{skin.description}</Text>
+                  <Text style={[styles.skinTypeLabel, dynamicStyles.skinTypeLabel]}>{skin.label}</Text>
+                  <Text style={[styles.skinTypeDesc, dynamicStyles.skinTypeDesc]}>{skin.description}</Text>
                 </View>
               </TouchableOpacity>
             ))}

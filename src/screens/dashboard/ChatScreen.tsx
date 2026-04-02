@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert,
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, LoadingSpinner } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { chatService } from '../../services/chat.service';
 import type { ChatHistory, ChatMessage } from '../../lib/types';
 
@@ -19,12 +20,49 @@ interface DisplayMessage {
 }
 
 export function ChatScreen() {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+    loadingContainer: { flex: 1, backgroundColor: colors.backgroundSecondary, justifyContent: 'center' as const, alignItems: 'center' as const },
+    headerTitle: { fontSize: fontSizes.base, fontWeight: FontWeights.bold, color: colors.text },
+    headerSubtitle: { fontSize: fontSizes.xs, color: colors.success },
+    messageBubble: {
+      padding: Spacing.md, borderRadius: BorderRadius.lg, maxWidth: '90%',
+    },
+    userBubble: {
+      backgroundColor: colors.primary, borderBottomRightRadius: 4,
+    },
+    aiBubble: {
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+      borderBottomLeftRadius: 4,
+    },
+    messageText: { fontSize: fontSizes.base, color: colors.text, lineHeight: 22 },
+    userMessageText: { color: Colors.white },
+    suggestionText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.medium },
+    input: {
+      flex: 1, backgroundColor: colors.surface,
+      borderRadius: BorderRadius.base, paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md, fontSize: fontSizes.base, color: colors.text,
+      maxHeight: 100, borderWidth: 1, borderColor: colors.border,
+    },
+    sendButton: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.primary, alignItems: 'center' as const, justifyContent: 'center' as const,
+    },
+    inputBar: {
+      flexDirection: 'row' as const, alignItems: 'flex-end' as const, gap: Spacing.sm,
+      paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
+      backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border,
+    },
+  }), [colors, fontSizes]);
 
   const suggestions = [
     'Conseils routine',
@@ -169,29 +207,29 @@ export function ChatScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.loadingContainer}>
         <LoadingSpinner message="Chargement de la conversation..." />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.container}>
+        <View style={dynamicStyles.container}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <LinearGradient colors={Gradients.primary} style={styles.headerIcon}>
             <Ionicons name="sparkles" size={20} color={Colors.white} />
           </LinearGradient>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Coach Skincare IA</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={dynamicStyles.headerTitle}>Coach Skincare IA</Text>
+            <Text style={dynamicStyles.headerSubtitle}>
               {sending ? 'Réflexion...' : 'En ligne • Propulsé par l\'IA'}
             </Text>
           </View>
           <TouchableOpacity onPress={startNewChat} style={styles.newChatButton}>
-            <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
+            <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -212,8 +250,8 @@ export function ChatScreen() {
                   <Ionicons name="sparkles" size={14} color={Colors.white} />
                 </LinearGradient>
               )}
-              <View style={[styles.messageBubble, msg.type === 'user' ? styles.userBubble : styles.aiBubble]}>
-                <Text style={[styles.messageText, msg.type === 'user' ? styles.userMessageText : undefined]}>
+              <View style={[dynamicStyles.messageBubble, msg.type === 'user' ? dynamicStyles.userBubble : dynamicStyles.aiBubble]}>
+                <Text style={[dynamicStyles.messageText, msg.type === 'user' ? dynamicStyles.userMessageText : undefined]}>
                   {msg.text}
                 </Text>
               </View>
@@ -225,8 +263,8 @@ export function ChatScreen() {
               <LinearGradient colors={Gradients.primary} style={styles.aiBubbleAvatar}>
                 <Ionicons name="sparkles" size={14} color={Colors.white} />
               </LinearGradient>
-              <View style={[styles.messageBubble, styles.aiBubble]}>
-                <ActivityIndicator size="small" color={Colors.primary} />
+              <View style={[dynamicStyles.messageBubble, dynamicStyles.aiBubble]}>
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
             </View>
           )}
@@ -237,10 +275,10 @@ export function ChatScreen() {
               {suggestions.map((suggestion, index) => (
                 <TouchableOpacity 
                   key={index} 
-                  style={styles.suggestionPill}
+                  style={[styles.suggestionPill, { borderColor: colors.primary, backgroundColor: colors.surface }]}
                   onPress={() => handleSuggestion(suggestion)}
                 >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                  <Text style={dynamicStyles.suggestionText}>{suggestion}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -248,18 +286,18 @@ export function ChatScreen() {
         </ScrollView>
 
         {/* Input Bar */}
-        <View style={styles.inputBar}>
+        <View style={dynamicStyles.inputBar}>
           <TextInput
-            style={styles.input}
+            style={dynamicStyles.input}
             placeholder="Posez-moi une question sur votre peau..."
-            placeholderTextColor={Colors.gray400}
+            placeholderTextColor={colors.textTertiary}
             value={message}
             onChangeText={setMessage}
             multiline
             editable={!sending}
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!message.trim() || sending) ? styles.sendButtonDisabled : undefined]}
+            style={[dynamicStyles.sendButton, (!message.trim() || sending) ? styles.sendButtonDisabled : undefined]}
             disabled={!message.trim() || sending}
             onPress={sendMessage}
           >
@@ -277,20 +315,15 @@ export function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
-  loadingContainer: { flex: 1, backgroundColor: Colors.gray50, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.gray200,
+    borderBottomWidth: 1,
   },
   headerIcon: {
     width: 40, height: 40, borderRadius: BorderRadius.base,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: FontSizes.base, fontWeight: FontWeights.bold, color: Colors.gray900 },
-  headerSubtitle: { fontSize: FontSizes.xs, color: Colors.success },
   newChatButton: { padding: Spacing.xs },
   messagesList: { flex: 1 },
   messagesContent: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base },
@@ -303,42 +336,13 @@ const styles = StyleSheet.create({
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
   },
-  messageBubble: {
-    padding: Spacing.md, borderRadius: BorderRadius.lg, maxWidth: '90%',
-  },
-  userBubble: {
-    backgroundColor: Colors.primary, borderBottomRightRadius: 4,
-  },
-  aiBubble: {
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.gray200,
-    borderBottomLeftRadius: 4,
-  },
-  messageText: { fontSize: FontSizes.base, color: Colors.gray700, lineHeight: 22 },
-  userMessageText: { color: Colors.white },
   suggestionsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm,
     marginTop: Spacing.md,
   },
   suggestionPill: {
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.primary,
-    backgroundColor: Colors.primaryAlpha5,
-  },
-  suggestionText: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },
-  inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm,
-    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-    backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.gray200,
-  },
-  input: {
-    flex: 1, backgroundColor: Colors.gray50,
-    borderRadius: BorderRadius.base, paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md, fontSize: FontSizes.base, color: Colors.gray900,
-    maxHeight: 100, borderWidth: 1, borderColor: Colors.gray200,
-  },
-  sendButton: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+    borderRadius: BorderRadius.full, borderWidth: 1,
   },
   sendButtonDisabled: { opacity: 0.5 },
 });

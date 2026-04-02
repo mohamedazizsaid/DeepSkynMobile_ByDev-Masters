@@ -100,38 +100,38 @@ export const useAccessibilityStore = create<AccessibilityState>((set, get) => ({
   },
 
   toggleReduceMotion: () => {
-    const next = !get().reduceMotion;
-    set({ reduceMotion: next });
+    const current = get().reduceMotion ?? false;
+    set({ reduceMotion: !current });
     get().savePreferences();
   },
 
   toggleDyslexiaFont: () => {
-    const next = !get().dyslexiaFont;
-    set({ dyslexiaFont: next });
+    const current = get().dyslexiaFont ?? false;
+    set({ dyslexiaFont: !current });
     get().savePreferences();
   },
 
   toggleBigCursor: () => {
-    const next = !get().bigCursor;
-    set({ bigCursor: next });
+    const current = get().bigCursor ?? false;
+    set({ bigCursor: !current });
     get().savePreferences();
   },
 
   toggleTextSpacing: () => {
-    const next = !get().textSpacing;
-    set({ textSpacing: next });
+    const current = get().textSpacing ?? false;
+    set({ textSpacing: !current });
     get().savePreferences();
   },
 
   toggleFocusHighlight: () => {
-    const next = !get().focusHighlight;
-    set({ focusHighlight: next });
+    const current = get().focusHighlight ?? false;
+    set({ focusHighlight: !current });
     get().savePreferences();
   },
 
   toggleLinkHighlight: () => {
-    const next = !get().linkHighlight;
-    set({ linkHighlight: next });
+    const current = get().linkHighlight ?? false;
+    set({ linkHighlight: !current });
     get().savePreferences();
   },
 
@@ -158,6 +158,9 @@ export const useAccessibilityStore = create<AccessibilityState>((set, get) => ({
   // Text-to-Speech Actions
   speak: (text: string) => {
     const { speechRate, language } = get();
+    if (!text || !text.trim()) {
+      return;
+    }
     
     // Stop any current speech
     Speech.stop();
@@ -166,12 +169,17 @@ export const useAccessibilityStore = create<AccessibilityState>((set, get) => ({
     
     const languageCode = language === 'fr' ? 'fr-FR' : language === 'ar' ? 'ar-SA' : 'en-US';
     
-    Speech.speak(text, {
+    Speech.speak(text.trim(), {
       language: languageCode,
       rate: speechRate,
+      pitch: 1.0,
+      volume: 1.0,
       onDone: () => set({ isSpeaking: false }),
       onStopped: () => set({ isSpeaking: false }),
-      onError: () => set({ isSpeaking: false }),
+      onError: (error) => {
+        console.error('TTS error:', error);
+        set({ isSpeaking: false });
+      },
     });
   },
 
@@ -195,11 +203,36 @@ export const useAccessibilityStore = create<AccessibilityState>((set, get) => ({
     try {
       const stored = await AsyncStorage.getItem('deepskyn-accessibility');
       if (stored) {
-        const preferences = JSON.parse(stored);
-        set(preferences);
+        let preferences;
+        try {
+          preferences = JSON.parse(stored);
+        } catch {
+          // Corrupted data, clear it
+          await AsyncStorage.removeItem('deepskyn-accessibility');
+          return;
+        }
+        
+        // Only set valid preferences, ignore corrupted data
+        if (preferences && typeof preferences === 'object') {
+          set({
+            theme: preferences.theme === 'dark' ? 'dark' : 'light',
+            contrastMode: ['off', 'medium', 'high'].includes(preferences.contrastMode) ? preferences.contrastMode : 'off',
+            zoomLevel: typeof preferences.zoomLevel === 'number' ? preferences.zoomLevel : 100,
+            reduceMotion: preferences.reduceMotion === true,
+            dyslexiaFont: preferences.dyslexiaFont === true,
+            bigCursor: preferences.bigCursor === true,
+            textSpacing: preferences.textSpacing === true,
+            focusHighlight: preferences.focusHighlight === true,
+            linkHighlight: preferences.linkHighlight === true,
+            speechRate: typeof preferences.speechRate === 'number' ? preferences.speechRate : 1.0,
+            language: ['fr', 'en', 'ar'].includes(preferences.language) ? preferences.language : 'fr',
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to load accessibility preferences:', error);
+      // Clear corrupted data
+      await AsyncStorage.removeItem('deepskyn-accessibility');
     }
   },
 

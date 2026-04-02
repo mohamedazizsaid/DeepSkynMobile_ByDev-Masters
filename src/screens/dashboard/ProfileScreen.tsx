@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Input, Badge, LoadingSpinner, LoadingOverlay } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { usersService, User } from '../../services/users.service';
 import { skinProfileService } from '../../services/skin-profile.service';
 import { analysisService } from '../../services/analysis.service';
@@ -14,6 +15,7 @@ import { formatDate, getRelativeTime } from '../../lib/utils';
 
 export function ProfileScreen({ navigation }: any) {
   const { user: authUser, loadUser, logout } = useAuthStore();
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [profile, setProfile] = useState<User | null>(null);
   const [skinProfile, setSkinProfile] = useState<SkinProfile | null>(null);
   const [stats, setStats] = useState<AnalysisStats | null>(null);
@@ -21,6 +23,23 @@ export function ProfileScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.background },
+    loadingContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, alignItems: 'center' as const },
+    userName: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.md },
+    userEmail: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    statValue: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: Colors.primary },
+    statLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
+    sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
+    profileLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    profileValue: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.text, maxWidth: '60%', textAlign: 'right' as const },
+    profileRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+    logoutText: { color: colors.error, fontWeight: FontWeights.medium },
+    formCard: { padding: Spacing.xl, backgroundColor: colors.surface },
+    statsRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  }), [colors, fontSizes]);
 
   const loadProfileData = useCallback(async () => {
     try {
@@ -62,7 +81,7 @@ export function ProfileScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.loadingContainer}>
         <LoadingSpinner message="Chargement du profil..." />
       </SafeAreaView>
     );
@@ -86,9 +105,9 @@ export function ProfileScreen({ navigation }: any) {
   ] : [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView 
-        style={styles.container} 
+        style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
@@ -106,16 +125,16 @@ export function ProfileScreen({ navigation }: any) {
         <TouchableOpacity style={styles.cameraButton}>
           <Ionicons name="camera" size={16} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.userName}>{userName}</Text>
-        <Text style={styles.userEmail}>{userEmail}</Text>
+        <Text style={dynamicStyles.userName}>{userName}</Text>
+        <Text style={dynamicStyles.userEmail}>{userEmail}</Text>
       </View>
 
       {/* Stats Row */}
-      <View style={styles.statsRow}>
+      <View style={[styles.statsRow, dynamicStyles.statsRowBorder]}>
         {statsData.map((stat, index) => (
           <View key={index} style={styles.statItem}>
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
+            <Text style={dynamicStyles.statValue}>{stat.value}</Text>
+            <Text style={dynamicStyles.statLabel}>{stat.label}</Text>
           </View>
         ))}
       </View>
@@ -123,12 +142,12 @@ export function ProfileScreen({ navigation }: any) {
       {/* Skin Profile Summary */}
       {skinProfileData.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profil Peau</Text>
+          <Text style={dynamicStyles.sectionTitle}>Profil Peau</Text>
           <Card style={styles.profileCard}>
             {skinProfileData.map((item, index) => (
-              <View key={index} style={[styles.profileRow, index < skinProfileData.length - 1 ? styles.profileRowBorder : undefined]}>
-                <Text style={styles.profileLabel}>{item.label}</Text>
-                <Text style={styles.profileValue}>{item.value}</Text>
+              <View key={index} style={[styles.profileRow, index < skinProfileData.length - 1 ? dynamicStyles.profileRowBorder : undefined]}>
+                <Text style={dynamicStyles.profileLabel}>{item.label}</Text>
+                <Text style={dynamicStyles.profileValue}>{item.value}</Text>
               </View>
             ))}
           </Card>
@@ -137,26 +156,26 @@ export function ProfileScreen({ navigation }: any) {
 
       {/* Personal Info Form */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Informations Personnelles</Text>
-        <Card variant="elevated" style={styles.formCard}>
+        <Text style={dynamicStyles.sectionTitle}>Informations Personnelles</Text>
+        <Card variant="elevated" style={dynamicStyles.formCard}>
           <Input 
             label="Nom complet" 
             value={userName} 
             editable={false} 
-            icon={<Ionicons name="person-outline" size={20} color={Colors.gray400} />} 
+            icon={<Ionicons name="person-outline" size={20} color={colors.textTertiary} />} 
           />
           <Input 
             label="Email" 
             value={userEmail} 
             editable={false} 
-            icon={<Ionicons name="mail-outline" size={20} color={Colors.gray400} />} 
+            icon={<Ionicons name="mail-outline" size={20} color={colors.textTertiary} />} 
           />
           {user?.dateOfBirth && (
             <Input 
               label="Date de naissance" 
               value={formatDate(user.dateOfBirth)} 
               editable={false} 
-              icon={<Ionicons name="calendar-outline" size={20} color={Colors.gray400} />} 
+              icon={<Ionicons name="calendar-outline" size={20} color={colors.textTertiary} />} 
             />
           )}
           {user?.gender && (
@@ -164,7 +183,7 @@ export function ProfileScreen({ navigation }: any) {
               label="Genre" 
               value={user.gender} 
               editable={false} 
-              icon={<Ionicons name="people-outline" size={20} color={Colors.gray400} />} 
+              icon={<Ionicons name="people-outline" size={20} color={colors.textTertiary} />} 
             />
           )}
           <Button onPress={() => navigation.navigate('Settings')} fullWidth variant="secondary">
@@ -176,7 +195,7 @@ export function ProfileScreen({ navigation }: any) {
       {/* Common Conditions */}
       {stats?.commonConditions && stats.commonConditions.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Conditions Fréquentes</Text>
+          <Text style={dynamicStyles.sectionTitle}>Conditions Fréquentes</Text>
           <Card>
             <View style={styles.conditionsRow}>
               {stats.commonConditions.map((condition, index) => (
@@ -195,8 +214,8 @@ export function ProfileScreen({ navigation }: any) {
           variant="secondary"
           style={styles.logoutButton}
         >
-          <Ionicons name="log-out-outline" size={18} color={Colors.error} />
-          <Text style={styles.logoutText}>  Déconnexion</Text>
+          <Ionicons name="log-out-outline" size={18} color={colors.error} />
+          <Text style={dynamicStyles.logoutText}>  Déconnexion</Text>
         </Button>
       </View>
 
@@ -207,9 +226,6 @@ export function ProfileScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
-  loadingContainer: { flex: 1, backgroundColor: Colors.gray50, justifyContent: 'center', alignItems: 'center' },
   avatarSection: { alignItems: 'center', paddingTop: Spacing.xl },
   avatar: {
     width: 96, height: 96, borderRadius: 48,
@@ -225,28 +241,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: Colors.white,
   },
-  userName: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900, marginTop: Spacing.md },
-  userEmail: { fontSize: FontSizes.sm, color: Colors.gray500 },
   statsRow: {
     flexDirection: 'row', justifyContent: 'space-around',
     paddingVertical: Spacing.xl, marginHorizontal: Spacing.xl,
-    borderBottomWidth: 1, borderBottomColor: Colors.gray200,
   },
   statItem: { alignItems: 'center' },
-  statValue: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.primary },
-  statLabel: { fontSize: FontSizes.xs, color: Colors.gray500, marginTop: 2 },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
-  sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   profileCard: { padding: 0 },
   profileRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
   },
-  profileRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
-  profileLabel: { fontSize: FontSizes.sm, color: Colors.gray500 },
-  profileValue: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.gray900, maxWidth: '60%', textAlign: 'right' },
-  formCard: { padding: Spacing.xl },
   conditionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.md },
   logoutButton: { borderColor: Colors.error },
-  logoutText: { color: Colors.error, fontWeight: FontWeights.medium },
 });

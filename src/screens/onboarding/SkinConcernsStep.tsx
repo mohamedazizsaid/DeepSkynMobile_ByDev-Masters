@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface SkinConcernsStepProps {
   onNext: (data: any) => void;
@@ -23,7 +24,27 @@ const concerns = [
 ];
 
 export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [selected, setSelected] = useState<string[]>([]);
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    concernLabel: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    selectionText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+    },
+  }), [colors, fontSizes]);
 
   const toggleConcern = (id: string) => {
     setSelected((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
@@ -32,8 +53,8 @@ export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
       <View style={styles.container}>
-        <Text style={styles.title}>What Are Your Skin Concerns?</Text>
-        <Text style={styles.subtitle}>Select all that apply - this helps us personalize your routine</Text>
+        <Text style={[styles.title, dynamicStyles.title]}>What Are Your Skin Concerns?</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Select all that apply - this helps us personalize your routine</Text>
 
         <Card variant="elevated" style={styles.card}>
           <View style={styles.grid}>
@@ -54,7 +75,7 @@ export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
                   <View style={[styles.concernIcon, { backgroundColor: concern.color + '20' }]}>
                     <Ionicons name={concern.icon as any} size={24} color={concern.color} />
                   </View>
-                  <Text style={styles.concernLabel}>{concern.label}</Text>
+                  <Text style={[styles.concernLabel, dynamicStyles.concernLabel]}>{concern.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -62,7 +83,7 @@ export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
 
           {selected.length > 0 && (
             <View style={styles.selectionInfo}>
-              <Text style={styles.selectionText}>
+              <Text style={[styles.selectionText, dynamicStyles.selectionText]}>
                 ✨ You've selected <Text style={{ fontWeight: FontWeights.bold }}>{selected.length}</Text> concern{selected.length !== 1 ? 's' : ''}. We'll tailor your skincare routine to address these.
               </Text>
             </View>

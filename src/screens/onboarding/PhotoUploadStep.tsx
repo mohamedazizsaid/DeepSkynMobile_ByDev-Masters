@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Button, Card } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface PhotoUploadStepProps {
   onNext: (data: any) => void;
@@ -12,7 +13,35 @@ interface PhotoUploadStepProps {
 }
 
 export function PhotoUploadStep({ onNext, onBack }: PhotoUploadStepProps) {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [photo, setPhoto] = useState<string | null>(null);
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    uploadTitle: {
+      fontSize: fontSizes.lg,
+      color: colors.text,
+    },
+    uploadSubtitle: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+    changeText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+    actionButtonText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+    },
+  }), [colors, fontSizes]);
 
   const handlePickPhoto = async () => {
     const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -68,8 +97,8 @@ export function PhotoUploadStep({ onNext, onBack }: PhotoUploadStepProps) {
           <Ionicons name="camera" size={32} color={Colors.white} />
         </LinearGradient>
 
-        <Text style={styles.title}>Add Your Profile Photo</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, dynamicStyles.title]}>Add Your Profile Photo</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           Upload a photo so others can recognize you. You can always change it later.
         </Text>
 
@@ -81,15 +110,15 @@ export function PhotoUploadStep({ onNext, onBack }: PhotoUploadStepProps) {
               <TouchableOpacity style={styles.removeButton} onPress={() => setPhoto(null)}>
                 <Ionicons name="close" size={18} color={Colors.white} />
               </TouchableOpacity>
-              <Text style={styles.changeText}>Tap below to change</Text>
+              <Text style={[styles.changeText, dynamicStyles.changeText]}>Tap below to change</Text>
             </View>
           ) : (
             <TouchableOpacity style={styles.uploadArea} onPress={handlePickPhoto} activeOpacity={0.7}>
               <View style={styles.avatarPlaceholder}>
                 <Ionicons name="person-outline" size={48} color={Colors.gray300} />
               </View>
-              <Text style={styles.uploadTitle}>Tap to choose a photo</Text>
-              <Text style={styles.uploadSubtitle}>JPG or PNG, max 5 MB</Text>
+              <Text style={[styles.uploadTitle, dynamicStyles.uploadTitle]}>Tap to choose a photo</Text>
+              <Text style={[styles.uploadSubtitle, dynamicStyles.uploadSubtitle]}>JPG or PNG, max 5 MB</Text>
             </TouchableOpacity>
           )}
 
@@ -97,12 +126,12 @@ export function PhotoUploadStep({ onNext, onBack }: PhotoUploadStepProps) {
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.actionButton} onPress={handlePickPhoto}>
               <Ionicons name="images-outline" size={22} color={Colors.primary} />
-              <Text style={styles.actionButtonText}>Gallery</Text>
+              <Text style={[styles.actionButtonText, dynamicStyles.actionButtonText]}>Gallery</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
             <TouchableOpacity style={styles.actionButton} onPress={handleTakePhoto}>
               <Ionicons name="camera-outline" size={22} color={Colors.primary} />
-              <Text style={styles.actionButtonText}>Camera</Text>
+              <Text style={[styles.actionButtonText, dynamicStyles.actionButtonText]}>Camera</Text>
             </TouchableOpacity>
           </View>
         </Card>

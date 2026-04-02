@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 export function ResetPasswordScreen({ navigation }: any) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { colors, fontSizes } = useAccessibilityStyles();
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    centeredContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, paddingHorizontal: Spacing.xl },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
+    subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, marginTop: Spacing.xs },
+    formCard: { padding: Spacing['2xl'], backgroundColor: colors.surface },
+    successCard: { padding: Spacing['2xl'], alignItems: 'center' as const, backgroundColor: colors.surface },
+    successTitle: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
+    successText: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center' as const, marginBottom: Spacing['2xl'] },
+  }), [colors, fontSizes]);
 
   const handleReset = () => {
     setLoading(true);
@@ -18,13 +31,13 @@ export function ResetPasswordScreen({ navigation }: any) {
 
   if (success) {
     return (
-      <SafeAreaView style={styles.centeredContainer}>
-        <Card variant="elevated" style={styles.successCard}>
+      <SafeAreaView style={dynamicStyles.centeredContainer}>
+        <Card variant="elevated" style={dynamicStyles.successCard}>
           <View style={styles.successIcon}>
-            <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
           </View>
-          <Text style={styles.successTitle}>Password Reset</Text>
-          <Text style={styles.successText}>You can now sign in with your new password.</Text>
+          <Text style={dynamicStyles.successTitle}>Password Reset</Text>
+          <Text style={dynamicStyles.successText}>You can now sign in with your new password.</Text>
           <Button onPress={() => navigation.navigate('Login')} fullWidth>
             Sign In
           </Button>
@@ -34,22 +47,22 @@ export function ResetPasswordScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Logo size="lg" />
-          <Text style={styles.title}>New Password</Text>
-          <Text style={styles.subtitle}>Choose a strong password for your account</Text>
+          <Text style={dynamicStyles.title}>New Password</Text>
+          <Text style={dynamicStyles.subtitle}>Choose a strong password for your account</Text>
         </View>
 
-        <Card variant="elevated" style={styles.formCard}>
+        <Card variant="elevated" style={dynamicStyles.formCard}>
           <Input
             label="New Password"
             placeholder="Min 8 characters"
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry
-            icon={<Ionicons name="lock-closed-outline" size={20} color={Colors.gray400} />}
+            icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
           />
           <Input
             label="Confirm Password"
@@ -57,7 +70,7 @@ export function ResetPasswordScreen({ navigation }: any) {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
-            icon={<Ionicons name="lock-closed-outline" size={20} color={Colors.gray400} />}
+            icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
             error={confirmPassword.length > 0 && newPassword !== confirmPassword ? "Passwords don't match" : undefined}
           />
           <Button
@@ -75,23 +88,12 @@ export function ResetPasswordScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
   container: { flex: 1 },
   content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: 40, flexGrow: 1 },
-  centeredContainer: {
-    flex: 1, backgroundColor: Colors.gray50,
-    justifyContent: 'center', paddingHorizontal: Spacing.xl,
-  },
   header: { alignItems: 'center', marginBottom: Spacing['2xl'] },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900, marginTop: Spacing.base },
-  subtitle: { fontSize: FontSizes.base, color: Colors.gray500, marginTop: Spacing.xs },
-  formCard: { padding: Spacing['2xl'] },
-  successCard: { padding: Spacing['2xl'], alignItems: 'center' },
   successIcon: {
     width: 64, height: 64, borderRadius: 32,
     backgroundColor: Colors.successAlpha10, alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing.xl,
   },
-  successTitle: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
-  successText: { fontSize: FontSizes.base, color: Colors.gray500, textAlign: 'center', marginBottom: Spacing['2xl'] },
 });

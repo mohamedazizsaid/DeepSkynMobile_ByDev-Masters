@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import Animated, {
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -110,7 +111,30 @@ const sensitivities = [
 ];
 
 export function SensitivitiesStep({ onNext, onBack, initialValue }: SensitivitiesStepProps) {
+  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
   const [selected, setSelected] = useState<string[]>(initialValue || []);
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    cardLabel: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    cardDescription: {
+      color: colors.textSecondary,
+    },
+    countText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+  }), [colors, fontSizes]);
 
   const toggleSensitivity = (id: string) => {
     if (id === 'none') {
@@ -162,8 +186,8 @@ export function SensitivitiesStep({ onNext, onBack, initialValue }: Sensitivitie
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.header}>
-        <Animated.View entering={ZoomIn.delay(300).duration(400)}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(200)).duration(getAnimDuration(500))} style={styles.header}>
+        <Animated.View entering={ZoomIn.delay(getAnimDuration(300)).duration(getAnimDuration(400))}>
           <LinearGradient
             colors={['#EF4444', '#F87171']}
             style={styles.iconBadge}
@@ -172,8 +196,8 @@ export function SensitivitiesStep({ onNext, onBack, initialValue }: Sensitivitie
           </LinearGradient>
         </Animated.View>
 
-        <Text style={styles.title}>Sensibilités connues</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, dynamicStyles.title]}>Sensibilités connues</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           Sélectionnez les ingrédients auxquels votre peau réagit mal
         </Text>
       </Animated.View>
@@ -187,7 +211,7 @@ export function SensitivitiesStep({ onNext, onBack, initialValue }: Sensitivitie
             return (
               <Animated.View
                 key={item.id}
-                entering={FadeInDown.delay(300 + index * 40).duration(400)}
+                entering={FadeInDown.delay(getAnimDuration(300 + index * 40)).duration(getAnimDuration(400))}
               >
                 <TouchableOpacity
                   onPress={() => toggleSensitivity(item.id)}
@@ -213,12 +237,12 @@ export function SensitivitiesStep({ onNext, onBack, initialValue }: Sensitivitie
                       {getIcon(item.iconName)}
                     </LinearGradient>
                     <View style={styles.textContent}>
-                      <Text style={styles.cardLabel}>
+                      <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>
                         {item.emoji} {item.label}
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.cardDescription}>{item.description}</Text>
+                  <Text style={[styles.cardDescription, dynamicStyles.cardDescription]}>{item.description}</Text>
                 </TouchableOpacity>
               </Animated.View>
             );
@@ -228,15 +252,15 @@ export function SensitivitiesStep({ onNext, onBack, initialValue }: Sensitivitie
 
       {/* Selected Count */}
       {selected.length > 0 && !selected.includes('none') && (
-        <Animated.View entering={FadeInUp.duration(300)} style={styles.countBox}>
-          <Text style={styles.countText}>
+        <Animated.View entering={FadeInUp.duration(getAnimDuration(300))} style={styles.countBox}>
+          <Text style={[styles.countText, dynamicStyles.countText]}>
             ⚠️ <Text style={styles.countNumber}>{selected.length}</Text> sensibilité(s) sélectionnée(s)
           </Text>
         </Animated.View>
       )}
 
       {/* Navigation Buttons */}
-      <Animated.View entering={FadeInUp.delay(900).duration(400)} style={styles.buttons}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(900)).duration(getAnimDuration(400))} style={styles.buttons}>
         <Button
           variant="outline"
           onPress={onBack}

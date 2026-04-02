@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card, ProgressBar } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface AnalysisProcessingProps {
   onComplete: () => void;
@@ -18,9 +19,21 @@ const processingSteps = [
 ];
 
 export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
+  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [progress, setProgress] = useState(0);
+
+  const dynamicStyles = useMemo(() => ({
+    container: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, padding: Spacing.xl },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, textAlign: 'center' as const, marginBottom: Spacing.md },
+    subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center' as const, marginBottom: Spacing['2xl'] },
+    card: { padding: Spacing.xl, marginBottom: Spacing.xl, backgroundColor: colors.surface },
+    stepRow: { flexDirection: 'row' as const, alignItems: 'center' as const, marginBottom: Spacing.md },
+    stepText: { fontSize: fontSizes.sm, color: colors.textSecondary, marginLeft: Spacing.md, flex: 1 },
+    stepTextActive: { fontSize: fontSizes.sm, color: colors.text, marginLeft: Spacing.md, flex: 1, fontWeight: FontWeights.medium },
+    stepTextCompleted: { fontSize: fontSizes.sm, color: colors.success, marginLeft: Spacing.md, flex: 1 },
+  }), [colors, fontSizes]);
 
   useEffect(() => {
     if (currentStep < processingSteps.length) {
@@ -42,24 +55,24 @@ export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
 
       return () => { clearTimeout(timer); clearInterval(progressInterval); };
     } else {
-      setTimeout(onComplete, 1000);
+      setTimeout(onComplete, getAnimDuration(1000));
     }
-  }, [currentStep]);
+  }, [currentStep, onComplete, getAnimDuration]);
 
   return (
-    <View style={styles.container}>
+    <View style={dynamicStyles.container}>
       <LinearGradient colors={Gradients.primary} style={styles.iconBox}>
         <Ionicons name="sparkles" size={40} color={Colors.white} />
       </LinearGradient>
 
-      <Text style={styles.title}>Analyzing Your Skin</Text>
-      <Text style={styles.subtitle}>Our AI is working its magic...</Text>
+      <Text style={dynamicStyles.title}>Analyzing Your Skin</Text>
+      <Text style={dynamicStyles.subtitle}>Our AI is working its magic...</Text>
 
-      <Card variant="elevated" style={styles.card}>
+      <Card variant="elevated" style={dynamicStyles.card}>
         {/* Progress */}
         <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Progress</Text>
-          <Text style={styles.progressValue}>{Math.round(progress)}%</Text>
+          <Text style={dynamicStyles.stepTextActive}>Progress</Text>
+          <Text style={dynamicStyles.stepTextActive}>{Math.round(progress)}%</Text>
         </View>
         <ProgressBar progress={progress} height={12} />
 
@@ -71,14 +84,11 @@ export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
             return (
               <View
                 key={step.id}
-                style={[
-                  styles.stepRow,
-                  isCurrent ? styles.stepRowActive : undefined,
-                ]}
+                style={dynamicStyles.stepRow}
               >
                 <View style={[
                   styles.stepDot,
-                  isCompleted ? { backgroundColor: Colors.success } : undefined,
+                  isCompleted ? { backgroundColor: colors.success } : undefined,
                   isCurrent ? { backgroundColor: Colors.primary } : undefined,
                 ]}>
                   {isCompleted ? (
@@ -89,11 +99,11 @@ export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
                     <View style={styles.stepDotInner} />
                   )}
                 </View>
-                <Text style={[
-                  styles.stepText,
-                  isCompleted ? { color: Colors.success } : undefined,
-                  isCurrent ? { color: Colors.primary } : undefined,
-                ]}>
+                <Text style={
+                  isCompleted ? dynamicStyles.stepTextCompleted :
+                  isCurrent ? dynamicStyles.stepTextActive :
+                  dynamicStyles.stepText
+                }>
                   {step.text}
                 </Text>
               </View>
@@ -101,7 +111,7 @@ export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
           })}
         </View>
 
-        <Text style={styles.estimateText}>
+        <Text style={dynamicStyles.subtitle}>
           Estimated time remaining:{' '}
           <Text style={{ fontWeight: FontWeights.medium, color: Colors.primary }}>
             {Math.max(0, Math.ceil((processingSteps.length - currentStep) * 1.5))}s
@@ -110,7 +120,7 @@ export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
       </Card>
 
       <View style={styles.tipCard}>
-        <Text style={styles.tipText}>
+        <Text style={dynamicStyles.stepText}>
           💡 <Text style={{ fontWeight: FontWeights.bold }}>Did you know?</Text> Your skin completely renews itself every 28 days!
         </Text>
       </View>
@@ -119,38 +129,21 @@ export function AnalysisProcessing({ onComplete }: AnalysisProcessingProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1, backgroundColor: Colors.gray50,
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xl,
-  },
   iconBox: {
     width: 72, height: 72, borderRadius: BorderRadius.lg,
     alignItems: 'center', justifyContent: 'center', marginBottom: Spacing['2xl'],
   },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.sm },
-  subtitle: { fontSize: FontSizes.lg, color: Colors.gray500, marginBottom: Spacing['2xl'] },
-  card: { width: '100%', padding: Spacing['2xl'] },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
-  progressLabel: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.gray500 },
-  progressValue: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: Colors.primary },
   stepsList: { marginTop: Spacing.xl, gap: Spacing.md },
-  stepRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.base,
-    padding: Spacing.base, borderRadius: BorderRadius.base,
-  },
-  stepRowActive: { backgroundColor: Colors.primaryAlpha10 },
   stepDot: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: Colors.gray200, alignItems: 'center', justifyContent: 'center',
   },
   stepDotInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.gray400 },
-  stepText: { fontSize: FontSizes.base, fontWeight: FontWeights.medium, color: Colors.gray400, flex: 1 },
-  estimateText: { fontSize: FontSizes.sm, color: Colors.gray500, textAlign: 'center', marginTop: Spacing.xl },
   tipCard: {
     marginTop: Spacing['2xl'],
     backgroundColor: Colors.white, borderRadius: BorderRadius.base,
     padding: Spacing.lg, borderWidth: 1, borderColor: Colors.gray200,
     ...Shadows.md,
   },
-  tipText: { fontSize: FontSizes.sm, color: Colors.gray500, textAlign: 'center' },
 });

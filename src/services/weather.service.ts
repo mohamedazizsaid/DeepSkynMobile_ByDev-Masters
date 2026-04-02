@@ -55,11 +55,12 @@ const WMO_CODES: { [key: number]: { condition: string; icon: string; description
 };
 
 export const getLocation = async (): Promise<LocationData> => {
+  // If Location module is not available, return default location silently
+  if (!Location) {
+    return { latitude: 36.8065, longitude: 10.1657, city: 'Tunis', country: 'Tunisia' };
+  }
+  
   try {
-    if (!Location) {
-      throw new Error('Location module not available');
-    }
-    
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       console.warn('Location permission denied');

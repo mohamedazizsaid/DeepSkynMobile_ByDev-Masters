@@ -1,14 +1,15 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, Animated, Pressable} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, WeatherWidget, LoadingSpinner } from '../../components';
+import { Card, Badge, ProgressBar, WeatherWidget, LoadingSpinner, AccessibilityPanel } from '../../components';
 import { GuidedTour } from '../../components/tour/GuidedTour';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
 import { useNotificationStore } from '../../stores/notification.store';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, AnalysisStats } from '../../lib/types';
 import { getRelativeTime } from '../../lib/utils';
@@ -30,12 +31,47 @@ export function DashboardScreen({ navigation }: any) {
   const { user, logout, needsGuidedTour, markGuidedTourComplete } = useAuthStore();
   const { unreadCount, fetchUnreadCount } = useNotificationStore();
   const { togglePanel: openAccessibilityPanel } = useAccessibilityStore();
+  const { colors, fontSizes, settings, getAnimDuration } = useAccessibilityStyles();
   const [data, setData] = useState<DashboardData>({ latestAnalysis: null, stats: null });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
+
+  // Dynamic styles based on accessibility settings
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.background },
+    loadingContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, alignItems: 'center' as const },
+    greeting: { fontSize: fontSizes.base, color: colors.textSecondary },
+    name: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text },
+    sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
+    scoreLabel: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text },
+    scoreNumber: { fontSize: fontSizes['3xl'], fontWeight: FontWeights.bold, color: colors.primary },
+    headerButton: {
+      width: 40, height: 40, borderRadius: BorderRadius.base,
+      backgroundColor: colors.surface, alignItems: 'center' as const, justifyContent: 'center' as const,
+      borderWidth: 1, borderColor: colors.border, ...Shadows.sm,
+    },
+    dropdown: {
+      position: 'absolute' as const, top: 70, right: Spacing.xl,
+      backgroundColor: colors.surface, borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.sm, minWidth: 180, ...Shadows.lg, zIndex: 1000,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    dropdownItemText: { fontSize: fontSizes.base, fontWeight: FontWeights.medium, color: colors.text },
+    metricLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    actionCard: {
+      width: '47%' as any, backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg, padding: Spacing.lg,
+      borderWidth: 1, borderColor: colors.border, alignItems: 'center' as const, ...Shadows.sm,
+    },
+    actionLabel: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.text },
+    insightText: { flex: 1, fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+    noAnalysisText: { fontSize: fontSizes.lg, fontWeight: FontWeights.semibold, color: colors.textSecondary, marginTop: Spacing.md },
+    noAnalysisHint: { fontSize: fontSizes.sm, color: colors.textTertiary, marginTop: Spacing.xs, textAlign: 'center' as const },
+  }), [colors, fontSizes]);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -66,14 +102,14 @@ export function DashboardScreen({ navigation }: any) {
     }
   }, [needsGuidedTour]);
 
-  // Dropdown animation
+  // Dropdown animation - respects reduceMotion
   useEffect(() => {
     Animated.timing(dropdownAnim, {
       toValue: showDropdown ? 1 : 0,
-      duration: 200,
+      duration: getAnimDuration(200),
       useNativeDriver: true,
     }).start();
-  }, [showDropdown, dropdownAnim]);
+  }, [showDropdown, dropdownAnim, getAnimDuration]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -156,34 +192,34 @@ export function DashboardScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.loadingContainer}>
         <LoadingSpinner message="Chargement du tableau de bord..." />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView 
-        style={styles.container} 
+        style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{greeting} 👋</Text>
-            <Text style={styles.name}>{userName}</Text>
+            <Text style={dynamicStyles.greeting}>{greeting} 👋</Text>
+            <Text style={dynamicStyles.name}>{userName}</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
-              style={styles.headerButton}
+              style={dynamicStyles.headerButton}
               onPress={() => navigation.navigate('Notifications')}
               accessibilityLabel="Notifications"
             >
-              <Ionicons name="notifications-outline" size={22} color={Colors.gray700} />
+              <Ionicons name="notifications-outline" size={22} color={colors.text} />
               {unreadCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -191,11 +227,11 @@ export function DashboardScreen({ navigation }: any) {
               )}
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.headerButton, showDropdown && styles.headerButtonActive]}
+              style={[dynamicStyles.headerButton, showDropdown && { backgroundColor: colors.primaryLight + '20', borderColor: colors.primary }]}
               onPress={() => setShowDropdown(!showDropdown)}
               accessibilityLabel="Paramètres"
             >
-              <Ionicons name="settings-outline" size={22} color={showDropdown ? Colors.primary : Colors.gray700} />
+              <Ionicons name="settings-outline" size={22} color={showDropdown ? colors.primary : colors.text} />
             </TouchableOpacity>
           </View>
         </View>
@@ -204,7 +240,7 @@ export function DashboardScreen({ navigation }: any) {
         {showDropdown && (
           <Animated.View 
             style={[
-              styles.dropdown,
+              dynamicStyles.dropdown,
               {
                 opacity: dropdownAnim,
                 transform: [{
@@ -221,6 +257,7 @@ export function DashboardScreen({ navigation }: any) {
                 key={item.id}
                 style={[
                   styles.dropdownItem,
+                  { borderBottomColor: colors.border },
                   index === dropdownItems.length - 1 && styles.dropdownItemLast,
                 ]}
                 onPress={item.action}
@@ -229,9 +266,9 @@ export function DashboardScreen({ navigation }: any) {
                 <Ionicons 
                   name={item.icon} 
                   size={20} 
-                  color={item.color || Colors.gray700} 
+                  color={item.color || colors.text} 
                 />
-                <Text style={[styles.dropdownItemText, item.color && { color: item.color }]}>
+                <Text style={[dynamicStyles.dropdownItemText, item.color && { color: item.color }]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -253,9 +290,9 @@ export function DashboardScreen({ navigation }: any) {
       </View>
 
       {/* Skin Health Score */}
-      <Card variant="elevated" style={styles.scoreCard}>
+      <Card variant="elevated" style={[styles.scoreCard, { backgroundColor: colors.surface }]}>
         <View style={styles.scoreHeader}>
-          <Text style={styles.scoreLabel}>Score Santé Peau</Text>
+          <Text style={dynamicStyles.scoreLabel}>Score Santé Peau</Text>
           {data.stats && data.stats.totalAnalyses > 1 && (
             <Badge 
               text={`${data.stats.totalAnalyses} analyses`} 
@@ -266,35 +303,35 @@ export function DashboardScreen({ navigation }: any) {
         {skinScore > 0 ? (
           <>
             <View style={styles.scoreCircleContainer}>
-              <View style={styles.scoreCircle}>
-                <Text style={styles.scoreNumber}>{skinScore}</Text>
-                <Text style={styles.scoreOutOf}>/100</Text>
+              <View style={[styles.scoreCircle, { borderColor: colors.primary }]}>
+                <Text style={dynamicStyles.scoreNumber}>{skinScore}</Text>
+                <Text style={[styles.scoreOutOf, { color: colors.textTertiary }]}>/100</Text>
               </View>
             </View>
             {skinAge && (
               <View style={styles.ageComparison}>
                 <View style={styles.ageRow}>
-                  <Text style={styles.ageLabel}>Âge réel</Text>
-                  <View style={styles.ageBar}>
-                    <View style={[styles.ageBarFill, { width: `${Math.min((userAge / 60) * 100, 100)}%`, backgroundColor: Colors.primary }]} />
+                  <Text style={[styles.ageLabel, { color: colors.textSecondary }]}>Âge réel</Text>
+                  <View style={[styles.ageBar, { backgroundColor: colors.border }]}>
+                    <View style={[styles.ageBarFill, { width: `${Math.min((userAge / 60) * 100, 100)}%`, backgroundColor: colors.primary }]} />
                   </View>
-                  <Text style={styles.ageValue}>{userAge}</Text>
+                  <Text style={[styles.ageValue, { color: colors.primary }]}>{userAge}</Text>
                 </View>
                 <View style={styles.ageRow}>
-                  <Text style={styles.ageLabel}>Âge peau</Text>
-                  <View style={styles.ageBar}>
-                    <View style={[styles.ageBarFill, { width: `${Math.min((skinAge / 60) * 100, 100)}%`, backgroundColor: skinAge <= userAge ? Colors.success : Colors.warning }]} />
+                  <Text style={[styles.ageLabel, { color: colors.textSecondary }]}>Âge peau</Text>
+                  <View style={[styles.ageBar, { backgroundColor: colors.border }]}>
+                    <View style={[styles.ageBarFill, { width: `${Math.min((skinAge / 60) * 100, 100)}%`, backgroundColor: skinAge <= userAge ? colors.success : colors.warning }]} />
                   </View>
-                  <Text style={[styles.ageValue, { color: skinAge <= userAge ? Colors.success : Colors.warning }]}>{skinAge}</Text>
+                  <Text style={[styles.ageValue, { color: skinAge <= userAge ? colors.success : colors.warning }]}>{skinAge}</Text>
                 </View>
               </View>
             )}
           </>
         ) : (
           <View style={styles.noAnalysis}>
-            <Ionicons name="scan-outline" size={48} color={Colors.gray300} />
-            <Text style={styles.noAnalysisText}>Aucune analyse</Text>
-            <Text style={styles.noAnalysisHint}>Faites votre première analyse pour voir vos scores</Text>
+            <Ionicons name="scan-outline" size={48} color={colors.textTertiary} />
+            <Text style={dynamicStyles.noAnalysisText}>Aucune analyse</Text>
+            <Text style={dynamicStyles.noAnalysisHint}>Faites votre première analyse pour voir vos scores</Text>
           </View>
         )}
       </Card>
@@ -302,11 +339,11 @@ export function DashboardScreen({ navigation }: any) {
       {/* Skin Metrics */}
       {skinScore > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Métriques Détaillées</Text>
+          <Text style={dynamicStyles.sectionTitle}>Métriques Détaillées</Text>
           {metrics.map((metric, index) => (
             <View key={index} style={styles.metricRow}>
               <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <Text style={dynamicStyles.metricLabel}>{metric.label}</Text>
                 <Text style={[styles.metricValue, { color: metric.color }]}>{metric.value}%</Text>
               </View>
               <ProgressBar progress={metric.value} color={metric.color} height={6} />
@@ -317,19 +354,19 @@ export function DashboardScreen({ navigation }: any) {
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Actions Rapides</Text>
+        <Text style={dynamicStyles.sectionTitle}>Actions Rapides</Text>
         <View style={styles.actionsGrid}>
           {quickActions.map((action, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.actionCard}
+              style={dynamicStyles.actionCard}
               onPress={() => navigation.navigate(action.screen)}
               activeOpacity={0.7}
             >
               <LinearGradient colors={action.gradient} style={styles.actionIcon}>
                 <Ionicons name={action.icon as any} size={24} color={Colors.white} />
               </LinearGradient>
-              <Text style={styles.actionLabel}>{action.label}</Text>
+              <Text style={dynamicStyles.actionLabel}>{action.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -338,15 +375,15 @@ export function DashboardScreen({ navigation }: any) {
       {/* Recent Insights */}
       {data.latestAnalysis?.results?.recommendations && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Conseils IA</Text>
-          <Card style={styles.insightsCard}>
+          <Text style={dynamicStyles.sectionTitle}>Conseils IA</Text>
+          <Card style={[styles.insightsCard, { backgroundColor: colors.surface }]}>
             <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
               <Ionicons name="sparkles" size={20} color={Colors.white} />
             </LinearGradient>
             {data.latestAnalysis.results.recommendations.lifestyle.slice(0, 3).map((tip, index) => (
               <View key={index} style={styles.insightRow}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                <Text style={styles.insightText}>{tip}</Text>
+                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                <Text style={dynamicStyles.insightText}>{tip}</Text>
               </View>
             ))}
           </Card>
@@ -363,6 +400,9 @@ export function DashboardScreen({ navigation }: any) {
         onComplete={handleTourComplete}
       />
     )}
+    
+    {/* Accessibility Panel */}
+    <AccessibilityPanel />
     </SafeAreaView>
   );
 }

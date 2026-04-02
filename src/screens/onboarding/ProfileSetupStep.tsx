@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { Button } from '../../components/ui/Button';
 import { usersService } from '../../services/users.service';
 import { useAuthStore } from '../../stores/auth.store';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface ProfileSetupStepProps {
   onComplete: () => void;
@@ -37,6 +38,7 @@ const genderOptions: { value: Gender; label: string; emoji: string }[] = [
 
 export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
   const { loadUser } = useAuthStore();
+  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [formData, setFormData] = useState({
@@ -44,6 +46,47 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
     gender: '' as Gender,
     avatar: '',
   });
+
+  const dynamicStyles = useMemo(() => ({
+    title: {
+      fontSize: fontSizes['2xl'],
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    avatarHint: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+    },
+    form: {
+      backgroundColor: colors.card,
+    },
+    inputLabel: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    dateInputContainer: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    dateText: {
+      fontSize: fontSizes.base,
+      color: colors.text,
+    },
+    dateTextPlaceholder: {
+      color: colors.textSecondary,
+    },
+    genderOption: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    genderLabel: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+  }), [colors, fontSizes]);
 
   useEffect(() => {
     // Pre-fill data if available
@@ -125,8 +168,8 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.header}>
-        <Animated.View entering={ZoomIn.delay(300).duration(400)}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(200)).duration(getAnimDuration(500))} style={styles.header}>
+        <Animated.View entering={ZoomIn.delay(getAnimDuration(300)).duration(getAnimDuration(400))}>
           <LinearGradient
             colors={['#8B5CF6', '#6366F1']}
             style={styles.iconBadge}
@@ -135,14 +178,14 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
           </LinearGradient>
         </Animated.View>
 
-        <Text style={styles.title}>Configurez votre profil</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, dynamicStyles.title]}>Configurez votre profil</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           Ces informations nous aideront à personnaliser vos recommandations
         </Text>
       </Animated.View>
 
       {/* Avatar Picker */}
-      <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.avatarSection}>
+      <Animated.View entering={FadeInDown.delay(getAnimDuration(400)).duration(getAnimDuration(400))} style={styles.avatarSection}>
         <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
           {formData.avatar ? (
             <Image source={{ uri: formData.avatar }} style={styles.avatarImage} />
@@ -158,23 +201,24 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
             <Feather name="edit-2" size={12} color={Colors.white} />
           </View>
         </TouchableOpacity>
-        <Text style={styles.avatarHint}>Appuyez pour ajouter une photo</Text>
+        <Text style={[styles.avatarHint, dynamicStyles.avatarHint]}>Appuyez pour ajouter une photo</Text>
       </Animated.View>
 
       {/* Form */}
-      <Animated.View entering={FadeInDown.delay(500).duration(400)} style={styles.form}>
+      <Animated.View entering={FadeInDown.delay(getAnimDuration(500)).duration(getAnimDuration(400))} style={[styles.form, dynamicStyles.form]}>
         {/* Date of Birth */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Date de naissance</Text>
+          <Text style={[styles.inputLabel, dynamicStyles.inputLabel]}>Date de naissance</Text>
           <TouchableOpacity
-            style={styles.dateInputContainer}
+            style={[styles.dateInputContainer, dynamicStyles.dateInputContainer]}
             onPress={() => setShowDatePicker(true)}
             activeOpacity={0.7}
           >
             <Feather name="calendar" size={20} color={Colors.gray400} style={styles.inputIcon} />
             <Text style={[
               styles.dateText,
-              !formData.dateOfBirth && styles.dateTextPlaceholder
+              dynamicStyles.dateText,
+              !formData.dateOfBirth && [styles.dateTextPlaceholder, dynamicStyles.dateTextPlaceholder]
             ]}>
               {formData.dateOfBirth
                 ? formData.dateOfBirth.toLocaleDateString('fr-FR', {
@@ -209,7 +253,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
 
         {/* Gender Selection */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Genre</Text>
+          <Text style={[styles.inputLabel, dynamicStyles.inputLabel]}>Genre</Text>
           <View style={styles.genderOptions}>
             {genderOptions.map((option) => {
               const isSelected = formData.gender === option.value;
@@ -219,6 +263,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
                   onPress={() => setFormData(prev => ({ ...prev, gender: option.value }))}
                   style={[
                     styles.genderOption,
+                    dynamicStyles.genderOption,
                     isSelected && styles.genderOptionSelected,
                   ]}
                 >
@@ -226,6 +271,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
                   <Text
                     style={[
                       styles.genderLabel,
+                      dynamicStyles.genderLabel,
                       isSelected && styles.genderLabelSelected,
                     ]}
                   >
@@ -244,7 +290,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
       </Animated.View>
 
       {/* Submit Button */}
-      <Animated.View entering={FadeInUp.delay(700).duration(400)} style={styles.buttonContainer}>
+      <Animated.View entering={FadeInUp.delay(getAnimDuration(700)).duration(getAnimDuration(400))} style={styles.buttonContainer}>
         <Button
           onPress={handleSubmit}
           loading={loading}

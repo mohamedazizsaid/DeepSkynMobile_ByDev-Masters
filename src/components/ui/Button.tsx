@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -30,9 +31,10 @@ export function Button({
   loading = false,
   disabled = false,
   style,
-  textStyle,
+  textStyle: customTextStyle,
   fullWidth = false,
 }: ButtonProps) {
+  const { colors, textStyle, focusStyle, settings, fontSizes } = useAccessibilityStyles();
   const sizeStyles = {
     sm: { paddingVertical: 8, paddingHorizontal: 16, fontSize: FontSizes.sm },
     md: { paddingVertical: 12, paddingHorizontal: 24, fontSize: FontSizes.base },
@@ -60,11 +62,19 @@ export function Button({
               paddingHorizontal: sizeStyles[size].paddingHorizontal,
             },
             isDisabled ? styles.disabled : undefined,
+            settings.focusHighlight ? focusStyle : undefined,
             Shadows.md,
           ]}
         >
           {loading && <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />}
-          <Text style={[styles.primaryText, { fontSize: sizeStyles[size].fontSize }, textStyle]}>
+          <Text
+            style={[
+              styles.primaryText,
+              textStyle,
+              { fontSize: Math.round(sizeStyles[size].fontSize * (fontSizes.base / FontSizes.base)), color: colors.textInverse },
+              customTextStyle,
+            ]}
+          >
             {children}
           </Text>
         </LinearGradient>
@@ -84,15 +94,17 @@ export function Button({
           paddingHorizontal: sizeStyles[size].paddingHorizontal,
         },
         variant === 'outline' ? styles.outline : undefined,
+        variant === 'outline' ? { borderColor: colors.border, backgroundColor: colors.surface } : undefined,
         variant === 'ghost' ? styles.ghost : undefined,
         isDisabled ? styles.disabled : undefined,
+        settings.focusHighlight ? focusStyle : undefined,
         fullWidth ? { width: '100%' } : undefined,
         style,
       ]}
     >
       {loading && (
         <ActivityIndicator
-          color={variant === 'outline' ? Colors.primary : Colors.gray500}
+          color={variant === 'outline' ? colors.primary : colors.textSecondary}
           size="small"
           style={{ marginRight: 8 }}
         />
@@ -100,8 +112,10 @@ export function Button({
       <Text
         style={[
           variant === 'outline' ? styles.outlineText : styles.ghostText,
-          { fontSize: sizeStyles[size].fontSize },
           textStyle,
+          { fontSize: Math.round(sizeStyles[size].fontSize * (fontSizes.base / FontSizes.base)) },
+          variant === 'outline' ? { color: colors.text } : { color: colors.textSecondary },
+          customTextStyle,
         ]}
       >
         {children}

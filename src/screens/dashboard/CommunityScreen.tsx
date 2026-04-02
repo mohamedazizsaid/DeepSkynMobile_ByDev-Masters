@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, Dimensions, RefreshControl, ActivityIndicator, Alert,
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, Button, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { postsService } from '../../services/posts.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { Post, Comment } from '../../lib/types';
@@ -221,6 +222,7 @@ function StatKPI({ icon, label, value, change, color, isUp }: { icon: string; la
 // ─── Main Component ───────────────────────────────────────────────
 
 export function CommunityScreen() {
+  const { colors, fontSizes } = useAccessibilityStyles();
   const [activeTab, setActiveTab] = useState<CommunityTab>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [myPosts, setMyPosts] = useState<Post[]>([]);
@@ -229,6 +231,13 @@ export function CommunityScreen() {
   const [postText, setPostText] = useState('');
   const [publishing, setPublishing] = useState(false);
   const { user } = useAuthStore();
+
+  const dynamicStyles = useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text },
+    subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+  }), [colors, fontSizes]);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -314,12 +323,12 @@ export function CommunityScreen() {
   ];
 
   return (
-    <SafeAreaView style={s.safeArea}>
-      <View style={s.container}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
+      <View style={dynamicStyles.container}>
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.title}>Communauté</Text>
-          <Text style={s.subtitle}>Partagez votre parcours skincare</Text>
+          <Text style={dynamicStyles.title}>Communauté</Text>
+          <Text style={dynamicStyles.subtitle}>Partagez votre parcours skincare</Text>
         </View>
 
       {/* Tab Bar */}
@@ -526,11 +535,7 @@ export function CommunityScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
 
   // Tab Bar
   tabBar: {

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card, Button, Badge } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 export function SubscriptionScreen() {
   const freeFeatures = [
@@ -124,35 +125,21 @@ export function SubscriptionScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.gray50 },
-  container: { flex: 1, backgroundColor: Colors.gray50 },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  subtitle: { fontSize: FontSizes.sm, color: Colors.gray500, marginTop: Spacing.xs },
   planCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.xl },
   premiumWrapper: { marginTop: Spacing['2xl'] },
-  premiumPlan: { borderWidth: 2, borderColor: Colors.primary },
+  premiumPlan: { borderWidth: 2 },
   popularBadge: { alignItems: 'center', marginBottom: -14, zIndex: 1 },
   popularBadgeInner: { paddingHorizontal: Spacing.base, paddingVertical: 4, borderRadius: BorderRadius.full },
   popularBadgeText: { color: Colors.white, fontSize: FontSizes.sm, fontWeight: FontWeights.medium },
-  planName: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.sm },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: Spacing.xl },
-  priceAmount: { fontSize: FontSizes['3xl'], fontWeight: FontWeights.bold, color: Colors.gray900 },
-  pricePeriod: { fontSize: FontSizes.base, color: Colors.gray500 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  featureText: { fontSize: FontSizes.base, color: Colors.gray700 },
-  featureTextDisabled: { color: Colors.gray400, textDecorationLine: 'line-through' },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing['2xl'] },
-  sectionTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: Spacing.base },
   benefitsGrid: { flexDirection: 'row', gap: Spacing.md },
   benefitCard: { flex: 1, alignItems: 'center', padding: Spacing.base },
   benefitIcon: {
     width: 48, height: 48, borderRadius: BorderRadius.base,
     alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm,
   },
-  benefitTitle: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: Colors.gray900, marginBottom: 2 },
-  benefitDesc: { fontSize: FontSizes.xs, color: Colors.gray500, textAlign: 'center' },
   faqCard: { marginBottom: Spacing.md, padding: Spacing.base },
-  faqQuestion: { fontSize: FontSizes.base, fontWeight: FontWeights.semibold, color: Colors.gray900, marginBottom: Spacing.xs },
-  faqAnswer: { fontSize: FontSizes.sm, color: Colors.gray500, lineHeight: 20 },
 });
