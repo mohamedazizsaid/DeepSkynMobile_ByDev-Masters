@@ -7,6 +7,7 @@ export { Badge } from './ui/Badge';
 export { ProgressBar } from './ui/ProgressBar';
 export { ShareButton } from './ui/ShareButton';
 export { ShareRoutineModal } from './ui/ShareRoutineModal';
+export { AuthenticatedAppBar } from './ui/AuthenticatedAppBar';
 export { LoadingOverlay, LoadingSpinner } from './ui/LoadingOverlay';
 export { EmptyState } from './ui/EmptyState';
 export { ImagePicker, MultiImagePicker } from './ui/ImagePicker';

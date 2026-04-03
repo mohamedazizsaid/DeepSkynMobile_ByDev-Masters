@@ -50,7 +50,7 @@ export interface AccessibilityStyles {
     textSpacing: boolean;
     focusHighlight: boolean;
     linkHighlight: boolean;
-    language: 'fr' | 'en' | 'ar' | 'es';
+    language: 'fr' | 'en' | 'ar';
   };
   
   // TTS functions

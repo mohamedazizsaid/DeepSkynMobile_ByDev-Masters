@@ -83,7 +83,7 @@ export function ProfileScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.loadingContainer} edges={['left', 'right', 'bottom']}>
         <LoadingSpinner message={t.common.loading} />
       </SafeAreaView>
     );
@@ -107,7 +107,7 @@ export function ProfileScreen({ navigation }: any) {
   ] : [];
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}

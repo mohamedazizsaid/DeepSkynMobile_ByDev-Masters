@@ -8,14 +8,18 @@
  */
 
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
-import { StatusBar, useColorScheme, AccessibilityInfo, Platform, Text, TextInput } from 'react-native';
+import { StatusBar, useColorScheme, AccessibilityInfo, Platform, Text, TextInput, TouchableOpacity, ViewStyle } from 'react-native';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
 import { useAccessibilityStyles, AccessibilityStyles } from '../../stores/useAccessibilityStyles';
 
 // Create context
 const AccessibilityContext = createContext<AccessibilityStyles | null>(null);
-const originalTextDefaultProps = Text.defaultProps ? { ...Text.defaultProps } : {};
-const originalTextInputDefaultProps = TextInput.defaultProps ? { ...TextInput.defaultProps } : {};
+const TextComponent: any = Text;
+const TextInputComponent: any = TextInput;
+const TouchableOpacityComponent: any = TouchableOpacity;
+const originalTextDefaultProps = TextComponent.defaultProps ? { ...TextComponent.defaultProps } : {};
+const originalTextInputDefaultProps = TextInputComponent.defaultProps ? { ...TextInputComponent.defaultProps } : {};
+const originalTouchableOpacityDefaultProps = TouchableOpacityComponent.defaultProps ? { ...TouchableOpacityComponent.defaultProps } : {};
 
 interface AccessibilityProviderProps {
   children: ReactNode;
@@ -103,28 +107,67 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
       });
     }
 
-    Text.defaultProps = Text.defaultProps || {};
-    Text.defaultProps = {
+    TextComponent.defaultProps = TextComponent.defaultProps || {};
+    TextComponent.defaultProps = {
       ...originalTextDefaultProps,
-      ...Text.defaultProps,
+      ...TextComponent.defaultProps,
       style: [originalTextDefaultProps.style, baseTextStyle],
     };
 
-    TextInput.defaultProps = TextInput.defaultProps || {};
-    TextInput.defaultProps = {
+    TextInputComponent.defaultProps = TextInputComponent.defaultProps || {};
+    TextInputComponent.defaultProps = {
       ...originalTextInputDefaultProps,
-      ...TextInput.defaultProps,
+      ...TextInputComponent.defaultProps,
       style: [originalTextInputDefaultProps.style, baseInputStyle],
     };
 
     return () => {
-      Text.defaultProps = { ...originalTextDefaultProps };
-      TextInput.defaultProps = { ...originalTextInputDefaultProps };
+      TextComponent.defaultProps = { ...originalTextDefaultProps };
+      TextInputComponent.defaultProps = { ...originalTextInputDefaultProps };
     };
   }, [
     accessibilityStyles.colors.text,
     accessibilityStyles.settings.textSpacing,
     accessibilityStyles.settings.dyslexiaFont,
+  ]);
+
+  // Apply focus and link highlight styles globally to interactive touchables.
+  useEffect(() => {
+    const interactiveA11yStyle: ViewStyle = {
+      ...(accessibilityStyles.settings.focusHighlight
+        ? {
+            borderWidth: 2,
+            borderColor: accessibilityStyles.colors.primary,
+            shadowColor: accessibilityStyles.colors.primary,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3,
+            elevation: 2,
+          }
+        : {}),
+      ...(accessibilityStyles.settings.linkHighlight
+        ? {
+            borderBottomWidth: 2,
+            borderBottomColor: accessibilityStyles.colors.link,
+          }
+        : {}),
+    };
+
+    TouchableOpacityComponent.defaultProps = TouchableOpacityComponent.defaultProps || {};
+    TouchableOpacityComponent.defaultProps = {
+      ...originalTouchableOpacityDefaultProps,
+      ...TouchableOpacityComponent.defaultProps,
+      style: [originalTouchableOpacityDefaultProps.style, interactiveA11yStyle],
+    };
+
+    return () => {
+      TouchableOpacityComponent.defaultProps = { ...originalTouchableOpacityDefaultProps };
+    };
+  }, [
+    accessibilityStyles.settings.focusHighlight,
+    accessibilityStyles.settings.linkHighlight,
+    accessibilityStyles.colors.primary,
+    accessibilityStyles.colors.link,
   ]);
   
   return (

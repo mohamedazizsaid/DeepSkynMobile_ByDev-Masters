@@ -71,8 +71,6 @@ export function LoginScreen({ navigation }: any) {
 
       if (result.requiresTwoFactor) {
         setShowTwoFactor(true);
-      } else if (result.success) {
-        navigation.navigate('Main');
       }
     } catch (error: any) {
       Alert.alert(t.common.error, error.response?.data?.message || t.auth.invalidCredentials);
@@ -84,7 +82,6 @@ export function LoginScreen({ navigation }: any) {
       const success = await faceLogin(email);
       if (success) {
         setShowFaceID(false);
-        navigation.navigate('Main');
       } else {
         Alert.alert(t.common.error, t.auth.faceIdError);
         setShowFaceID(false);

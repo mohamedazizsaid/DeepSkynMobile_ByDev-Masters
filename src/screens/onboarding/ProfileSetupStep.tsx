@@ -139,7 +139,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
       await loadUser();
       onComplete();
     } catch (error) {
-      Alert.alert(t.common.error, t.onboarding.logoutError); // Or generic error
+      Alert.alert(t.common.error, t.onboarding.error || t.common.error);
     } finally {
       setLoading(false);
     }

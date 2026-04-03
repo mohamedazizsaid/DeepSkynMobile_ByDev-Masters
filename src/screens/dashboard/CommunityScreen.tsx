@@ -330,7 +330,7 @@ export function CommunityScreen() {
   ];
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <View style={dynamicStyles.container}>
         {/* Header */}
         <View style={s.header}>

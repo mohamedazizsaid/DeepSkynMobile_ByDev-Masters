@@ -16,7 +16,10 @@ import {
   MaterialCommunityIcons,
   Ionicons,
 } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
+import { useAuthStore } from '../../stores/auth.store';
+import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { ToggleSwitch } from './ToggleSwitch';
 import { useTranslation } from '../../lib/i18n';
@@ -31,9 +34,11 @@ interface SectionHeaderProps {
   label: string;
   isOpen?: boolean;
   onToggle?: () => void;
+  textStyle?: any;
+  textColor?: string;
 }
 
-function SectionHeader({ icon, label, isOpen, onToggle }: SectionHeaderProps) {
+function SectionHeader({ icon, label, isOpen, onToggle, textStyle, textColor }: SectionHeaderProps) {
   return (
     <TouchableOpacity
       onPress={onToggle}
@@ -41,9 +46,10 @@ function SectionHeader({ icon, label, isOpen, onToggle }: SectionHeaderProps) {
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ expanded: isOpen }}
+      accessibilityLabel={label}
     >
       {icon}
-      <Text style={styles.sectionLabel}>{label}</Text>
+      <Text style={[styles.sectionLabel, textStyle, textColor ? { color: textColor } : null]}>{label}</Text>
       {onToggle && (
         <Feather
           name={isOpen ? 'chevron-up' : 'chevron-down'}
@@ -64,17 +70,31 @@ interface FeatureCardProps {
   title: string;
   description: string;
   action: React.ReactNode;
+  textStyle?: any;
+  titleColor?: string;
+  descriptionColor?: string;
+  containerStyle?: any;
 }
 
-function FeatureCard({ icon, iconBgColor, title, description, action }: FeatureCardProps) {
+function FeatureCard({
+  icon,
+  iconBgColor,
+  title,
+  description,
+  action,
+  textStyle,
+  titleColor,
+  descriptionColor,
+  containerStyle,
+}: FeatureCardProps) {
   return (
-    <View style={styles.featureCard}>
+    <View style={[styles.featureCard, containerStyle]}>
       <View style={[styles.featureIconContainer, { backgroundColor: iconBgColor }]}>
         {icon}
       </View>
       <View style={styles.featureContent}>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
+        <Text style={[styles.featureTitle, textStyle, titleColor ? { color: titleColor } : null]}>{title}</Text>
+        <Text style={[styles.featureDescription, textStyle, descriptionColor ? { color: descriptionColor } : null]}>{description}</Text>
       </View>
       <View style={styles.featureAction}>{action}</View>
     </View>
@@ -94,7 +114,14 @@ interface ContrastButtonProps {
 function ContrastButton({ label, isActive, onPress, gradient }: ContrastButtonProps) {
   if (isActive && gradient) {
     return (
-      <TouchableOpacity onPress={onPress} style={styles.contrastButtonWrapper} activeOpacity={0.8}>
+      <TouchableOpacity
+        onPress={onPress}
+        style={styles.contrastButtonWrapper}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: true }}
+      >
         <LinearGradient
           colors={[...gradient]}
           start={{ x: 0, y: 0 }}
@@ -116,6 +143,9 @@ function ContrastButton({ label, isActive, onPress, gradient }: ContrastButtonPr
         isActive && !gradient && styles.contrastButtonActiveNoGradient,
       ]}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: isActive }}
     >
       <View
         style={[
@@ -140,6 +170,9 @@ function ContrastButton({ label, isActive, onPress, gradient }: ContrastButtonPr
 // ─────────────────────────────────────────────────────────────────────────────
 export function AccessibilityPanel() {
   const store = useAccessibilityStore();
+  const { textStyle, fontSizes } = useAccessibilityStyles();
+  const insets = useSafeAreaInsets();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   
   // Safe access with fallback defaults
   const theme = store?.theme ?? 'light';
@@ -207,10 +240,10 @@ export function AccessibilityPanel() {
     { code: 'fr' as const, label: 'Français', flag: '🇫🇷' },
     { code: 'en' as const, label: 'English', flag: '🇬🇧' },
     { code: 'ar' as const, label: 'العربية', flag: '🇸🇦' },
-    { code: 'es' as const, label: 'Español', flag: '🇪🇸' }
   ];
 
   const isDark = theme === 'dark';
+  const fabBottom = isAuthenticated ? insets.bottom + 78 : insets.bottom + 20;
 
   // ── FAB (Floating Action Button) ──────────────────────────────────────
   if (!isPanelOpen) {
@@ -220,7 +253,7 @@ export function AccessibilityPanel() {
         activeOpacity={0.8}
         accessibilityLabel={t.accessibility.openPanel}
         accessibilityRole="button"
-        style={styles.fab}
+        style={[styles.fab, { bottom: fabBottom }]}
       >
         <LinearGradient
           colors={['#0EA5E9', '#06B6D4']}
@@ -237,14 +270,17 @@ export function AccessibilityPanel() {
     <Modal
       visible={isPanelOpen}
       transparent
-      animationType="slide"
+      animationType={reduceMotion ? 'none' : 'slide'}
       onRequestClose={closePanel}
+      accessibilityViewIsModal
     >
       <View style={styles.modalOverlay}>
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
           onPress={closePanel}
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
         />
         
         <View style={styles.panelContainer}>
@@ -281,6 +317,8 @@ export function AccessibilityPanel() {
                 closePanel={closePanel}
                 handleResetAll={handleResetAll}
                 toggle={toggle}
+                textStyle={textStyle}
+                dynamicFontSizes={fontSizes}
               />
             </BlurView>
           ) : (
@@ -316,6 +354,8 @@ export function AccessibilityPanel() {
                 closePanel={closePanel}
                 handleResetAll={handleResetAll}
                 toggle={toggle}
+                textStyle={textStyle}
+                dynamicFontSizes={fontSizes}
               />
             </View>
           )}
@@ -339,7 +379,7 @@ interface PanelContentProps {
   linkHighlight: boolean;
   isSpeaking: boolean;
   speechRate: number;
-  language: 'fr' | 'en' | 'ar' | 'es';
+  language: 'fr' | 'en' | 'ar';
   openSections: { appearance: boolean; vision: boolean; speech: boolean; language: boolean };
   toggleTheme: () => void;
   setContrastMode: (mode: 'off' | 'medium' | 'high') => void;
@@ -353,12 +393,14 @@ interface PanelContentProps {
   resetZoom: () => void;
   stopSpeaking: () => void;
   setSpeechRate: (rate: number) => void;
-  setLanguage: (language: 'fr' | 'en' | 'ar' | 'es') => void;
+  setLanguage: (language: 'fr' | 'en' | 'ar') => void;
   handleTestSpeech: () => void;
-  languageOptions: Array<{ code: 'fr' | 'en' | 'ar' | 'es'; label: string; flag: string }>;
+  languageOptions: Array<{ code: 'fr' | 'en' | 'ar'; label: string; flag: string }>;
   closePanel: () => void;
   handleResetAll: () => void;
   toggle: (key: 'appearance' | 'vision' | 'speech' | 'language') => void;
+  textStyle: any;
+  dynamicFontSizes: any;
 }
 
 function PanelContent({
@@ -392,6 +434,8 @@ function PanelContent({
   closePanel,
   handleResetAll,
   toggle,
+  textStyle,
+  dynamicFontSizes,
 }: PanelContentProps) {
   const { t } = useTranslation();
   const isDark = theme === 'dark';
@@ -425,18 +469,18 @@ function PanelContent({
             <Ionicons name="alert-circle" size={16} color={Colors.warning} />
           </LinearGradient>
           <View>
-            <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            <Text style={[styles.headerTitle, textStyle, { fontSize: dynamicFontSizes.base }, isDark && styles.textLight]}>
               Accessibilité
             </Text>
-            <Text style={styles.headerSubtitle}>Personnalisez votre expérience</Text>
+            <Text style={[styles.headerSubtitle, textStyle, { fontSize: dynamicFontSizes.xs }]}>Personnalisez votre expérience</Text>
           </View>
         </View>
         <TouchableOpacity
           onPress={closePanel}
-          style={styles.closeButton}
+          style={[styles.closeButton, isDark && styles.closeButtonDark]}
           accessibilityLabel={t.accessibility.closePanel}
         >
-          <Feather name="x" size={18} color={Colors.gray500} />
+          <Feather name="x" size={18} color={isDark ? Colors.gray300 : Colors.gray500} />
         </TouchableOpacity>
       </View>
 
@@ -457,6 +501,8 @@ function PanelContent({
             label={t.accessibility.appearance}
             isOpen={openSections.appearance}
             onToggle={() => toggle('appearance')}
+            textStyle={textStyle}
+            textColor={isDark ? Colors.gray300 : Colors.gray400}
           />
 
           {openSections.appearance && (
@@ -473,6 +519,10 @@ function PanelContent({
                 iconBgColor={isDark ? Colors.indigo : Colors.amber}
                 title={t.accessibility.darkMode}
                 description={isDark ? t.accessibility.darkEnabled : t.accessibility.lightEnabled}
+                textStyle={textStyle}
+                titleColor={isDark ? Colors.white : Colors.gray900}
+                descriptionColor={Colors.gray400}
+                containerStyle={panelThemeStyles.cardBackground}
                 action={
                   <ToggleSwitch
                     checked={isDark}
@@ -609,6 +659,8 @@ function PanelContent({
             label="VISION"
             isOpen={openSections.vision}
             onToggle={() => toggle('vision')}
+            textStyle={textStyle}
+            textColor={isDark ? Colors.gray300 : Colors.gray400}
           />
 
           {openSections.vision && (
@@ -618,6 +670,10 @@ function PanelContent({
                 iconBgColor={Colors.purple}
                 title={t.accessibility.reduceAnimations}
                 description={t.accessibility.reduceAnimationsDesc}
+                textStyle={textStyle}
+                titleColor={isDark ? Colors.white : Colors.gray900}
+                descriptionColor={Colors.gray400}
+                containerStyle={panelThemeStyles.cardBackground}
                 action={
                   <ToggleSwitch
                     checked={reduceMotion}
@@ -634,6 +690,10 @@ function PanelContent({
                 iconBgColor={Colors.info}
                 title={t.accessibility.dyslexiaFont}
                 description={t.accessibility.dyslexiaFontDesc}
+                textStyle={textStyle}
+                titleColor={isDark ? Colors.white : Colors.gray900}
+                descriptionColor={Colors.gray400}
+                containerStyle={panelThemeStyles.cardBackground}
                 action={
                   <ToggleSwitch
                     checked={dyslexiaFont}
@@ -650,6 +710,10 @@ function PanelContent({
                 iconBgColor={Colors.teal}
                 title={t.accessibility.textSpacing}
                 description={t.accessibility.textSpacingDesc}
+                textStyle={textStyle}
+                titleColor={isDark ? Colors.white : Colors.gray900}
+                descriptionColor={Colors.gray400}
+                containerStyle={panelThemeStyles.cardBackground}
                 action={
                   <ToggleSwitch
                     checked={textSpacing}
@@ -663,9 +727,13 @@ function PanelContent({
 
               <FeatureCard
                 icon={<Feather name="target" size={18} color={Colors.white} />}
-                iconBgColor={Colors.orange}
+                iconBgColor={Colors.warning}
                 title={t.accessibility.focusIndicator}
                 description={t.accessibility.focusIndicatorDesc}
+                textStyle={textStyle}
+                titleColor={isDark ? Colors.white : Colors.gray900}
+                descriptionColor={Colors.gray400}
+                containerStyle={panelThemeStyles.cardBackground}
                 action={
                   <ToggleSwitch
                     checked={focusHighlight}
@@ -682,6 +750,10 @@ function PanelContent({
                 iconBgColor={Colors.pink}
                 title={t.accessibility.highlightLinks}
                 description={t.accessibility.highlightLinksDesc}
+                textStyle={textStyle}
+                titleColor={isDark ? Colors.white : Colors.gray900}
+                descriptionColor={Colors.gray400}
+                containerStyle={panelThemeStyles.cardBackground}
                 action={
                   <ToggleSwitch
                     checked={linkHighlight}
@@ -703,6 +775,8 @@ function PanelContent({
             label={t.accessibility.voiceReading}
             isOpen={openSections.speech}
             onToggle={() => toggle('speech')}
+            textStyle={textStyle}
+            textColor={isDark ? Colors.gray300 : Colors.gray400}
           />
 
           {openSections.speech && (
@@ -790,6 +864,8 @@ function PanelContent({
             label={t.accessibility.language}
             isOpen={openSections.language}
             onToggle={() => toggle('language')}
+            textStyle={textStyle}
+            textColor={isDark ? Colors.gray300 : Colors.gray400}
           />
 
           {openSections.language && (
@@ -826,15 +902,15 @@ function PanelContent({
         {/* ══════════════════════════════════════════════════════════════
             RESET
            ══════════════════════════════════════════════════════════════ */}
-        <TouchableOpacity onPress={handleResetAll} style={styles.resetButton}>
-          <Feather name="rotate-ccw" size={14} color={Colors.gray500} />
-          <Text style={styles.resetButtonText}>{t.accessibility.resetSettings}</Text>
+        <TouchableOpacity onPress={handleResetAll} style={[styles.resetButton, isDark && styles.resetButtonDark]}>
+          <Feather name="rotate-ccw" size={14} color={isDark ? Colors.gray300 : Colors.gray500} />
+          <Text style={[styles.resetButtonText, isDark && styles.resetButtonTextDark]}>{t.accessibility.resetSettings}</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>DeepSkyn Accessibility Engine</Text>
+      <View style={[styles.footer, isDark && styles.footerDark]}>
+        <Text style={[styles.footerText, isDark && styles.footerTextDark]}>DeepSkyn Accessibility Engine</Text>
       </View>
     </>
   );
@@ -867,7 +943,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'transparent',
   },
   panelContainer: {
     minHeight: SCREEN_HEIGHT * 0.7,
@@ -923,6 +999,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray100,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  closeButtonDark: {
+    backgroundColor: Colors.gray800,
   },
 
   divider: {
@@ -1124,10 +1203,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray50,
     gap: Spacing.sm,
   },
+  resetButtonDark: {
+    backgroundColor: Colors.gray800,
+  },
   resetButtonText: {
     fontSize: FontSizes.sm,
     color: Colors.gray500,
     fontWeight: FontWeights.medium,
+  },
+  resetButtonTextDark: {
+    color: Colors.gray300,
   },
 
   // Footer
@@ -1138,12 +1223,19 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.gray100,
     backgroundColor: Colors.gray50,
   },
+  footerDark: {
+    borderTopColor: Colors.gray700,
+    backgroundColor: Colors.gray900,
+  },
   footerText: {
     fontSize: 10,
     fontWeight: FontWeights.bold,
     color: Colors.gray400,
     letterSpacing: 2,
     textTransform: 'uppercase',
+  },
+  footerTextDark: {
+    color: Colors.gray500,
   },
 
   // Text variants

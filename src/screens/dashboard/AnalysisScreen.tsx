@@ -112,7 +112,7 @@ export function AnalysisScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
         <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message={t.common.loading} />
         </View>
@@ -137,7 +137,7 @@ export function AnalysisScreen() {
   // Upload mode
   if (mode === 'upload') {
     return (
-      <SafeAreaView style={dynamicStyles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
         <LoadingOverlay visible={uploading} message={t.dashboard.analysisInProgress} />
         <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
@@ -193,7 +193,7 @@ export function AnalysisScreen() {
   // Results mode (or empty state)
   if (!latestAnalysis || !results) {
     return (
-      <SafeAreaView style={dynamicStyles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
         <View style={dynamicStyles.container}>
           <EmptyState
             icon="scan-outline"
@@ -208,7 +208,7 @@ export function AnalysisScreen() {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}

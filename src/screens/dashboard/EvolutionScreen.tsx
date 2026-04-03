@@ -130,7 +130,7 @@ export function EvolutionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]} edges={['left', 'right', 'bottom']}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={dynamicStyles.loadingText}>{t.common.loading}</Text>
       </SafeAreaView>
@@ -138,7 +138,7 @@ export function EvolutionScreen() {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}

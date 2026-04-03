@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, Animated, Pressable} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Animated, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, WeatherWidget, LoadingSpinner, AccessibilityPanel } from '../../components';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import { Card, Badge, Button, ProgressBar, WeatherWidget, LoadingSpinner } from '../../components';
 import { GuidedTour } from '../../components/tour/GuidedTour';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
@@ -13,7 +14,6 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, AnalysisStats } from '../../lib/types';
-import { getRelativeTime } from '../../lib/utils';
 
 interface DashboardData {
   latestAnalysis: Analysis | null;
@@ -32,7 +32,7 @@ export function DashboardScreen({ navigation }: any) {
   const { user, logout, needsGuidedTour, markGuidedTourComplete } = useAuthStore();
   const { unreadCount, fetchUnreadCount } = useNotificationStore();
   const { togglePanel: openAccessibilityPanel } = useAccessibilityStore();
-  const { colors, fontSizes, settings, getAnimDuration } = useAccessibilityStyles();
+  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
   const { t } = useTranslation();
   const [data, setData] = useState<DashboardData>({ latestAnalysis: null, stats: null });
   const [loading, setLoading] = useState(true);
@@ -40,14 +40,46 @@ export function DashboardScreen({ navigation }: any) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
+  const isNavigatingFromSwipe = useRef(false);
 
   // Dynamic styles based on accessibility settings
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
     loadingContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, alignItems: 'center' as const },
+    headerCard: {
+      marginHorizontal: Spacing.xl,
+      marginTop: Spacing.md,
+      marginBottom: Spacing.md,
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.md,
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Shadows.sm,
+    },
+    profileRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: Spacing.md,
+      flex: 1,
+    },
+    avatarFallback: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    avatarInitials: {
+      fontSize: fontSizes.base,
+      fontWeight: FontWeights.bold,
+      color: Colors.white,
+    },
     greeting: { fontSize: fontSizes.base, color: colors.textSecondary },
     name: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text },
+    userMeta: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: 2 },
     sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
     scoreLabel: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text },
     scoreNumber: { fontSize: fontSizes['3xl'], fontWeight: FontWeights.bold, color: colors.primary },
@@ -73,6 +105,57 @@ export function DashboardScreen({ navigation }: any) {
     insightText: { flex: 1, fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
     noAnalysisText: { fontSize: fontSizes.lg, fontWeight: FontWeights.semibold, color: colors.textSecondary, marginTop: Spacing.md },
     noAnalysisHint: { fontSize: fontSizes.sm, color: colors.textTertiary, marginTop: Spacing.xs, textAlign: 'center' as const },
+    communityCard: {
+      padding: Spacing.lg,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      ...Shadows.md,
+    },
+    communityBadge: {
+      alignSelf: 'flex-start' as const,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 4,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.primary + '15',
+      marginBottom: Spacing.sm,
+    },
+    communityBadgeText: {
+      fontSize: fontSizes.xs,
+      fontWeight: FontWeights.semibold,
+      color: colors.primary,
+    },
+    communityHeader: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      marginBottom: Spacing.sm,
+    },
+    communityTitle: {
+      fontSize: fontSizes.lg,
+      fontWeight: FontWeights.bold,
+      color: colors.text,
+      flex: 1,
+      marginRight: Spacing.sm,
+    },
+    communityDescription: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      marginBottom: Spacing.base,
+    },
+    communityMetaRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: Spacing.sm,
+      marginBottom: Spacing.base,
+    },
+    communityMetaText: {
+      fontSize: fontSizes.xs,
+      color: colors.textTertiary,
+      flex: 1,
+    },
   }), [colors, fontSizes]);
 
   const loadDashboardData = useCallback(async () => {
@@ -128,6 +211,26 @@ export function DashboardScreen({ navigation }: any) {
     await logout();
   }, [logout]);
 
+  const handleDashboardSwipe = useCallback((event: any) => {
+    const { state, translationX, velocityX } = event.nativeEvent;
+
+    if (state !== State.END || isNavigatingFromSwipe.current) {
+      return;
+    }
+
+    const isStrongLeftSwipe = translationX < -90 && velocityX < -500;
+    const isLongLeftSwipe = translationX < -150;
+
+    if (isStrongLeftSwipe || isLongLeftSwipe) {
+      isNavigatingFromSwipe.current = true;
+      navigation.navigate('Community');
+
+      setTimeout(() => {
+        isNavigatingFromSwipe.current = false;
+      }, 350);
+    }
+  }, [navigation]);
+
   const dropdownItems: DropdownMenuItem[] = [
     {
       id: 'accessibility',
@@ -155,14 +258,7 @@ export function DashboardScreen({ navigation }: any) {
         setShowDropdown(false);
         navigation.navigate('Profile');
       },
-    },
-    {
-      id: 'logout',
-      label: t.nav.logout,
-      icon: 'log-out-outline',
-      color: Colors.error,
-      action: handleLogout,
-    },
+    }
   ];
 
   const skinScore = data.latestAnalysis?.healthScore ?? 0;
@@ -190,30 +286,54 @@ export function DashboardScreen({ navigation }: any) {
   ];
 
   const greeting = getGreeting(t);
-  const userName = user?.firstName || user?.username || t.common.user;
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const userName = fullName || user?.name || user?.username || t.common.user;
+  const userEmail = user?.email || '';
+  const userInitials = userName
+    .split(' ')
+    .filter(Boolean)
+    .map((name: string) => name[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.loadingContainer}>
+      <SafeAreaView style={dynamicStyles.loadingContainer} edges={['left', 'right', 'bottom']}>
         <LoadingSpinner message={t.common.loading} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
-      <ScrollView 
-        style={dynamicStyles.container} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-        }
-      >
+    <PanGestureHandler
+      onHandlerStateChange={handleDashboardSwipe}
+      activeOffsetX={[-20, 20]}
+      failOffsetY={[-12, 12]}
+    >
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+        <ScrollView 
+          style={dynamicStyles.container} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+          }
+        >
         {/* Header */}
-        <View style={styles.header}>
-          <View>
+        <View style={[styles.header, dynamicStyles.headerCard]}>
+          <View style={dynamicStyles.profileRow}>
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+            ) : (
+              <LinearGradient colors={Gradients.primary} style={dynamicStyles.avatarFallback}>
+                <Text style={dynamicStyles.avatarInitials}>{userInitials}</Text>
+              </LinearGradient>
+            )}
+            <View style={{ flex: 1 }}>
             <Text style={dynamicStyles.greeting}>{greeting} 👋</Text>
             <Text style={dynamicStyles.name}>{userName}</Text>
+            {!!userEmail && <Text style={dynamicStyles.userMeta}>{userEmail}</Text>}
+            </View>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
@@ -233,7 +353,7 @@ export function DashboardScreen({ navigation }: any) {
               onPress={() => setShowDropdown(!showDropdown)}
               accessibilityLabel="Paramètres"
             >
-              <Ionicons name="settings-outline" size={22} color={showDropdown ? colors.primary : colors.text} />
+              <Ionicons name="list-outline" size={22} color={showDropdown ? colors.primary : colors.text} />
             </TouchableOpacity>
           </View>
         </View>
@@ -356,6 +476,40 @@ export function DashboardScreen({ navigation }: any) {
 
       {/* Quick Actions */}
       <View style={styles.section}>
+        <Text style={dynamicStyles.sectionTitle}>{t.nav.community || 'Communaute'}</Text>
+        <Card variant="elevated" style={dynamicStyles.communityCard as any}>
+          <View style={dynamicStyles.communityBadge}>
+            <Text style={dynamicStyles.communityBadgeText}>{t.dashboard.communityAction || 'Nouveau'}</Text>
+          </View>
+
+          <View style={dynamicStyles.communityHeader}>
+            <Text style={dynamicStyles.communityTitle}>
+              {t.community?.suggestionsForYou || 'Rejoignez la communaute DeepSkyn'}
+            </Text>
+            <LinearGradient colors={Gradients.primary} style={styles.communityIconWrap}>
+              <Ionicons name="people-outline" size={20} color={Colors.white} />
+            </LinearGradient>
+          </View>
+
+          <Text style={dynamicStyles.communityDescription}>
+            {t.community?.skinEnthusiasts || 'Partagez vos routines, obtenez des retours et decouvrez des conseils adaptes a votre profil.'}
+          </Text>
+
+          <View style={dynamicStyles.communityMetaRow}>
+            <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
+            <Text style={dynamicStyles.communityMetaText}>
+              {t.dashboard.personalizedAdvice || 'Conseils personnalises et interactions utiles'}
+            </Text>
+          </View>
+
+          <Button onPress={() => navigation.navigate('Community')} fullWidth>
+            {t.nav.community || 'Acceder a la communaute'}
+          </Button>
+        </Card>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.section}>
         <Text style={dynamicStyles.sectionTitle}>Actions Rapides</Text>
         <View style={styles.actionsGrid}>
           {quickActions.map((action, index) => (
@@ -392,20 +546,18 @@ export function DashboardScreen({ navigation }: any) {
         </View>
       )}
 
-      <View style={{ height: 30 }} />
-    </ScrollView>
-    
-    {/* Guided Tour */}
-    {showTour && (
-      <GuidedTour
-        forceShow={true}
-        onComplete={handleTourComplete}
-      />
-    )}
-    
-    {/* Accessibility Panel */}
-    <AccessibilityPanel />
-    </SafeAreaView>
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      
+      {/* Guided Tour */}
+      {showTour && (
+        <GuidedTour
+          forceShow={true}
+          onComplete={handleTourComplete}
+        />
+      )}
+      </SafeAreaView>
+    </PanGestureHandler>
   );
 }
 
@@ -429,6 +581,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   headerButton: {
     width: 40,
@@ -531,6 +688,13 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: FontSizes.sm, color: Colors.gray700 },
   metricValue: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold },
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  communityIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actionCard: {
     width: '47%', backgroundColor: Colors.white,
     borderRadius: BorderRadius.lg, padding: Spacing.lg,

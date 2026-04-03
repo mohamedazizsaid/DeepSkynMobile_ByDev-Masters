@@ -64,4 +64,9 @@ export const routineService = {
     const res = await apiClient.post<any>(`/routines/${routineId}/share`, data);
     return res.data;
   },
+
+  async completeStep(routineId: string, stepOrder: number): Promise<Routine> {
+    const res = await apiClient.post<Routine>(`/routines/${routineId}/complete-step`, { stepOrder });
+    return res.data;
+  },
 };

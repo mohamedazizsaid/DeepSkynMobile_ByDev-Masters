@@ -1,11 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  Animated,
   StyleSheet,
-  TouchableOpacity,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +16,89 @@ import { useTranslation } from '../../lib/i18n';
 export function LandingScreen({ navigation }: any) {
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const topHeroTranslateY = scrollY.interpolate({
+    inputRange: [0, 120],
+    outputRange: [0, -92],
+    extrapolate: 'clamp',
+  });
+
+  const topHeroOpacity = scrollY.interpolate({
+    inputRange: [0, 70, 140],
+    outputRange: [1, 0.72, 0],
+    extrapolate: 'clamp',
+  });
+
+  const topHeroScale = scrollY.interpolate({
+    inputRange: [0, 120],
+    outputRange: [1, 0.95],
+    extrapolate: 'clamp',
+  });
+
+  const landing = {
+    heroTag: 'Analyse IA',
+    heroTitle1: 'Votre compagnon personnel de',
+    heroTitleGradient: 'santé de la peau',
+    heroTitle2: '',
+    heroDesc: 'Analyse IA, routines personnalisées et conseils experts pour votre peau.',
+    heroStart: 'Commencer',
+    heroWatchDemo: 'Voir la démo',
+    activeUsers: 'Utilisateurs actifs',
+    userRating: 'Note utilisateur',
+    satisfaction: 'Satisfaction',
+    skinHealthScore: 'Score de santé de la peau',
+    featuresTitle: 'Fonctionnalités puissantes',
+    featuresDesc: 'Tout ce qu\'il faut pour une peau en meilleure santé',
+    feature1Title: 'Analyse IA',
+    feature1Desc: 'Analyse précise de votre peau',
+    feature2Title: 'Routines personnalisées',
+    feature2Desc: 'Des soins adaptés à votre profil',
+    feature3Title: 'Suivi des progrès',
+    feature3Desc: 'Mesurez l\'évolution de votre peau',
+    feature4Title: 'Recommandations intelligentes',
+    feature4Desc: 'Recevez des conseils adaptés à vos besoins',
+    whyChoose: 'Pourquoi choisir',
+    whyDesc: 'Une plateforme complète qui combine IA et expertise dermatologique.',
+    benefits: Array.isArray((t.landing as any).benefits) ? (t.landing as any).benefits : [],
+    lovedBy: 'Apprécié par des milliers de personnes',
+    lovedDesc: 'Découvrez les retours de nos utilisateurs',
+    pricingTitle: 'Tarifs simples et transparents',
+    pricingDesc: 'Choisissez le plan qui vous convient',
+    free: 'Gratuit',
+    freeFeatures: ['Analyse de base', 'Routine personnalisée', 'Rapports mensuels'],
+    premium: 'Premium',
+    mostPopular: 'Le plus populaire',
+    premiumFeatures: ['Analyse IA avancée', 'Coach dermatologique IA', 'Suivi illimité', 'Support prioritaire'],
+    enterprise: 'Entreprise',
+    enterprisePrice: 'Sur mesure',
+    enterpriseFeatures: ['Espace équipe multi-utilisateurs', 'Tableau de bord avancé', 'Intégrations API dédiées', 'Support prioritaire'],
+    contactSales: 'Contacter les ventes',
+    startTrial: 'Essai Premium',
+    readyToTransform: 'Prêt à transformer votre peau ?',
+    joinThousands: 'Rejoignez des milliers d\'utilisateurs qui progressent chaque jour',
+    freeAnalysis: 'Commencer l\'analyse gratuite',
+    navGetStarted: 'Commencer',
+    footerDesc: 'Votre compagnon peau propulsé par l\'IA.',
+    product: 'Produit',
+    company: 'Entreprise',
+    legal: 'Légal',
+    footerFeatures: 'Fonctionnalités',
+    footerPricing: 'Tarifs',
+    footerFaq: 'FAQ',
+    footerAbout: 'À propos',
+    footerBlog: 'Blog',
+    footerCareers: 'Carrières',
+    footerPrivacy: 'Confidentialité',
+    footerTerms: 'Conditions',
+    footerSecurity: 'Sécurité',
+    allRightsReserved: 'Tous droits réservés.',
+  };
+
+  const auth = {
+    haveAccount: (t.auth as any).haveAccount ?? (t.auth as any).hasAccount ?? 'Vous avez déjà un compte ?',
+    signIn: (t.auth as any).signIn ?? (t.auth as any).loginLink ?? 'Se connecter',
+  };
 
   const dynamicStyles = useMemo(() => ({
     container: { flex: 1, backgroundColor: colors.background },
@@ -48,13 +129,13 @@ export function LandingScreen({ navigation }: any) {
   }), [colors, fontSizes]);
 
   const features = [
-    { icon: 'sparkles' as const, title: t.landing.feature1Title, description: t.landing.feature1Desc },
-    { icon: 'calendar-outline' as const, title: t.landing.feature2Title, description: t.landing.feature2Desc },
-    { icon: 'trending-up-outline' as const, title: t.landing.feature3Title, description: t.landing.feature3Desc },
-    { icon: 'sparkles-outline' as const, title: t.landing.feature4Title, description: t.landing.feature4Desc },
+    { icon: 'sparkles' as const, title: landing.feature1Title, description: landing.feature1Desc },
+    { icon: 'calendar-outline' as const, title: landing.feature2Title, description: landing.feature2Desc },
+    { icon: 'trending-up-outline' as const, title: landing.feature3Title, description: landing.feature3Desc },
+    { icon: 'sparkles-outline' as const, title: landing.feature4Title, description: landing.feature4Desc },
   ];
 
-  const benefits = t.landing.benefits;
+  const benefits: string[] = landing.benefits;
 
   const testimonials = [
     { name: 'Sarah Johnson', role: 'Premium User', text: 'DeepSkyn transformed my skincare routine! The AI analysis was incredibly accurate.', rating: 5 },
@@ -63,46 +144,76 @@ export function LandingScreen({ navigation }: any) {
   ];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#1B8FE8' }} />
+      <Animated.ScrollView
+        style={dynamicStyles.container}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+      >
+        <Animated.View
+          style={[
+            styles.splashHeroWrap,
+            {
+              opacity: topHeroOpacity,
+              transform: [{ translateY: topHeroTranslateY }, { scale: topHeroScale }],
+            },
+          ]}
+        >
+          <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.splashHeroGradient}>
+            <View style={styles.splashHeroRing}>
+              <View style={styles.splashHeroCircle}>
+                <LinearGradient colors={[Colors.primary, Colors.primaryLight]} style={styles.splashBrandMark}>
+                  <Ionicons name="sparkles" size={24} color={Colors.white} />
+                </LinearGradient>
+                <Text style={styles.splashBrandText}>DeepSkyn</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
         {/* Hero Section */}
         <View style={styles.hero}>
           <View style={[styles.heroBadge, { backgroundColor: colors.primary + '15' }]}>
             <Ionicons name="sparkles" size={14} color={colors.primary} />
-            <Text style={dynamicStyles.heroBadgeText}>{t.landing.heroTag}</Text>
+            <Text style={dynamicStyles.heroBadgeText}>{landing.heroTag}</Text>
           </View>
 
           <Text style={dynamicStyles.heroTitle}>
-            {t.landing.heroTitle1}{'\n'}
-            <Text style={{ color: colors.primary }}>{t.landing.heroTitleGradient}</Text>
-            {'\n'}{t.landing.heroTitle2}
+            {landing.heroTitle1}{'\n'}
+            <Text style={{ color: colors.primary }}>{landing.heroTitleGradient}</Text>
+            {'\n'}{landing.heroTitle2}
           </Text>
 
           <Text style={dynamicStyles.heroSubtitle}>
-            {t.landing.heroDesc}
+            {landing.heroDesc}
           </Text>
 
           <View style={styles.heroButtons}>
             <Button onPress={() => navigation.navigate('Signup')} size="lg">
-              {t.landing.heroStart}
+              {landing.heroStart}
             </Button>
             <Button variant="outline" onPress={() => { }} size="lg">
-              {t.landing.heroWatchDemo}
+              {landing.heroWatchDemo}
             </Button>
           </View>
 
           <View style={styles.stats}>
             <View style={styles.statItem}>
               <Text style={dynamicStyles.statNumber}>50K+</Text>
-              <Text style={dynamicStyles.statLabel}>{t.landing.activeUsers}</Text>
+              <Text style={dynamicStyles.statLabel}>{landing.activeUsers}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={dynamicStyles.statNumber}>4.9★</Text>
-              <Text style={dynamicStyles.statLabel}>{t.landing.userRating}</Text>
+              <Text style={dynamicStyles.statLabel}>{landing.userRating}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={dynamicStyles.statNumber}>95%</Text>
-              <Text style={dynamicStyles.statLabel}>{t.landing.satisfaction}</Text>
+              <Text style={dynamicStyles.statLabel}>{landing.satisfaction}</Text>
             </View>
           </View>
         </View>
@@ -111,7 +222,7 @@ export function LandingScreen({ navigation }: any) {
         <Card style={dynamicStyles.scoreCard} variant="elevated">
           <View style={styles.scoreRow}>
             <View>
-              <Text style={dynamicStyles.scoreLabel}>{t.landing.skinHealthScore}</Text>
+              <Text style={dynamicStyles.scoreLabel}>{landing.skinHealthScore}</Text>
               <Text style={dynamicStyles.scoreValue}>87/100</Text>
             </View>
             <LinearGradient
@@ -125,8 +236,8 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Features Section */}
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>{t.landing.featuresTitle}</Text>
-          <Text style={dynamicStyles.sectionSubtitle}>{t.landing.featuresDesc}</Text>
+          <Text style={dynamicStyles.sectionTitle}>{landing.featuresTitle}</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>{landing.featuresDesc}</Text>
 
           {features.map((feature, index) => (
             <Card key={index} style={dynamicStyles.featureCard}>
@@ -142,14 +253,14 @@ export function LandingScreen({ navigation }: any) {
         {/* Benefits Section */}
         <View style={styles.section}>
           <Text style={dynamicStyles.sectionTitle}>
-            {t.landing.whyChoose}{'\n'}
+            {landing.whyChoose}{'\n'}
             <Text style={{ color: colors.primary }}>DeepSkyn?</Text>
           </Text>
           <Text style={dynamicStyles.sectionSubtitle}>
-            {t.landing.whyDesc}
+            {landing.whyDesc}
           </Text>
 
-          {benefits.map((benefit, index) => (
+          {benefits.map((benefit: string, index: number) => (
             <View key={index} style={styles.benefitRow}>
               <View style={styles.benefitCheck}>
                 <Ionicons name="checkmark" size={14} color={Colors.white} />
@@ -161,8 +272,8 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Testimonials Section */}
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>{t.landing.lovedBy}</Text>
-          <Text style={dynamicStyles.sectionSubtitle}>{t.landing.lovedDesc}</Text>
+          <Text style={dynamicStyles.sectionTitle}>{landing.lovedBy}</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>{landing.lovedDesc}</Text>
 
           {testimonials.map((testimonial, index) => (
             <Card key={index} style={dynamicStyles.testimonialCard}>
@@ -180,51 +291,51 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Pricing Section */}
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>{t.landing.pricingTitle}</Text>
-          <Text style={dynamicStyles.sectionSubtitle}>{t.landing.pricingDesc}</Text>
+          <Text style={dynamicStyles.sectionTitle}>{landing.pricingTitle}</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>{landing.pricingDesc}</Text>
 
           <Card style={dynamicStyles.pricingCard}>
-            <Text style={dynamicStyles.planName}>{t.landing.free}</Text>
+            <Text style={dynamicStyles.planName}>{landing.free}</Text>
             <Text style={dynamicStyles.planPrice}>
               <Text style={[styles.planPriceAmount, { color: colors.primary }]}>$0</Text>/month
             </Text>
-            {t.landing.freeFeatures.map((item: string, i: number) => (
+            {landing.freeFeatures.map((item: string, i: number) => (
               <View key={i} style={styles.planFeatureRow}>
                 <Ionicons name="checkmark" size={18} color={colors.primary} />
                 <Text style={dynamicStyles.planFeatureText}>{item}</Text>
               </View>
             ))}
             <Button variant="outline" onPress={() => navigation.navigate('Signup')} fullWidth style={{ marginTop: Spacing.base }}>
-              {t.landing.navGetStarted}
+              {landing.navGetStarted}
             </Button>
           </Card>
 
-          <Card style={[dynamicStyles.pricingCard, { borderWidth: 2, borderColor: colors.primary }]}>
+          <Card style={[dynamicStyles.pricingCard, { borderWidth: 2, borderColor: colors.primary }] as any}>
             <View style={styles.popularBadge}>
               <LinearGradient colors={Gradients.primary} style={styles.popularBadgeGradient}>
-                <Text style={styles.popularBadgeText}>{t.landing.mostPopular}</Text>
+                <Text style={styles.popularBadgeText}>{landing.mostPopular}</Text>
               </LinearGradient>
             </View>
-            <Text style={dynamicStyles.planName}>{t.landing.premium}</Text>
+            <Text style={dynamicStyles.planName}>{landing.premium}</Text>
             <Text style={[dynamicStyles.planPrice, { color: colors.primary }]}>
               <Text style={[styles.planPriceAmount, { color: colors.primary }]}>$19</Text>/month
             </Text>
-            {t.landing.premiumFeatures.map((item: string, i: number) => (
+            {landing.premiumFeatures.map((item: string, i: number) => (
               <View key={i} style={styles.planFeatureRow}>
                 <Ionicons name="checkmark" size={18} color={colors.primary} />
                 <Text style={dynamicStyles.planFeatureText}>{item}</Text>
               </View>
             ))}
             <Button onPress={() => navigation.navigate('Signup')} fullWidth style={{ marginTop: Spacing.base }}>
-              {t.landing.startTrial}
+              {landing.startTrial}
             </Button>
           </Card>
         </View>
 
         {/* CTA Section */}
         <LinearGradient colors={Gradients.primary} style={styles.ctaSection}>
-          <Text style={styles.ctaTitle}>{t.landing.readyToTransform}</Text>
-          <Text style={styles.ctaSubtitle}>{t.landing.joinThousands}</Text>
+          <Text style={styles.ctaTitle}>{landing.readyToTransform}</Text>
+          <Text style={styles.ctaSubtitle}>{landing.joinThousands}</Text>
           <Button
             variant="outline"
             onPress={() => navigation.navigate('Signup')}
@@ -232,34 +343,76 @@ export function LandingScreen({ navigation }: any) {
             textStyle={{ color: Colors.primary }}
             size="lg"
           >
-            {t.landing.freeAnalysis}
+            {landing.freeAnalysis}
           </Button>
         </LinearGradient>
 
         {/* Footer */}
         <View style={styles.footer}>
           <Logo size="sm" />
-          <Text style={dynamicStyles.footerText}>{t.landing.footerDesc}</Text>
-          <Text style={dynamicStyles.footerCopy}>© 2026 DeepSkyn. {t.landing.allRightsReserved}</Text>
+          <Text style={dynamicStyles.footerText}>{landing.footerDesc}</Text>
+          <Text style={dynamicStyles.footerCopy}>© 2026 DeepSkyn. {landing.allRightsReserved}</Text>
         </View>
 
         {/* Bottom Auth Buttons */}
         <View style={styles.bottomAuth}>
           <Button onPress={() => navigation.navigate('Signup')} fullWidth size="lg">
-            {t.landing.navGetStarted}
+            {landing.navGetStarted}
           </Button>
           <Button variant="ghost" onPress={() => navigation.navigate('Login')} fullWidth>
-            {t.auth.haveAccount} {t.auth.signIn}
+            {auth.haveAccount} {auth.signIn}
           </Button>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.gray50 },
-  hero: { paddingHorizontal: Spacing.xl, paddingTop: 60, paddingBottom: Spacing['2xl'] },
+  splashHeroWrap: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  splashHeroGradient: {
+    width: '100%',
+    paddingTop: 20,
+    paddingBottom: 52,
+    borderBottomLeftRadius: 220,
+    borderBottomRightRadius: 220,
+    alignItems: 'center',
+  },
+  splashHeroRing: {
+    width: 154,
+    height: 154,
+    borderRadius: 77,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashHeroCircle: {
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  splashBrandMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashBrandText: {
+    fontSize: 30,
+    fontWeight: FontWeights.bold,
+    color: Colors.primary,
+    letterSpacing: 0.2,
+  },
+  hero: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing['2xl'] },
   heroBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.primaryAlpha10, paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm,

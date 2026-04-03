@@ -152,7 +152,7 @@ export function SettingsScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={dynamicStyles.title}>{t.settings.title}</Text>

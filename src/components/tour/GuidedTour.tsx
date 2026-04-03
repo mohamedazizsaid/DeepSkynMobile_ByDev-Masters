@@ -12,7 +12,6 @@ import {
   UIManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Feather,
@@ -126,7 +125,7 @@ export const DEFAULT_TOUR_STEPS: TourStep[] = [
 // Tour Context for passing refs
 // ─────────────────────────────────────────────────────────────────────────────
 interface TourContextValue {
-  registerTarget: (id: string, ref: React.RefObject<View>) => void;
+  registerTarget: (id: string, ref: React.RefObject<View | null>) => void;
   unregisterTarget: (id: string) => void;
 }
 
@@ -177,7 +176,7 @@ export function GuidedTour({
 }: GuidedTourProps) {
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetRefs, setTargetRefs] = useState<Map<string, React.RefObject<View>>>(new Map());
+  const [targetRefs, setTargetRefs] = useState<Map<string, React.RefObject<View | null>>>(new Map());
   const [targetRect, setTargetRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -185,7 +184,7 @@ export function GuidedTour({
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Register/unregister targets
-  const registerTarget = useCallback((id: string, ref: React.RefObject<View>) => {
+  const registerTarget = useCallback((id: string, ref: React.RefObject<View | null>) => {
     setTargetRefs(prev => new Map(prev).set(id, ref));
   }, []);
 
@@ -422,35 +421,19 @@ export function GuidedTour({
               },
             ]}
           >
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={100} tint="light" style={styles.tooltip}>
-                <TooltipContent
-                  step={step}
-                  currentStep={currentStep}
-                  totalSteps={steps.length}
-                  progress={progress}
-                  isLastStep={isLastStep}
-                  getIconComponent={getIconComponent}
-                  onPrev={handlePrev}
-                  onNext={handleNext}
-                  onSkip={handleSkip}
-                />
-              </BlurView>
-            ) : (
-              <View style={[styles.tooltip, styles.tooltipAndroid]}>
-                <TooltipContent
-                  step={step}
-                  currentStep={currentStep}
-                  totalSteps={steps.length}
-                  progress={progress}
-                  isLastStep={isLastStep}
-                  getIconComponent={getIconComponent}
-                  onPrev={handlePrev}
-                  onNext={handleNext}
-                  onSkip={handleSkip}
-                />
-              </View>
-            )}
+            <View style={[styles.tooltip, styles.tooltipWhite]}>
+              <TooltipContent
+                step={step}
+                currentStep={currentStep}
+                totalSteps={steps.length}
+                progress={progress}
+                isLastStep={isLastStep}
+                getIconComponent={getIconComponent}
+                onPrev={handlePrev}
+                onNext={handleNext}
+                onSkip={handleSkip}
+              />
+            </View>
           </Animated.View>
         </View>
       </Modal>
@@ -608,8 +591,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: Spacing.lg,
   },
-  tooltipAndroid: {
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+  tooltipWhite: {
+    backgroundColor: Colors.white,
     ...Shadows.xl,
   },
 

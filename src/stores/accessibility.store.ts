@@ -4,7 +4,7 @@ import * as Speech from 'expo-speech';
 
 type Theme = 'light' | 'dark';
 type ContrastMode = 'off' | 'medium' | 'high';
-export type Language = 'fr' | 'en' | 'ar' | 'es';
+type Language = 'fr' | 'en' | 'ar';
 
 interface AccessibilityState {
   // State

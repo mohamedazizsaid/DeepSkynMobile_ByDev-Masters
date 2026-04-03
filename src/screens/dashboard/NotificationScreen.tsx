@@ -111,7 +111,7 @@ export function NotificationScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
         <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message={t.notificationsScreen.loading} />
         </View>
@@ -120,7 +120,7 @@ export function NotificationScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}

@@ -4,7 +4,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSizes, FontWeights, Spacing } from '../theme';
-import { useTranslation } from '../lib/i18n';
+import { AuthenticatedAppBar } from '../components';
+import { useAccessibilityStyles } from '../stores/useAccessibilityStyles';
 
 // Dashboard screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
@@ -60,25 +61,18 @@ const tabIconMap: Record<string, { active: any; inactive: any }> = {
 };
 
 export function DashboardTabNavigator() {
-  const { t } = useTranslation();
-
-  const tabLabelMap: Record<string, string> = {
-    Home: t.nav.dashboard,
-    Analysis: t.nav.analysis,
-    Routine: t.nav.routine,
-    Chat: t.nav.coach,
-    Profile: t.nav.profile,
-  };
+  const { colors, fontSizes } = useAccessibilityStyles();
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.gray400,
-        tabBarLabelStyle: styles.tabLabel,
-        tabBarLabel: tabLabelMap[route.name] || route.name,
+        headerShown: true,
+        header: () => <AuthenticatedAppBar />,
+        headerStatusBarHeight: 0,
+        tabBarStyle: [styles.tabBar, { backgroundColor: colors.surface, borderTopColor: colors.border }],
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarLabelStyle: [styles.tabLabel, { fontSize: fontSizes.xs }],
         tabBarIcon: ({ focused, color, size }) => {
           const icons = tabIconMap[route.name];
           const iconName = focused ? icons.active : icons.inactive;
