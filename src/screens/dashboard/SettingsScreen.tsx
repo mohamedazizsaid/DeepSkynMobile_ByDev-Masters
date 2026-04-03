@@ -8,11 +8,13 @@ import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from
 import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuthStore();
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const { 
     reduceMotion, 
     contrastMode, 
@@ -26,7 +28,7 @@ export function SettingsScreen({ navigation }: any) {
   
   const [notifications, setNotifications] = useState(true);
   const [routineReminder, setRoutineReminder] = useState(true);
-  const [language, setLanguage] = useState('Français');
+  const [language, setLanguage] = useState(t.settings.language.title);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -44,7 +46,7 @@ export function SettingsScreen({ navigation }: any) {
     footerText: { fontSize: fontSizes.xs, color: colors.textTertiary },
   }), [colors, fontSizes]);
 
-  const userName = user?.name || 'Utilisateur';
+  const userName = user?.name || t.common.user;
   const userEmail = user?.email || 'email@example.com';
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -55,12 +57,12 @@ export function SettingsScreen({ navigation }: any) {
 
   const handleLogout = useCallback(() => {
     Alert.alert(
-      'Déconnexion',
-      'Voulez-vous vraiment vous déconnecter ?',
+      t.nav.logout,
+      t.settings.closeSession,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         { 
-          text: 'Déconnexion', 
+          text: t.nav.logout, 
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.removeItem('auth_token');
@@ -73,15 +75,15 @@ export function SettingsScreen({ navigation }: any) {
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
-      'Supprimer le compte',
-      'Cette action est irréversible. Toutes vos données seront supprimées définitivement.',
+      t.common.delete,
+      t.settings.personal.updateError,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         { 
-          text: 'Supprimer', 
+          text: t.common.delete, 
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Info', 'Contactez le support pour supprimer votre compte.');
+            Alert.alert('Info', t.settings.help.emailDesc);
           }
         },
       ]
@@ -101,27 +103,27 @@ export function SettingsScreen({ navigation }: any) {
   };
 
   const accountSettings = [
-    { icon: 'person-outline', label: 'Modifier le profil', type: 'link', onPress: () => navigation?.navigate?.('Profile') },
-    { icon: 'lock-closed-outline', label: 'Changer le mot de passe', type: 'link', onPress: () => Alert.alert('Info', 'Utilisez l\'option "Mot de passe oublié" sur la page de connexion') },
-    { icon: 'language-outline', label: 'Langue', type: 'value', value: language },
+    { icon: 'person-outline', label: t.settings.personal.title, type: 'link', onPress: () => navigation?.navigate?.('Profile') },
+    { icon: 'lock-closed-outline', label: t.settings.security.passwordTitle, type: 'link', onPress: () => Alert.alert('Info', t.auth.forgotPassword) },
+    { icon: 'language-outline', label: t.settings.tabs.language, type: 'value', value: language },
   ];
 
   const preferenceSettings = [
-    { icon: 'notifications-outline', label: 'Notifications push', type: 'toggle', value: notifications, onToggle: setNotifications },
-    { icon: 'alarm-outline', label: 'Rappels routine', type: 'toggle', value: routineReminder, onToggle: setRoutineReminder },
+    { icon: 'notifications-outline', label: t.settings.notifications.title, type: 'toggle', value: notifications, onToggle: setNotifications },
+    { icon: 'alarm-outline', label: t.settings.notifications.routines, type: 'toggle', value: routineReminder, onToggle: setRoutineReminder },
   ];
 
   const accessibilitySettings = [
-    { icon: 'contrast-outline', label: 'Contraste élevé', type: 'toggle', value: highContrast, onToggle: setHighContrast },
-    { icon: 'text-outline', label: 'Texte agrandi', type: 'toggle', value: largeText, onToggle: setLargeText },
-    { icon: 'flash-off-outline', label: 'Réduire les animations', type: 'toggle', value: reduceMotion, onToggle: toggleReduceMotion },
+    { icon: 'contrast-outline', label: t.accessibility.highContrast, type: 'toggle', value: highContrast, onToggle: setHighContrast },
+    { icon: 'text-outline', label: t.accessibility.textSize, type: 'toggle', value: largeText, onToggle: setLargeText },
+    { icon: 'flash-off-outline', label: t.accessibility.reduceAnimations, type: 'toggle', value: reduceMotion, onToggle: toggleReduceMotion },
   ];
 
   const supportSettings = [
-    { icon: 'help-circle-outline', label: 'Centre d\'aide', type: 'link', onPress: () => Linking.openURL('https://deepskyn.com/help') },
-    { icon: 'chatbubble-outline', label: 'Contacter le support', type: 'link', onPress: handleContactSupport },
-    { icon: 'document-text-outline', label: 'Politique de confidentialité', type: 'link', onPress: handlePrivacyPolicy },
-    { icon: 'newspaper-outline', label: 'Conditions d\'utilisation', type: 'link', onPress: handleTermsOfService },
+    { icon: 'help-circle-outline', label: t.settings.tabs.help, type: 'link', onPress: () => Linking.openURL('https://deepskyn.com/help') },
+    { icon: 'chatbubble-outline', label: t.settings.help.emailTitle, type: 'link', onPress: handleContactSupport },
+    { icon: 'document-text-outline', label: t.landing.footerPrivacy, type: 'link', onPress: handlePrivacyPolicy },
+    { icon: 'newspaper-outline', label: t.settings.tabs.terms, type: 'link', onPress: handleTermsOfService },
   ];
 
   const renderSettingRow = (item: any, index: number, isLast: boolean) => (
@@ -153,7 +155,7 @@ export function SettingsScreen({ navigation }: any) {
     <SafeAreaView style={dynamicStyles.safeArea}>
       <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>Paramètres</Text>
+          <Text style={dynamicStyles.title}>{t.settings.title}</Text>
         </View>
 
       {/* User Info Card */}
@@ -174,7 +176,7 @@ export function SettingsScreen({ navigation }: any) {
 
       {/* Account */}
       <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Compte</Text>
+        <Text style={dynamicStyles.sectionTitle}>{t.settings.sections.account}</Text>
         <Card style={dynamicStyles.settingsCard}>
           {accountSettings.map((item, i) => renderSettingRow(item, i, i === accountSettings.length - 1))}
         </Card>
@@ -182,7 +184,7 @@ export function SettingsScreen({ navigation }: any) {
 
       {/* Preferences */}
       <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Préférences</Text>
+        <Text style={dynamicStyles.sectionTitle}>{t.settings.sections.preferences}</Text>
         <Card style={dynamicStyles.settingsCard}>
           {preferenceSettings.map((item, i) => renderSettingRow(item, i, i === preferenceSettings.length - 1))}
         </Card>
@@ -190,7 +192,7 @@ export function SettingsScreen({ navigation }: any) {
 
       {/* Accessibility */}
       <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Accessibilité</Text>
+        <Text style={dynamicStyles.sectionTitle}>{t.accessibility.title}</Text>
         <Card style={dynamicStyles.settingsCard}>
           {accessibilitySettings.map((item, i) => renderSettingRow(item, i, i === accessibilitySettings.length - 1))}
         </Card>
@@ -198,7 +200,7 @@ export function SettingsScreen({ navigation }: any) {
 
       {/* Support */}
       <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Support</Text>
+        <Text style={dynamicStyles.sectionTitle}>{t.settings.sections.support}</Text>
         <Card style={dynamicStyles.settingsCard}>
           {supportSettings.map((item, i) => renderSettingRow(item, i, i === supportSettings.length - 1))}
         </Card>
@@ -212,16 +214,16 @@ export function SettingsScreen({ navigation }: any) {
           fullWidth
           style={{ borderColor: Colors.error }}
         >
-          <Text style={{ color: Colors.error }}>Déconnexion</Text>
+          <Text style={{ color: Colors.error }}>{t.nav.logout}</Text>
         </Button>
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <Text style={dynamicStyles.deleteText}>Supprimer mon compte</Text>
+          <Text style={dynamicStyles.deleteText}>{t.common.delete}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>
         <Text style={dynamicStyles.footerText}>DeepSkyn v1.0.0</Text>
-        <Text style={dynamicStyles.footerText}>© 2024 DeepSkyn. Tous droits réservés.</Text>
+        <Text style={dynamicStyles.footerText}>© 2026 DeepSkyn. {t.landing.allRightsReserved}</Text>
       </View>
 
       <View style={{ height: 30 }} />

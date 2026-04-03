@@ -13,9 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Logo, Card } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 
 export function LandingScreen({ navigation }: any) {
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
 
   const dynamicStyles = useMemo(() => ({
     container: { flex: 1, backgroundColor: colors.background },
@@ -46,20 +48,13 @@ export function LandingScreen({ navigation }: any) {
   }), [colors, fontSizes]);
 
   const features = [
-    { icon: 'sparkles' as const, title: 'AI-Powered Analysis', description: 'Advanced AI technology analyzes your skin with medical-grade precision' },
-    { icon: 'calendar-outline' as const, title: 'Personalized Routines', description: 'Custom skincare routines tailored to your unique skin profile' },
-    { icon: 'trending-up-outline' as const, title: 'Track Your Progress', description: 'Monitor your skin evolution with detailed analytics and insights' },
-    { icon: 'sparkles-outline' as const, title: 'Smart Recommendations', description: 'Get product recommendations based on your skin concerns' },
+    { icon: 'sparkles' as const, title: t.landing.feature1Title, description: t.landing.feature1Desc },
+    { icon: 'calendar-outline' as const, title: t.landing.feature2Title, description: t.landing.feature2Desc },
+    { icon: 'trending-up-outline' as const, title: t.landing.feature3Title, description: t.landing.feature3Desc },
+    { icon: 'sparkles-outline' as const, title: t.landing.feature4Title, description: t.landing.feature4Desc },
   ];
 
-  const benefits = [
-    'Fitzpatrick skin type analysis',
-    'Real age vs skin age comparison',
-    'Personalized AI dermatology coach',
-    'Daily routine reminders',
-    'Progress tracking & reporting',
-    'Expert skincare insights',
-  ];
+  const benefits = t.landing.benefits;
 
   const testimonials = [
     { name: 'Sarah Johnson', role: 'Premium User', text: 'DeepSkyn transformed my skincare routine! The AI analysis was incredibly accurate.', rating: 5 },
@@ -74,40 +69,40 @@ export function LandingScreen({ navigation }: any) {
         <View style={styles.hero}>
           <View style={[styles.heroBadge, { backgroundColor: colors.primary + '15' }]}>
             <Ionicons name="sparkles" size={14} color={colors.primary} />
-            <Text style={dynamicStyles.heroBadgeText}>AI-Powered Dermatology</Text>
+            <Text style={dynamicStyles.heroBadgeText}>{t.landing.heroTag}</Text>
           </View>
 
           <Text style={dynamicStyles.heroTitle}>
-            Your Personal{'\n'}
-            <Text style={{ color: colors.primary }}>Skin Health</Text>
-            {'\n'}Companion
+            {t.landing.heroTitle1}{'\n'}
+            <Text style={{ color: colors.primary }}>{t.landing.heroTitleGradient}</Text>
+            {'\n'}{t.landing.heroTitle2}
           </Text>
 
           <Text style={dynamicStyles.heroSubtitle}>
-            Discover your skin's true potential with AI-powered analysis, personalized routines, and expert guidance tailored just for you.
+            {t.landing.heroDesc}
           </Text>
 
           <View style={styles.heroButtons}>
             <Button onPress={() => navigation.navigate('Signup')} size="lg">
-              Start Your Journey
+              {t.landing.heroStart}
             </Button>
             <Button variant="outline" onPress={() => { }} size="lg">
-              Watch Demo
+              {t.landing.heroWatchDemo}
             </Button>
           </View>
 
           <View style={styles.stats}>
             <View style={styles.statItem}>
               <Text style={dynamicStyles.statNumber}>50K+</Text>
-              <Text style={dynamicStyles.statLabel}>Active Users</Text>
+              <Text style={dynamicStyles.statLabel}>{t.landing.activeUsers}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={dynamicStyles.statNumber}>4.9★</Text>
-              <Text style={dynamicStyles.statLabel}>User Rating</Text>
+              <Text style={dynamicStyles.statLabel}>{t.landing.userRating}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={dynamicStyles.statNumber}>95%</Text>
-              <Text style={dynamicStyles.statLabel}>Satisfaction</Text>
+              <Text style={dynamicStyles.statLabel}>{t.landing.satisfaction}</Text>
             </View>
           </View>
         </View>
@@ -116,7 +111,7 @@ export function LandingScreen({ navigation }: any) {
         <Card style={dynamicStyles.scoreCard} variant="elevated">
           <View style={styles.scoreRow}>
             <View>
-              <Text style={dynamicStyles.scoreLabel}>Skin Health Score</Text>
+              <Text style={dynamicStyles.scoreLabel}>{t.landing.skinHealthScore}</Text>
               <Text style={dynamicStyles.scoreValue}>87/100</Text>
             </View>
             <LinearGradient
@@ -130,8 +125,8 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Features Section */}
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Powerful Features</Text>
-          <Text style={dynamicStyles.sectionSubtitle}>Everything you need for perfect skin health</Text>
+          <Text style={dynamicStyles.sectionTitle}>{t.landing.featuresTitle}</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>{t.landing.featuresDesc}</Text>
 
           {features.map((feature, index) => (
             <Card key={index} style={dynamicStyles.featureCard}>
@@ -147,11 +142,11 @@ export function LandingScreen({ navigation }: any) {
         {/* Benefits Section */}
         <View style={styles.section}>
           <Text style={dynamicStyles.sectionTitle}>
-            Why Choose{'\n'}
+            {t.landing.whyChoose}{'\n'}
             <Text style={{ color: colors.primary }}>DeepSkyn?</Text>
           </Text>
           <Text style={dynamicStyles.sectionSubtitle}>
-            Our comprehensive platform combines cutting-edge AI technology with dermatological expertise.
+            {t.landing.whyDesc}
           </Text>
 
           {benefits.map((benefit, index) => (
@@ -166,8 +161,8 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Testimonials Section */}
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Loved by Thousands</Text>
-          <Text style={dynamicStyles.sectionSubtitle}>See what our users are saying</Text>
+          <Text style={dynamicStyles.sectionTitle}>{t.landing.lovedBy}</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>{t.landing.lovedDesc}</Text>
 
           {testimonials.map((testimonial, index) => (
             <Card key={index} style={dynamicStyles.testimonialCard}>
@@ -185,51 +180,51 @@ export function LandingScreen({ navigation }: any) {
 
         {/* Pricing Section */}
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Simple, Transparent Pricing</Text>
-          <Text style={dynamicStyles.sectionSubtitle}>Choose the plan that's right for you</Text>
+          <Text style={dynamicStyles.sectionTitle}>{t.landing.pricingTitle}</Text>
+          <Text style={dynamicStyles.sectionSubtitle}>{t.landing.pricingDesc}</Text>
 
           <Card style={dynamicStyles.pricingCard}>
-            <Text style={dynamicStyles.planName}>Free</Text>
+            <Text style={dynamicStyles.planName}>{t.landing.free}</Text>
             <Text style={dynamicStyles.planPrice}>
               <Text style={[styles.planPriceAmount, { color: colors.primary }]}>$0</Text>/month
             </Text>
-            {['Basic skin analysis', 'Personalized routine', 'Monthly reports'].map((item, i) => (
+            {t.landing.freeFeatures.map((item: string, i: number) => (
               <View key={i} style={styles.planFeatureRow}>
                 <Ionicons name="checkmark" size={18} color={colors.primary} />
                 <Text style={dynamicStyles.planFeatureText}>{item}</Text>
               </View>
             ))}
             <Button variant="outline" onPress={() => navigation.navigate('Signup')} fullWidth style={{ marginTop: Spacing.base }}>
-              Get Started
+              {t.landing.navGetStarted}
             </Button>
           </Card>
 
           <Card style={[dynamicStyles.pricingCard, { borderWidth: 2, borderColor: colors.primary }]}>
             <View style={styles.popularBadge}>
               <LinearGradient colors={Gradients.primary} style={styles.popularBadgeGradient}>
-                <Text style={styles.popularBadgeText}>Most Popular</Text>
+                <Text style={styles.popularBadgeText}>{t.landing.mostPopular}</Text>
               </LinearGradient>
             </View>
-            <Text style={dynamicStyles.planName}>Premium</Text>
+            <Text style={dynamicStyles.planName}>{t.landing.premium}</Text>
             <Text style={[dynamicStyles.planPrice, { color: colors.primary }]}>
               <Text style={[styles.planPriceAmount, { color: colors.primary }]}>$19</Text>/month
             </Text>
-            {['Advanced AI analysis', 'AI dermatology coach', 'Unlimited tracking', 'Priority support'].map((item, i) => (
+            {t.landing.premiumFeatures.map((item: string, i: number) => (
               <View key={i} style={styles.planFeatureRow}>
                 <Ionicons name="checkmark" size={18} color={colors.primary} />
                 <Text style={dynamicStyles.planFeatureText}>{item}</Text>
               </View>
             ))}
             <Button onPress={() => navigation.navigate('Signup')} fullWidth style={{ marginTop: Spacing.base }}>
-              Start Premium Trial
+              {t.landing.startTrial}
             </Button>
           </Card>
         </View>
 
         {/* CTA Section */}
         <LinearGradient colors={Gradients.primary} style={styles.ctaSection}>
-          <Text style={styles.ctaTitle}>Ready to Transform Your Skin?</Text>
-          <Text style={styles.ctaSubtitle}>Join thousands of users achieving their best skin ever</Text>
+          <Text style={styles.ctaTitle}>{t.landing.readyToTransform}</Text>
+          <Text style={styles.ctaSubtitle}>{t.landing.joinThousands}</Text>
           <Button
             variant="outline"
             onPress={() => navigation.navigate('Signup')}
@@ -237,24 +232,24 @@ export function LandingScreen({ navigation }: any) {
             textStyle={{ color: Colors.primary }}
             size="lg"
           >
-            Start Your Free Analysis
+            {t.landing.freeAnalysis}
           </Button>
         </LinearGradient>
 
         {/* Footer */}
         <View style={styles.footer}>
           <Logo size="sm" />
-          <Text style={dynamicStyles.footerText}>AI-powered skincare companion for your best skin ever.</Text>
-          <Text style={dynamicStyles.footerCopy}>© 2026 DeepSkyn. All rights reserved.</Text>
+          <Text style={dynamicStyles.footerText}>{t.landing.footerDesc}</Text>
+          <Text style={dynamicStyles.footerCopy}>© 2026 DeepSkyn. {t.landing.allRightsReserved}</Text>
         </View>
 
         {/* Bottom Auth Buttons */}
         <View style={styles.bottomAuth}>
           <Button onPress={() => navigation.navigate('Signup')} fullWidth size="lg">
-            Get Started
+            {t.landing.navGetStarted}
           </Button>
           <Button variant="ghost" onPress={() => navigation.navigate('Login')} fullWidth>
-            Already have an account? Sign In
+            {t.auth.haveAccount} {t.auth.signIn}
           </Button>
         </View>
       </ScrollView>

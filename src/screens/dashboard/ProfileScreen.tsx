@@ -7,6 +7,7 @@ import { Card, Button, Input, Badge, LoadingSpinner, LoadingOverlay } from '../.
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 import { usersService, User } from '../../services/users.service';
 import { skinProfileService } from '../../services/skin-profile.service';
 import { analysisService } from '../../services/analysis.service';
@@ -16,6 +17,7 @@ import { formatDate, getRelativeTime } from '../../lib/utils';
 export function ProfileScreen({ navigation }: any) {
   const { user: authUser, loadUser, logout } = useAuthStore();
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<User | null>(null);
   const [skinProfile, setSkinProfile] = useState<SkinProfile | null>(null);
   const [stats, setStats] = useState<AnalysisStats | null>(null);
@@ -70,11 +72,11 @@ export function ProfileScreen({ navigation }: any) {
 
   const handleLogout = () => {
     Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      t.nav.logout,
+      t.settings.closeSession,
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Déconnexion', style: 'destructive', onPress: logout },
+        { text: t.common.cancel, style: 'cancel' },
+        { text: t.nav.logout, style: 'destructive', onPress: logout },
       ]
     );
   };
@@ -82,24 +84,24 @@ export function ProfileScreen({ navigation }: any) {
   if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.loadingContainer}>
-        <LoadingSpinner message="Chargement du profil..." />
+        <LoadingSpinner message={t.common.loading} />
       </SafeAreaView>
     );
   }
 
   const user = profile || authUser;
-  const userName = user?.name || authUser?.firstName || 'Utilisateur';
+  const userName = user?.name || authUser?.firstName || t.common.user;
   const userEmail = user?.email || authUser?.email || '';
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const statsData = [
-    { label: 'Analyses', value: stats?.totalAnalyses?.toString() || '0' },
-    { label: 'Score Moy.', value: stats?.averageHealthScore ? Math.round(stats.averageHealthScore).toString() : '-' },
-    { label: 'Conditions', value: stats?.commonConditions?.length?.toString() || '0' },
+    { label: t.dashboard.analyses, value: stats?.totalAnalyses?.toString() || '0' },
+    { label: t.dashboard.averageScore, value: stats?.averageHealthScore ? Math.round(stats.averageHealthScore).toString() : '-' },
+    { label: t.dashboard.detectedConditions, value: stats?.commonConditions?.length?.toString() || '0' },
   ];
 
   const skinProfileData = skinProfile ? [
-    { label: 'Type de peau', value: skinProfile.skinType || 'Non défini' },
+    { label: t.settings.personal.gender, value: skinProfile.skinType || t.common.noResults },
     { label: 'Fitzpatrick', value: skinProfile.fitzpatrickType ? `Type ${skinProfile.fitzpatrickType}` : 'Non défini' },
     { label: 'Préoccupations', value: skinProfile.concerns?.join(', ') || 'Aucune' },
   ] : [];
@@ -142,12 +144,12 @@ export function ProfileScreen({ navigation }: any) {
       {/* Skin Profile Summary */}
       {skinProfileData.length > 0 && (
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Profil Peau</Text>
+          <Text style={dynamicStyles.sectionTitle}>{t.nav.profile}</Text>
           <Card style={styles.profileCard}>
             {skinProfileData.map((item, index) => (
               <View key={index} style={[styles.profileRow, index < skinProfileData.length - 1 ? dynamicStyles.profileRowBorder : undefined]}>
                 <Text style={dynamicStyles.profileLabel}>{item.label}</Text>
-                <Text style={dynamicStyles.profileValue}>{item.value}</Text>
+                <Text style={dynamicStyles.profileValue as any}>{item.value}</Text>
               </View>
             ))}
           </Card>
@@ -156,10 +158,10 @@ export function ProfileScreen({ navigation }: any) {
 
       {/* Personal Info Form */}
       <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Informations Personnelles</Text>
+        <Text style={dynamicStyles.sectionTitle}>{t.settings.personal.title}</Text>
         <Card variant="elevated" style={dynamicStyles.formCard}>
           <Input 
-            label="Nom complet" 
+            label={t.settings.personal.fullName}
             value={userName} 
             editable={false} 
             icon={<Ionicons name="person-outline" size={20} color={colors.textTertiary} />} 
@@ -186,8 +188,8 @@ export function ProfileScreen({ navigation }: any) {
               icon={<Ionicons name="people-outline" size={20} color={colors.textTertiary} />} 
             />
           )}
-          <Button onPress={() => navigation.navigate('Settings')} fullWidth variant="secondary">
-            Modifier le profil
+          <Button onPress={() => navigation.navigate('Settings')} variant="outline">
+            {t.common.edit}
           </Button>
         </Card>
       </View>
@@ -195,7 +197,7 @@ export function ProfileScreen({ navigation }: any) {
       {/* Common Conditions */}
       {stats?.commonConditions && stats.commonConditions.length > 0 && (
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Conditions Fréquentes</Text>
+          <Text style={dynamicStyles.sectionTitle}>{t.dashboard.detectedConditions}</Text>
           <Card>
             <View style={styles.conditionsRow}>
               {stats.commonConditions.map((condition, index) => (
@@ -211,11 +213,11 @@ export function ProfileScreen({ navigation }: any) {
         <Button 
           onPress={handleLogout} 
           fullWidth 
-          variant="secondary"
+          variant="outline"
           style={styles.logoutButton}
         >
           <Ionicons name="log-out-outline" size={18} color={colors.error} />
-          <Text style={dynamicStyles.logoutText}>  Déconnexion</Text>
+          <Text style={dynamicStyles.logoutText}>  {t.nav.logout}</Text>
         </Button>
       </View>
 

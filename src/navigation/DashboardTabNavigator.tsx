@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSizes, FontWeights, Spacing } from '../theme';
+import { useTranslation } from '../lib/i18n';
 
 // Dashboard screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
@@ -59,6 +60,16 @@ const tabIconMap: Record<string, { active: any; inactive: any }> = {
 };
 
 export function DashboardTabNavigator() {
+  const { t } = useTranslation();
+
+  const tabLabelMap: Record<string, string> = {
+    Home: t.nav.dashboard,
+    Analysis: t.nav.analysis,
+    Routine: t.nav.routine,
+    Chat: t.nav.coach,
+    Profile: t.nav.profile,
+  };
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -67,6 +78,7 @@ export function DashboardTabNavigator() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.gray400,
         tabBarLabelStyle: styles.tabLabel,
+        tabBarLabel: tabLabelMap[route.name] || route.name,
         tabBarIcon: ({ focused, color, size }) => {
           const icons = tabIconMap[route.name];
           const iconName = focused ? icons.active : icons.inactive;

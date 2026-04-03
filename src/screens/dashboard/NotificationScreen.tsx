@@ -8,6 +8,7 @@ import { useNotificationStore } from '../../stores/notification.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { getRelativeTime } from '../../lib/utils';
 import type { Notification, NotificationType } from '../../lib/types';
+import { useTranslation } from '../../lib/i18n/useTranslation';
 
 const getNotificationIcon = (type: NotificationType): { icon: keyof typeof Ionicons.glyphMap; color: string } => {
   switch (type) {
@@ -33,6 +34,7 @@ export function NotificationScreen({ navigation }: any) {
     removeNotification,
   } = useNotificationStore();
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -77,11 +79,11 @@ export function NotificationScreen({ navigation }: any) {
   const handleMarkAllRead = () => {
     if (unreadCount === 0) return;
     Alert.alert(
-      'Tout marquer comme lu',
-      'Voulez-vous marquer toutes les notifications comme lues ?',
+      t.notificationsScreen.markAllReadAlertTitle,
+      t.notificationsScreen.markAllReadAlertMessage,
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Oui', onPress: markAllAsRead },
+        { text: t.common.cancel, style: 'cancel' },
+        { text: t.notificationsScreen.yes, onPress: markAllAsRead },
       ]
     );
   };
@@ -98,11 +100,11 @@ export function NotificationScreen({ navigation }: any) {
 
   const handleDelete = (notifId: string) => {
     Alert.alert(
-      'Supprimer',
-      'Voulez-vous supprimer cette notification ?',
+      t.notificationsScreen.deleteAlertTitle,
+      t.notificationsScreen.deleteAlertMessage,
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => removeNotification(notifId) },
+        { text: t.common.cancel, style: 'cancel' },
+        { text: t.common.delete, style: 'destructive', onPress: () => removeNotification(notifId) },
       ]
     );
   };
@@ -111,7 +113,7 @@ export function NotificationScreen({ navigation }: any) {
     return (
       <SafeAreaView style={dynamicStyles.safeArea}>
         <View style={dynamicStyles.loadingContainer}>
-          <LoadingSpinner message="Chargement des notifications..." />
+          <LoadingSpinner message={t.notificationsScreen.loading} />
         </View>
       </SafeAreaView>
     );
@@ -131,16 +133,16 @@ export function NotificationScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={dynamicStyles.title}>Notifications</Text>
+          <Text style={dynamicStyles.title}>{t.notificationsScreen.title}</Text>
           <TouchableOpacity onPress={handleMarkAllRead} disabled={unreadCount === 0}>
             <Text style={[dynamicStyles.markRead, unreadCount === 0 && dynamicStyles.markReadDisabled]}>
-              Tout lire
+              {t.notificationsScreen.markAllRead}
             </Text>
           </TouchableOpacity>
         </View>
         {unreadCount > 0 && (
           <View style={styles.unreadBanner}>
-            <Badge text={`${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`} variant="primary" />
+            <Badge text={`${unreadCount} ${unreadCount > 1 ? t.notificationsScreen.unreads : t.notificationsScreen.unread}`} variant="primary" />
           </View>
         )}
       </View>
@@ -148,8 +150,8 @@ export function NotificationScreen({ navigation }: any) {
       {notifications.length === 0 ? (
         <EmptyState
           icon="notifications-off-outline"
-          title="Aucune notification"
-          description="Vous n'avez pas encore de notifications"
+          title={t.notificationsScreen.emptyTitle}
+          description={t.notificationsScreen.emptyDesc}
         />
       ) : (
         notifications.map((notif) => {

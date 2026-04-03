@@ -10,6 +10,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useNotificationStore } from '../../stores/notification.store';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, AnalysisStats } from '../../lib/types';
 import { getRelativeTime } from '../../lib/utils';
@@ -32,6 +33,7 @@ export function DashboardScreen({ navigation }: any) {
   const { unreadCount, fetchUnreadCount } = useNotificationStore();
   const { togglePanel: openAccessibilityPanel } = useAccessibilityStore();
   const { colors, fontSizes, settings, getAnimDuration } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [data, setData] = useState<DashboardData>({ latestAnalysis: null, stats: null });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -129,7 +131,7 @@ export function DashboardScreen({ navigation }: any) {
   const dropdownItems: DropdownMenuItem[] = [
     {
       id: 'accessibility',
-      label: 'Accessibilité',
+      label: t.accessibility.title,
       icon: 'accessibility-outline',
       action: () => {
         setShowDropdown(false);
@@ -138,7 +140,7 @@ export function DashboardScreen({ navigation }: any) {
     },
     {
       id: 'subscription',
-      label: 'Abonnement',
+      label: t.settings.premiumMember,
       icon: 'diamond-outline',
       action: () => {
         setShowDropdown(false);
@@ -147,7 +149,7 @@ export function DashboardScreen({ navigation }: any) {
     },
     {
       id: 'profile',
-      label: 'Profil',
+      label: t.nav.profile,
       icon: 'person-outline',
       action: () => {
         setShowDropdown(false);
@@ -156,7 +158,7 @@ export function DashboardScreen({ navigation }: any) {
     },
     {
       id: 'logout',
-      label: 'Déconnexion',
+      label: t.nav.logout,
       icon: 'log-out-outline',
       color: Colors.error,
       action: handleLogout,
@@ -169,31 +171,31 @@ export function DashboardScreen({ navigation }: any) {
   
   const detailedAnalysis = data.latestAnalysis?.results?.detailedAnalysis;
   const metrics = detailedAnalysis ? [
-    { label: 'Hydratation', value: detailedAnalysis.hydration?.score ?? 0, color: '#06B6D4' },
-    { label: 'Texture', value: detailedAnalysis.texture?.score ?? 0, color: '#8B5CF6' },
-    { label: 'Élasticité', value: detailedAnalysis.elasticity?.score ?? 0, color: '#F59E0B' },
+    { label: t.dashboard.hydration, value: detailedAnalysis.hydration?.score ?? 0, color: '#06B6D4' },
+    { label: t.dashboard.texture, value: detailedAnalysis.texture?.score ?? 0, color: '#8B5CF6' },
+    { label: t.dashboard.skinMetrics, value: detailedAnalysis.elasticity?.score ?? 0, color: '#F59E0B' },
     { label: 'Pores', value: detailedAnalysis.pores?.score ?? 0, color: '#10B981' },
   ] : [
-    { label: 'Hydratation', value: 0, color: '#06B6D4' },
-    { label: 'Texture', value: 0, color: '#8B5CF6' },
-    { label: 'Élasticité', value: 0, color: '#F59E0B' },
+    { label: t.dashboard.hydration, value: 0, color: '#06B6D4' },
+    { label: t.dashboard.texture, value: 0, color: '#8B5CF6' },
+    { label: t.dashboard.skinMetrics, value: 0, color: '#F59E0B' },
     { label: 'Pores', value: 0, color: '#10B981' },
   ];
 
   const quickActions = [
-    { icon: 'scan-outline' as const, label: 'Nouvelle Analyse', screen: 'Analysis', gradient: Gradients.primary },
-    { icon: 'calendar-outline' as const, label: 'Ma Routine', screen: 'Routine', gradient: Gradients.accent },
-    { icon: 'chatbubble-outline' as const, label: 'Coach IA', screen: 'Chat', gradient: Gradients.purple },
-    { icon: 'trending-up-outline' as const, label: 'Évolution', screen: 'Evolution', gradient: Gradients.success },
+    { icon: 'scan-outline' as const, label: t.dashboard.newAnalysis, screen: 'Analysis', gradient: Gradients.primary },
+    { icon: 'calendar-outline' as const, label: t.dashboard.myRoutine, screen: 'Routine', gradient: Gradients.accent },
+    { icon: 'chatbubble-outline' as const, label: t.dashboard.aiCoach, screen: 'Chat', gradient: Gradients.purple },
+    { icon: 'trending-up-outline' as const, label: t.dashboard.healthEvolution, screen: 'Evolution', gradient: Gradients.success },
   ];
 
-  const greeting = getGreeting();
-  const userName = user?.firstName || user?.username || 'Utilisateur';
+  const greeting = getGreeting(t);
+  const userName = user?.firstName || user?.username || t.common.user;
 
   if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.loadingContainer}>
-        <LoadingSpinner message="Chargement du tableau de bord..." />
+        <LoadingSpinner message={t.common.loading} />
       </SafeAreaView>
     );
   }
@@ -290,9 +292,9 @@ export function DashboardScreen({ navigation }: any) {
       </View>
 
       {/* Skin Health Score */}
-      <Card variant="elevated" style={[styles.scoreCard, { backgroundColor: colors.surface }]}>
+      <Card variant="elevated" style={[styles.scoreCard, { backgroundColor: colors.surface }] as any}>
         <View style={styles.scoreHeader}>
-          <Text style={dynamicStyles.scoreLabel}>Score Santé Peau</Text>
+          <Text style={dynamicStyles.scoreLabel}>{t.dashboard.skinHealth}</Text>
           {data.stats && data.stats.totalAnalyses > 1 && (
             <Badge 
               text={`${data.stats.totalAnalyses} analyses`} 
@@ -311,14 +313,14 @@ export function DashboardScreen({ navigation }: any) {
             {skinAge && (
               <View style={styles.ageComparison}>
                 <View style={styles.ageRow}>
-                  <Text style={[styles.ageLabel, { color: colors.textSecondary }]}>Âge réel</Text>
+                  <Text style={[styles.ageLabel, { color: colors.textSecondary }]}>{t.dashboard.realAge}</Text>
                   <View style={[styles.ageBar, { backgroundColor: colors.border }]}>
                     <View style={[styles.ageBarFill, { width: `${Math.min((userAge / 60) * 100, 100)}%`, backgroundColor: colors.primary }]} />
                   </View>
                   <Text style={[styles.ageValue, { color: colors.primary }]}>{userAge}</Text>
                 </View>
                 <View style={styles.ageRow}>
-                  <Text style={[styles.ageLabel, { color: colors.textSecondary }]}>Âge peau</Text>
+                  <Text style={[styles.ageLabel, { color: colors.textSecondary }]}>{t.dashboard.skinAge}</Text>
                   <View style={[styles.ageBar, { backgroundColor: colors.border }]}>
                     <View style={[styles.ageBarFill, { width: `${Math.min((skinAge / 60) * 100, 100)}%`, backgroundColor: skinAge <= userAge ? colors.success : colors.warning }]} />
                   </View>
@@ -330,8 +332,8 @@ export function DashboardScreen({ navigation }: any) {
         ) : (
           <View style={styles.noAnalysis}>
             <Ionicons name="scan-outline" size={48} color={colors.textTertiary} />
-            <Text style={dynamicStyles.noAnalysisText}>Aucune analyse</Text>
-            <Text style={dynamicStyles.noAnalysisHint}>Faites votre première analyse pour voir vos scores</Text>
+            <Text style={dynamicStyles.noAnalysisText}>{t.dashboard.noActivity}</Text>
+            <Text style={dynamicStyles.noAnalysisHint}>{t.dashboard.startAnalysis}</Text>
           </View>
         )}
       </Card>
@@ -339,7 +341,7 @@ export function DashboardScreen({ navigation }: any) {
       {/* Skin Metrics */}
       {skinScore > 0 && (
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Métriques Détaillées</Text>
+          <Text style={dynamicStyles.sectionTitle}>{t.dashboard.skinMetrics}</Text>
           {metrics.map((metric, index) => (
             <View key={index} style={styles.metricRow}>
               <View style={styles.metricHeader}>
@@ -375,8 +377,8 @@ export function DashboardScreen({ navigation }: any) {
       {/* Recent Insights */}
       {data.latestAnalysis?.results?.recommendations && (
         <View style={styles.section}>
-          <Text style={dynamicStyles.sectionTitle}>Conseils IA</Text>
-          <Card style={[styles.insightsCard, { backgroundColor: colors.surface }]}>
+          <Text style={dynamicStyles.sectionTitle}>{t.dashboard.personalizedAdvice}</Text>
+          <Card style={[styles.insightsCard, { backgroundColor: colors.surface }] as any}>
             <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
               <Ionicons name="sparkles" size={20} color={Colors.white} />
             </LinearGradient>
@@ -407,11 +409,11 @@ export function DashboardScreen({ navigation }: any) {
   );
 }
 
-function getGreeting(): string {
+function getGreeting(t: any): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Bonjour';
-  if (hour < 18) return 'Bon après-midi';
-  return 'Bonsoir';
+  if (hour < 12) return t.dashboard.greeting.morning;
+  if (hour < 18) return t.dashboard.greeting.afternoon;
+  return t.dashboard.greeting.evening;
 }
 
 const styles = StyleSheet.create({

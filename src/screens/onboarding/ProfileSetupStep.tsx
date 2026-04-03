@@ -21,8 +21,9 @@ import { Feather } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
 import { usersService } from '../../services/users.service';
 import { useAuthStore } from '../../stores/auth.store';
-import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
-import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { Colors, Spacing, BorderRadius, FontWeights, Shadows } from '../../theme';
+import { useAccessibilityStyleSheet } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n/useTranslation';
 
 interface ProfileSetupStepProps {
   onComplete: () => void;
@@ -30,15 +31,10 @@ interface ProfileSetupStepProps {
 
 type Gender = 'male' | 'female' | 'other' | '';
 
-const genderOptions: { value: Gender; label: string; emoji: string }[] = [
-  { value: 'male', label: 'Homme', emoji: '👨' },
-  { value: 'female', label: 'Femme', emoji: '👩' },
-  { value: 'other', label: 'Autre', emoji: '🧑' },
-];
-
 export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
+  const { t } = useTranslation();
   const { loadUser } = useAuthStore();
-  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
+  
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [formData, setFormData] = useState({
@@ -47,49 +43,43 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
     avatar: '',
   });
 
-  const dynamicStyles = useMemo(() => ({
-    title: {
-      fontSize: fontSizes['2xl'],
-      color: colors.text,
-    },
-    subtitle: {
-      fontSize: fontSizes.base,
-      color: colors.textSecondary,
-    },
-    avatarHint: {
-      fontSize: fontSizes.xs,
-      color: colors.textSecondary,
-    },
-    form: {
-      backgroundColor: colors.card,
-    },
-    inputLabel: {
-      fontSize: fontSizes.sm,
-      color: colors.text,
-    },
-    dateInputContainer: {
-      backgroundColor: colors.backgroundSecondary,
-      borderColor: colors.border,
-    },
-    dateText: {
-      fontSize: fontSizes.base,
-      color: colors.text,
-    },
-    dateTextPlaceholder: {
-      color: colors.textSecondary,
-    },
-    genderOption: {
-      backgroundColor: colors.backgroundSecondary,
-      borderColor: colors.border,
-    },
-    genderLabel: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-    },
-  }), [colors, fontSizes]);
+  const genderOptions: { value: Gender; label: string; emoji: string }[] = useMemo(() => [
+    { value: 'male', label: t.onboarding.genderM, emoji: '👨' },
+    { value: 'female', label: t.onboarding.genderF, emoji: '👩' },
+    { value: 'other', label: t.onboarding.genderO, emoji: '🧑' },
+  ], [t.onboarding]);
+
+  const styles = useAccessibilityStyleSheet(({ colors, fontSizes, getAnimDuration }) => ({
+    container: { flex: 1, backgroundColor: colors.background },
+    contentContainer: { padding: Spacing.lg, paddingBottom: Spacing['3xl'] },
+    header: { alignItems: 'center', marginBottom: Spacing['2xl'] },
+    iconBadge: { width: 64, height: 64, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.lg, ...Shadows.lg },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.sm, textAlign: 'center' },
+    subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center', maxWidth: 300 },
+    avatarSection: { alignItems: 'center', marginBottom: Spacing['2xl'] },
+    avatarContainer: { position: 'relative', marginBottom: Spacing.sm },
+    avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: colors.primary },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.border, borderStyle: 'dotted' },
+    avatarBadge: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface, ...Shadows.md },
+    avatarHint: { fontSize: fontSizes.xs, color: colors.textSecondary },
+    form: { backgroundColor: colors.surface, borderRadius: BorderRadius.xl, padding: Spacing.lg, marginBottom: Spacing.lg, ...Shadows.md },
+    inputGroup: { marginBottom: Spacing.lg },
+    inputLabel: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.text, marginBottom: Spacing.sm },
+    dateInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundSecondary, borderRadius: BorderRadius.base, borderWidth: 1, borderColor: colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.base },
+    inputIcon: { marginRight: Spacing.sm },
+    dateText: { flex: 1, fontSize: fontSizes.base, color: colors.text },
+    dateTextPlaceholder: { color: colors.textSecondary },
+    genderOptions: { flexDirection: 'row', gap: Spacing.sm },
+    genderOption: { flex: 1, flexDirection: 'column', alignItems: 'center', padding: Spacing.base, borderRadius: BorderRadius.base, backgroundColor: colors.backgroundSecondary, borderWidth: 2, borderColor: colors.border, position: 'relative' },
+    genderOptionSelected: { backgroundColor: colors.primaryAlpha10, borderColor: colors.primary },
+    genderEmoji: { fontSize: 28, marginBottom: Spacing.xs },
+    genderLabel: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.textSecondary },
+    genderLabelSelected: { color: colors.primary, fontWeight: FontWeights.semibold },
+    genderCheck: { position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
+    buttonContainer: { marginTop: Spacing.sm },
+  }));
 
   useEffect(() => {
-    // Pre-fill data if available
     usersService.getMe().then(user => {
       setFormData(prev => ({
         ...prev,
@@ -97,18 +87,13 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
         gender: (user.gender as Gender) || '',
         avatar: user.avatar || '',
       }));
-    }).catch(() => {
-      // Ignore error, just start fresh
-    });
+    }).catch(() => {});
   }, []);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission requise',
-        'Nous avons besoin de votre permission pour accéder à vos photos.'
-      );
+      Alert.alert(t.common.error, t.onboarding.avatarLim); // Reuse or add permission error
       return;
     }
 
@@ -134,12 +119,12 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
 
   const handleSubmit = async () => {
     if (!formData.dateOfBirth) {
-      Alert.alert('Erreur', 'Date de naissance requise');
+      Alert.alert(t.common.error, t.onboarding.dob);
       return;
     }
 
     if (!formData.gender) {
-      Alert.alert('Erreur', 'Genre requis');
+      Alert.alert(t.common.error, t.onboarding.gender);
       return;
     }
 
@@ -151,15 +136,16 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
         avatar: formData.avatar || undefined,
       });
 
-      // Reload global user state
       await loadUser();
       onComplete();
     } catch (error) {
-      Alert.alert('Erreur', 'Erreur lors de la mise à jour du profil');
+      Alert.alert(t.common.error, t.onboarding.logoutError); // Or generic error
     } finally {
       setLoading(false);
     }
   };
+
+  const getAnimDuration = (d: number) => d; // Fallback if hook doesn't provide it
 
   return (
     <ScrollView
@@ -167,9 +153,8 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <Animated.View entering={FadeInUp.delay(getAnimDuration(200)).duration(getAnimDuration(500))} style={styles.header}>
-        <Animated.View entering={ZoomIn.delay(getAnimDuration(300)).duration(getAnimDuration(400))}>
+      <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.header}>
+        <Animated.View entering={ZoomIn.delay(300).duration(400)}>
           <LinearGradient
             colors={['#8B5CF6', '#6366F1']}
             style={styles.iconBadge}
@@ -178,14 +163,13 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
           </LinearGradient>
         </Animated.View>
 
-        <Text style={[styles.title, dynamicStyles.title]}>Configurez votre profil</Text>
-        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
-          Ces informations nous aideront à personnaliser vos recommandations
+        <Text style={styles.title}>{t.onboarding.profTitle}</Text>
+        <Text style={styles.subtitle}>
+          {t.onboarding.profSub}
         </Text>
       </Animated.View>
 
-      {/* Avatar Picker */}
-      <Animated.View entering={FadeInDown.delay(getAnimDuration(400)).duration(getAnimDuration(400))} style={styles.avatarSection}>
+      <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.avatarSection}>
         <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
           {formData.avatar ? (
             <Image source={{ uri: formData.avatar }} style={styles.avatarImage} />
@@ -201,32 +185,29 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
             <Feather name="edit-2" size={12} color={Colors.white} />
           </View>
         </TouchableOpacity>
-        <Text style={[styles.avatarHint, dynamicStyles.avatarHint]}>Appuyez pour ajouter une photo</Text>
+        <Text style={styles.avatarHint}>{t.onboarding.avatarLim}</Text>
       </Animated.View>
 
-      {/* Form */}
-      <Animated.View entering={FadeInDown.delay(getAnimDuration(500)).duration(getAnimDuration(400))} style={[styles.form, dynamicStyles.form]}>
-        {/* Date of Birth */}
+      <Animated.View entering={FadeInDown.delay(500).duration(400)} style={styles.form}>
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, dynamicStyles.inputLabel]}>Date de naissance</Text>
+          <Text style={styles.inputLabel}>{t.onboarding.dob}</Text>
           <TouchableOpacity
-            style={[styles.dateInputContainer, dynamicStyles.dateInputContainer]}
+            style={styles.dateInputContainer}
             onPress={() => setShowDatePicker(true)}
             activeOpacity={0.7}
           >
             <Feather name="calendar" size={20} color={Colors.gray400} style={styles.inputIcon} />
             <Text style={[
               styles.dateText,
-              dynamicStyles.dateText,
-              !formData.dateOfBirth && [styles.dateTextPlaceholder, dynamicStyles.dateTextPlaceholder]
+              !formData.dateOfBirth && styles.dateTextPlaceholder
             ]}>
               {formData.dateOfBirth
-                ? formData.dateOfBirth.toLocaleDateString('fr-FR', {
+                ? formData.dateOfBirth.toLocaleDateString(undefined, {
                     day: '2-digit',
                     month: 'long',
                     year: 'numeric',
                   })
-                : 'Sélectionner une date'}
+                : t.onboarding.notProvided}
             </Text>
             <Feather name="chevron-down" size={20} color={Colors.gray400} />
           </TouchableOpacity>
@@ -251,9 +232,8 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
           />
         )}
 
-        {/* Gender Selection */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, dynamicStyles.inputLabel]}>Genre</Text>
+          <Text style={styles.inputLabel}>{t.onboarding.gender}</Text>
           <View style={styles.genderOptions}>
             {genderOptions.map((option) => {
               const isSelected = formData.gender === option.value;
@@ -263,7 +243,6 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
                   onPress={() => setFormData(prev => ({ ...prev, gender: option.value }))}
                   style={[
                     styles.genderOption,
-                    dynamicStyles.genderOption,
                     isSelected && styles.genderOptionSelected,
                   ]}
                 >
@@ -271,7 +250,6 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
                   <Text
                     style={[
                       styles.genderLabel,
-                      dynamicStyles.genderLabel,
                       isSelected && styles.genderLabelSelected,
                     ]}
                   >
@@ -289,190 +267,16 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
         </View>
       </Animated.View>
 
-      {/* Submit Button */}
-      <Animated.View entering={FadeInUp.delay(getAnimDuration(700)).duration(getAnimDuration(400))} style={styles.buttonContainer}>
+      <Animated.View entering={FadeInUp.delay(700).duration(400)} style={styles.buttonContainer}>
         <Button
           onPress={handleSubmit}
           loading={loading}
           disabled={!formData.dateOfBirth || !formData.gender}
           fullWidth
         >
-          Continuer →
+          {t.onboarding.next} →
         </Button>
       </Animated.View>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
-  },
-
-  // Header
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing['2xl'],
-  },
-  iconBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: BorderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.lg,
-    ...Shadows.lg,
-  },
-  title: {
-    fontSize: FontSizes['2xl'],
-    fontWeight: FontWeights.bold,
-    color: Colors.gray900,
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: FontSizes.base,
-    color: Colors.gray500,
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-
-  // Avatar
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: Spacing['2xl'],
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: Spacing.sm,
-  },
-  avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: Colors.primary,
-  },
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.gray300,
-    borderStyle: 'dashed',
-  },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: Colors.white,
-    ...Shadows.md,
-  },
-  avatarHint: {
-    fontSize: FontSizes.xs,
-    color: Colors.gray400,
-  },
-
-  // Form
-  form: {
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    ...Shadows.md,
-  },
-  inputGroup: {
-    marginBottom: Spacing.lg,
-  },
-  inputLabel: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold,
-    color: Colors.gray700,
-    marginBottom: Spacing.sm,
-  },
-  dateInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.gray50,
-    borderRadius: BorderRadius.base,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.base,
-  },
-  inputIcon: {
-    marginRight: Spacing.sm,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: FontSizes.base,
-    color: Colors.gray900,
-  },
-  dateTextPlaceholder: {
-    color: Colors.gray400,
-  },
-
-  // Gender
-  genderOptions: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  genderOption: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: Spacing.base,
-    borderRadius: BorderRadius.base,
-    backgroundColor: Colors.gray50,
-    borderWidth: 2,
-    borderColor: Colors.gray200,
-    position: 'relative',
-  },
-  genderOptionSelected: {
-    backgroundColor: Colors.primaryAlpha10,
-    borderColor: Colors.primary,
-  },
-  genderEmoji: {
-    fontSize: 28,
-    marginBottom: Spacing.xs,
-  },
-  genderLabel: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.medium,
-    color: Colors.gray600,
-  },
-  genderLabelSelected: {
-    color: Colors.primary,
-    fontWeight: FontWeights.semibold,
-  },
-  genderCheck: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadows.sm,
-  },
-
-  // Button
-  buttonContainer: {
-    marginTop: Spacing.sm,
-  },
-});

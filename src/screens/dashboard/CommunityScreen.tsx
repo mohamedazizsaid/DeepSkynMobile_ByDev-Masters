@@ -12,6 +12,7 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { postsService } from '../../services/posts.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { Post, Comment } from '../../lib/types';
+import { useTranslation } from '../../lib/i18n/useTranslation';
 import { getRelativeTime } from '../../lib/utils/formatters';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -74,18 +75,22 @@ const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 // ─── Sub Components ───────────────────────────────────────────────
 
-function StoryBar() {
+function StoryBar({ t }: { t: any }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.storyBar} contentContainerStyle={{ paddingHorizontal: Spacing.base, gap: Spacing.md }}>
-      {STORIES.map((story) => (
+      <TouchableOpacity style={s.storyItem}>
+        <View style={[s.storyRing, s.storyRingOwn]}>
+          <LinearGradient colors={Gradients.primary as any} style={s.storyAvatar}>
+            <Ionicons name="add" size={20} color={Colors.white} />
+          </LinearGradient>
+        </View>
+        <Text style={s.storyName} numberOfLines={1}>{t.community.yourStory}</Text>
+      </TouchableOpacity>
+      {STORIES.slice(1).map((story) => (
         <TouchableOpacity key={story.id} style={s.storyItem}>
-          <View style={[s.storyRing, story.isOwn ? s.storyRingOwn : (story as any).viewed ? s.storyRingViewed : s.storyRingActive]}>
+          <View style={[s.storyRing, (story as any).viewed ? s.storyRingViewed : s.storyRingActive]}>
             <LinearGradient colors={[...story.gradient]} style={s.storyAvatar}>
-              {story.isOwn ? (
-                <Ionicons name="add" size={20} color={Colors.white} />
-              ) : (
-                <Text style={s.storyInitials}>{story.initials}</Text>
-              )}
+              <Text style={s.storyInitials}>{story.initials}</Text>
             </LinearGradient>
           </View>
           <Text style={s.storyName} numberOfLines={1}>{story.name}</Text>
@@ -95,21 +100,22 @@ function StoryBar() {
   );
 }
 
-function PostComposer({ text, setText, onPublish, publishing }: { 
+function PostComposer({ text, setText, onPublish, publishing, t }: { 
   text: string; 
   setText: (t: string) => void; 
   onPublish: () => void;
   publishing: boolean;
+  t: any;
 }) {
   return (
     <Card variant="elevated" style={s.newPostCard}>
       <View style={s.newPostHeader}>
-        <LinearGradient colors={Gradients.primary} style={s.composerAvatar}>
+        <LinearGradient colors={Gradients.primary as any} style={s.composerAvatar}>
           <Ionicons name="person" size={18} color={Colors.white} />
         </LinearGradient>
         <TextInput
           style={s.newPostInput}
-          placeholder="Quoi de neuf ?"
+          placeholder={t.community.postPlaceholder || "Quoi de neuf aujourd'hui ?"}
           placeholderTextColor={Colors.gray400}
           value={text}
           onChangeText={setText}
@@ -126,7 +132,7 @@ function PostComposer({ text, setText, onPublish, publishing }: {
           </TouchableOpacity>
         </View>
         <Button onPress={onPublish} size="sm" disabled={!text.trim() || publishing}>
-          {publishing ? 'Publication...' : 'Publier'}
+          {publishing ? '...' : (t.community.publications || 'Publier')}
         </Button>
       </View>
     </Card>
@@ -173,7 +179,7 @@ function PostItem({ post, onLike }: { post: Post; onLike: (id: string) => void }
   );
 }
 
-function SuggestionCard({ user, onFollow }: { user: typeof SUGGESTIONS[0]; onFollow: () => void }) {
+function SuggestionCard({ user, onFollow, t }: { user: typeof SUGGESTIONS[0]; onFollow: () => void, t: any }) {
   const [following, setFollowing] = useState(false);
   return (
     <Card style={s.suggestionCard}>
@@ -185,8 +191,8 @@ function SuggestionCard({ user, onFollow }: { user: typeof SUGGESTIONS[0]; onFol
         <Text style={s.suggestionName} numberOfLines={1}>{user.name}</Text>
         <Text style={s.suggestionBio} numberOfLines={1}>{user.bio}</Text>
         <View style={s.suggestionMeta}>
-          <Badge variant="info" size="sm">{`Peau ${user.skin}`}</Badge>
-          <Text style={s.suggestionMutual}>{user.mutual} en commun</Text>
+          <Badge variant="primary" size="sm" text={t.community.skinType.replace('{type}', user.skin)} />
+          <Text style={s.suggestionMutual}>{user.mutual} {t.community.inCommon}</Text>
         </View>
         <TouchableOpacity
           style={[s.followBtn, following && s.followBtnActive]}
@@ -194,7 +200,7 @@ function SuggestionCard({ user, onFollow }: { user: typeof SUGGESTIONS[0]; onFol
         >
           <Ionicons name={following ? 'checkmark' : 'person-add-outline'} size={14} color={following ? Colors.gray500 : Colors.white} />
           <Text style={[s.followBtnText, following && s.followBtnTextActive]}>
-            {following ? 'Suivi' : "S'abonner"}
+            {following ? 'Suivi' : t.community.subscriptions || 'Suivre'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -223,6 +229,7 @@ function StatKPI({ icon, label, value, change, color, isUp }: { icon: string; la
 
 export function CommunityScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<CommunityTab>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [myPosts, setMyPosts] = useState<Post[]>([]);
@@ -316,10 +323,10 @@ export function CommunityScreen() {
   };
 
   const TABS: { key: CommunityTab; label: string; icon: string }[] = [
-    { key: 'feed', label: 'Fil', icon: 'newspaper-outline' },
-    { key: 'profile', label: 'Profil', icon: 'person-outline' },
-    { key: 'suggestions', label: 'Suggestions', icon: 'people-outline' },
-    { key: 'stats', label: 'Stats', icon: 'bar-chart-outline' },
+    { key: 'feed', label: t.community.feed, icon: 'newspaper-outline' },
+    { key: 'profile', label: t.community.profile, icon: 'person-outline' },
+    { key: 'suggestions', label: t.community.suggestions, icon: 'people-outline' },
+    { key: 'stats', label: t.community.stats, icon: 'bar-chart-outline' },
   ];
 
   return (
@@ -327,8 +334,8 @@ export function CommunityScreen() {
       <View style={dynamicStyles.container}>
         {/* Header */}
         <View style={s.header}>
-          <Text style={dynamicStyles.title}>Communauté</Text>
-          <Text style={dynamicStyles.subtitle}>Partagez votre parcours skincare</Text>
+          <Text style={dynamicStyles.title}>{t.nav.community || 'Communauté'}</Text>
+          <Text style={dynamicStyles.subtitle}>{t.dashboard.shareDiscover || 'Partagez votre parcours skincare'}</Text>
         </View>
 
       {/* Tab Bar */}
@@ -355,8 +362,8 @@ export function CommunityScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         >
-          <StoryBar />
-          <PostComposer text={postText} setText={setPostText} onPublish={handlePublish} publishing={publishing} />
+          <StoryBar t={t} />
+          <PostComposer text={postText} setText={setPostText} onPublish={handlePublish} publishing={publishing} t={t} />
           {loading ? (
             <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
               <ActivityIndicator size="large" color={Colors.primary} />
@@ -364,8 +371,8 @@ export function CommunityScreen() {
           ) : posts.length === 0 ? (
             <EmptyState
               icon="chatbubbles-outline"
-              title="Aucune publication"
-              message="Soyez le premier à partager votre parcours skincare !"
+              title={t.community.noPosts}
+              description={t.community.beFirst}
             />
           ) : (
             posts.map((post) => <PostItem key={post.id} post={post} onLike={handleLike} />)
@@ -389,28 +396,28 @@ export function CommunityScreen() {
                   <Ionicons name="person" size={32} color={Colors.white} />
                 </LinearGradient>
               </View>
-              <Text style={s.profileName}>{user?.name || 'Mon Profil'}</Text>
+              <Text style={s.profileName}>{user?.name || t.nav.profile}</Text>
               <Text style={s.profileHandle}>@{user?.name?.toLowerCase().replace(/\s+/g, '') || 'utilisateur'}</Text>
-              <Text style={s.profileBio}>Bienvenue dans la communauté DeepSkyn ! 💙</Text>
+              <Text style={s.profileBio}>{t.community.welcomeBio || 'Bienvenue dans la communauté DeepSkyn ! 💙'}</Text>
               <View style={s.profileStats}>
                 <View style={s.profileStat}>
                   <Text style={s.profileStatNum}>{myPosts.length}</Text>
-                  <Text style={s.profileStatLabel}>Posts</Text>
+                  <Text style={s.profileStatLabel}>{t.community.posts || 'Posts'}</Text>
                 </View>
                 <View style={s.profileStatDivider} />
                 <View style={s.profileStat}>
                   <Text style={s.profileStatNum}>--</Text>
-                  <Text style={s.profileStatLabel}>Abonnés</Text>
+                  <Text style={s.profileStatLabel}>{t.community.followers || 'Abonnés'}</Text>
                 </View>
                 <View style={s.profileStatDivider} />
                 <View style={s.profileStat}>
                   <Text style={s.profileStatNum}>--</Text>
-                  <Text style={s.profileStatLabel}>Abonnements</Text>
+                  <Text style={s.profileStatLabel}>{t.community.subscriptions || 'Abonnements'}</Text>
                 </View>
               </View>
             </View>
           </Card>
-          <PostComposer text={postText} setText={setPostText} onPublish={handlePublish} publishing={publishing} />
+          <PostComposer text={postText} setText={setPostText} onPublish={handlePublish} publishing={publishing} t={t} />
           {myPosts.map((post) => <PostItem key={post.id} post={post} onLike={handleLike} />)}
           <View style={{ height: 30 }} />
         </ScrollView>
@@ -424,13 +431,13 @@ export function CommunityScreen() {
               <Ionicons name="sparkles" size={18} color={Colors.primary} />
             </View>
             <View>
-              <Text style={s.sectionTitle}>Suggestions pour vous</Text>
-              <Text style={s.sectionSubtitle}>Passionnés skincare à découvrir</Text>
+              <Text style={s.sectionTitle}>{t.community.suggestionsForYou}</Text>
+              <Text style={s.sectionSubtitle}>{t.community.skinEnthusiasts}</Text>
             </View>
           </View>
           <View style={s.suggestionsGrid}>
             {SUGGESTIONS.map((user) => (
-              <SuggestionCard key={user.id} user={user} onFollow={() => {}} />
+              <SuggestionCard key={user.id} user={user} onFollow={() => {}} t={t} />
             ))}
           </View>
         </ScrollView>
@@ -444,24 +451,24 @@ export function CommunityScreen() {
               <Ionicons name="analytics" size={18} color={Colors.primary} />
             </View>
             <View>
-              <Text style={s.sectionTitle}>Statistiques</Text>
-              <Text style={s.sectionSubtitle}>Vos performances cette semaine</Text>
+              <Text style={s.sectionTitle}>{t.stats.title}</Text>
+              <Text style={s.sectionSubtitle}>{t.stats.weekPerformance}</Text>
             </View>
           </View>
 
           {/* KPI Grid */}
           <View style={s.kpiGrid}>
-            <StatKPI icon="eye-outline" label="Vues stories" value="819" change="+18%" color={Colors.primary} isUp={true} />
-            <StatKPI icon="heart-outline" label="Likes" value="1.4K" change="+24%" color={Colors.error} isUp={true} />
-            <StatKPI icon="chatbubble-outline" label="Commentaires" value="328" change="+12%" color="#8B5CF6" isUp={true} />
-            <StatKPI icon="share-outline" label="Partages" value="89" change="-3%" color="#F97316" isUp={false} />
+            <StatKPI icon="eye-outline" label={t.stats.storyViews} value="819" change="+18%" color={Colors.primary} isUp={true} />
+            <StatKPI icon="heart-outline" label={t.stats.likesReceived} value="1.4K" change="+24%" color={Colors.error} isUp={true} />
+            <StatKPI icon="chatbubble-outline" label={t.stats.commentsCount} value="328" change="+12%" color="#8B5CF6" isUp={true} />
+            <StatKPI icon="share-outline" label={t.stats.shares} value="89" change="-3%" color="#F97316" isUp={false} />
           </View>
 
           {/* Weekly Activity */}
           <Card style={s.chartCard}>
             <View style={s.chartHeader}>
-              <Text style={s.chartTitle}>Activité hebdomadaire</Text>
-              <Text style={s.chartTotal}>{WEEKLY_DATA.reduce((a, b) => a + b, 0)} total</Text>
+              <Text style={s.chartTitle}>{t.stats.weeklyActivity}</Text>
+              <Text style={s.chartTotal}>{WEEKLY_DATA.reduce((a, b) => a + b, 0)} {t.stats.total}</Text>
             </View>
             <View style={s.barChart}>
               {WEEKLY_DATA.map((val, i) => {
@@ -478,7 +485,7 @@ export function CommunityScreen() {
 
           {/* Engagement */}
           <Card style={s.chartCard}>
-            <Text style={s.chartTitle}>Taux d'engagement</Text>
+            <Text style={s.chartTitle}>{t.stats.engagementRate}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: Spacing.sm }}>
               <Text style={{ fontSize: 32, fontWeight: '700' as any, color: Colors.gray900 }}>8.4%</Text>
               <View style={[s.statBadge, { backgroundColor: '#DCFCE7', marginBottom: 6 }]}>
@@ -486,9 +493,9 @@ export function CommunityScreen() {
               </View>
             </View>
             {[
-              { label: 'Portée organique', pct: 72, color: Colors.primary },
-              { label: 'Taux de clic', pct: 45, color: '#8B5CF6' },
-              { label: 'Rétention stories', pct: 61, color: '#EC4899' },
+              { label: t.stats.organicReach, pct: 72, color: Colors.primary },
+              { label: t.stats.clickRate, pct: 45, color: '#8B5CF6' },
+              { label: t.stats.storyRetention, pct: 61, color: '#EC4899' },
             ].map((m, i) => (
               <View key={i} style={{ marginTop: Spacing.md }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -505,8 +512,8 @@ export function CommunityScreen() {
           {/* Story Views */}
           <Card style={s.chartCard}>
             <View style={s.chartHeader}>
-              <Text style={s.chartTitle}>Vues par story</Text>
-              <Badge variant="info" size="sm">819 vues</Badge>
+              <Text style={s.chartTitle}>{t.stats.viewsPerStory}</Text>
+              <Badge variant="primary" size="sm" text={`819 ${t.stats.totalViews.replace(' totales', '')}`} />
             </View>
             {STORY_STATS.map((story, i) => (
               <View key={i} style={[s.storyStatRow, i < STORY_STATS.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.gray100 }]}>

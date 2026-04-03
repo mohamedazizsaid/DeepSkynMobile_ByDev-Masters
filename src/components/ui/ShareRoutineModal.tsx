@@ -12,11 +12,12 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients } from '../../theme';
-import { FontSizes, FontWeights, Spacing } from '../../theme';
+import { Colors, Gradients, Spacing, BorderRadius, FontWeights } from '../../theme';
 import { Routine } from '../../lib/types';
 import { Button } from './Button';
 import { Input } from './Input';
+import { useTranslation } from '../../lib/i18n/useTranslation';
+import { useAccessibilityStyleSheet } from '../../stores/useAccessibilityStyles';
 
 interface ShareRoutineModalProps {
   visible: boolean;
@@ -31,8 +32,50 @@ export function ShareRoutineModal({
   onClose,
   onShare,
 }: ShareRoutineModalProps) {
+  const { t } = useTranslation();
   const [customMessage, setCustomMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const styles = useAccessibilityStyleSheet(({ colors, fontSizes }) => ({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight, paddingTop: Spacing.xl },
+    headerTitle: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text, textAlign: 'center' },
+    closeButton: { fontSize: fontSizes['4xl'], color: colors.textSecondary, width: 30, textAlign: 'left' },
+    scrollContent: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.lg },
+    premiumBadgeContainer: { marginBottom: Spacing.lg, borderRadius: 12, overflow: 'hidden' },
+    premiumBadge: { paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+    premiumText: { color: Colors.white, fontSize: fontSizes.sm, fontWeight: FontWeights.bold, letterSpacing: 1 },
+    routineCard: { borderRadius: 16, overflow: 'hidden', marginBottom: Spacing.lg, elevation: 4, shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
+    routineCardGradient: { padding: Spacing.lg },
+    routineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+    typeBadge: { backgroundColor: 'rgba(255, 255, 255, 0.3)', color: Colors.white, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, fontSize: fontSizes.sm, fontWeight: FontWeights.semibold },
+    stepCount: { color: Colors.white, fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, backgroundColor: 'rgba(0, 0, 0, 0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    routineName: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: Colors.white, marginBottom: Spacing.xs },
+    routineNotes: { fontSize: fontSizes.sm, color: 'rgba(255, 255, 255, 0.8)', fontStyle: 'italic' },
+    section: { marginBottom: Spacing.lg },
+    sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.md },
+    stepsList: { borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface, elevation: 2, shadowColor: Colors.black, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+    stepItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    stepNumber: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primaryLight, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
+    stepNumberText: { color: Colors.white, fontWeight: FontWeights.bold, fontSize: fontSizes.base },
+    stepContent: { flex: 1 },
+    stepName: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text, marginBottom: 2 },
+    stepProduct: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    stepDuration: { fontSize: fontSizes.sm, color: colors.textTertiary, marginLeft: Spacing.sm },
+    moreSteps: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundSecondary },
+    moreStepsText: { color: colors.primary, fontSize: fontSizes.sm, fontWeight: FontWeights.semibold },
+    input: { height: 100, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, backgroundColor: colors.surface, fontSize: fontSizes.base, textAlignVertical: 'top', color: colors.text },
+    characterCount: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: Spacing.xs, textAlign: 'right' },
+    previewBox: { backgroundColor: colors.surface, borderRadius: 12, padding: Spacing.md, borderWidth: 1, borderColor: colors.border, elevation: 2, shadowColor: Colors.black, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+    previewText: { fontSize: fontSizes.sm, color: colors.text, lineHeight: 20 },
+    buttonGroup: { flexDirection: 'column', gap: Spacing.md, marginVertical: Spacing.lg, marginBottom: Spacing.xl },
+    cancelButton: { borderWidth: 2, borderColor: colors.border },
+    cancelButtonText: { color: colors.textSecondary, fontWeight: FontWeights.semibold, fontSize: fontSizes.base },
+    shareButtonText: { color: Colors.white, fontWeight: FontWeights.bold, fontSize: fontSizes.base },
+    tipsBox: { backgroundColor: Colors.amber, borderRadius: 12, padding: Spacing.md, marginBottom: Spacing.lg, borderLeftWidth: 4, borderLeftColor: Colors.warning },
+    tipsTitle: { color: Colors.black, fontWeight: FontWeights.bold, fontSize: fontSizes.base, marginBottom: Spacing.xs },
+    tipsText: { color: Colors.gray800, fontSize: fontSizes.sm, lineHeight: 18 },
+  }));
 
   if (!routine) return null;
 
@@ -40,13 +83,13 @@ export function ShareRoutineModal({
     try {
       setIsLoading(true);
       await onShare(customMessage);
-      Alert.alert('Succès', 'Routine partagée avec succès!');
+      Alert.alert(t.common.success, t.shareRoutine.success);
       resetModal();
       onClose();
     } catch (error) {
       Alert.alert(
-        'Erreur',
-        error instanceof Error ? error.message : 'Erreur lors du partage'
+        t.common.error,
+        error instanceof Error ? error.message : t.shareRoutine.error
       );
     } finally {
       setIsLoading(false);
@@ -59,21 +102,17 @@ export function ShareRoutineModal({
 
   const getTypeEmoji = (type: string) => {
     switch (type.toUpperCase()) {
-      case 'AM':
-        return '🌅';
-      case 'PM':
-        return '🌙';
-      case 'WEEKLY':
-        return '⭐';
-      default:
-        return '✨';
+      case 'AM': return '🌅';
+      case 'PM': return '🌙';
+      case 'WEEKLY': return '⭐';
+      default: return '✨';
     }
   };
 
   const previewMessage = () => {
     const emoji = getTypeEmoji(routine.type);
     let message = `${emoji} ${routine.name}\n`;
-    message += `${routine.type} • ${routine.steps.length} étapes`;
+    message += `${routine.type} • ${routine.steps.length} ${t.evolution.points}`; // Using points for steps as a fallback or better add 'steps' to common
 
     if (customMessage) {
       message += `\n\n💬 "${customMessage}"`;
@@ -103,13 +142,13 @@ export function ShareRoutineModal({
       transparent={false}
       onRequestClose={onClose}
     >
-      <LinearGradient colors={[Colors.gray50, Colors.gray100]} style={styles.container}>
+      <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} disabled={isLoading}>
             <Text style={styles.closeButton}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Partager la routine</Text>
+          <Text style={styles.headerTitle}>{t.shareRoutine.title}</Text>
           <View style={{ width: 30 }} />
         </View>
 
@@ -148,7 +187,7 @@ export function ShareRoutineModal({
                   <Text style={styles.typeBadge}>
                     {getTypeEmoji(routine.type)} {routine.type}
                   </Text>
-                  <Text style={styles.stepCount}>{routine.steps.length} étapes</Text>
+                  <Text style={styles.stepCount}>{routine.steps.length} {t.dashboard.analyses}</Text>
                 </View>
                 <Text style={styles.routineName}>{routine.name}</Text>
                 {routine.notes && (
@@ -228,7 +267,7 @@ export function ShareRoutineModal({
                 fullWidth
                 style={styles.cancelButton}
               >
-                <Text style={styles.cancelButtonText}>Annuler</Text>
+                <Text style={styles.cancelButtonText}>{t.common.cancel}</Text>
               </Button>
               <Button
                 variant="primary"
@@ -239,7 +278,7 @@ export function ShareRoutineModal({
                 fullWidth
               >
                 <Text style={styles.shareButtonText}>
-                  {isLoading ? 'Partage en cours...' : '📤 Partager sur votre fil'}
+                  {isLoading ? t.common.loading : `📤 ${t.shareRoutine.shareToFeed}`}
                 </Text>
               </Button>
             </View>
@@ -253,251 +292,7 @@ export function ShareRoutineModal({
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </LinearGradient>
+      </View>
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
-    paddingTop: Spacing.xl,
-  },
-  headerTitle: {
-    fontSize: FontSizes.xl,
-    fontWeight: FontWeights.bold as any,
-    color: Colors.gray900,
-    textAlign: 'center',
-  },
-  closeButton: {
-    fontSize: FontSizes['4xl'],
-    color: Colors.gray500,
-    width: 30,
-    textAlign: 'left',
-  },
-  scrollContent: {
-    flex: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
-  },
-  premiumBadgeContainer: {
-    marginBottom: Spacing.lg,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  premiumBadge: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  premiumText: {
-    color: Colors.white,
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.bold as any,
-    letterSpacing: 1,
-  },
-  routineCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: Spacing.lg,
-    elevation: 4,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  routineCardGradient: {
-    padding: Spacing.lg,
-  },
-  routineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    color: Colors.white,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold as any,
-  },
-  stepCount: {
-    color: Colors.white,
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold as any,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  routineName: {
-    fontSize: FontSizes.xl,
-    fontWeight: FontWeights.bold as any,
-    color: Colors.white,
-    marginBottom: Spacing.xs,
-  },
-  routineNotes: {
-    fontSize: FontSizes.sm,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontStyle: 'italic',
-  },
-  section: {
-    marginBottom: Spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: FontSizes.lg,
-    fontWeight: FontWeights.bold as any,
-    color: Colors.gray900,
-    marginBottom: Spacing.md,
-  },
-  stepsList: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: Colors.white,
-    elevation: 2,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray100,
-  },
-  stepNumber: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.md,
-  },
-  stepNumberText: {
-    color: Colors.white,
-    fontWeight: FontWeights.bold as any,
-    fontSize: FontSizes.base,
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepName: {
-    fontSize: FontSizes.base,
-    fontWeight: FontWeights.semibold as any,
-    color: Colors.gray900,
-    marginBottom: 2,
-  },
-  stepProduct: {
-    fontSize: FontSizes.sm,
-    color: Colors.gray600,
-  },
-  stepDuration: {
-    fontSize: FontSizes.sm,
-    color: Colors.gray500,
-    marginLeft: Spacing.sm,
-  },
-  moreSteps: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primaryAlpha5,
-  },
-  moreStepsText: {
-    color: Colors.primary,
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold as any,
-  },
-  input: {
-    height: 100,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray300,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.white,
-    fontSize: FontSizes.base,
-    textAlignVertical: 'top',
-    color: Colors.gray900,
-  },
-  characterCount: {
-    fontSize: FontSizes.xs,
-    color: Colors.gray500,
-    marginTop: Spacing.xs,
-    textAlign: 'right',
-  },
-  previewBox: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-    elevation: 2,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  previewText: {
-    fontSize: FontSizes.sm,
-    color: Colors.gray900,
-    lineHeight: 20,
-    fontFamily: 'Courier New',
-  },
-  buttonGroup: {
-    flexDirection: 'column',
-    gap: Spacing.md,
-    marginVertical: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-  cancelButton: {
-    borderWidth: 2,
-    borderColor: Colors.gray300,
-  },
-  cancelButtonText: {
-    color: Colors.gray700,
-    fontWeight: FontWeights.semibold as any,
-    fontSize: FontSizes.base,
-  },
-  shareButtonText: {
-    color: Colors.white,
-    fontWeight: FontWeights.bold as any,
-    fontSize: FontSizes.base,
-  },
-  tipsBox: {
-    backgroundColor: Colors.amber,
-    borderRadius: 12,
-    padding: Spacing.md,
-    marginBottom: Spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.warning,
-  },
-  tipsTitle: {
-    color: Colors.gray900,
-    fontWeight: FontWeights.bold as any,
-    fontSize: FontSizes.base,
-    marginBottom: Spacing.xs,
-  },
-  tipsText: {
-    color: Colors.gray800,
-    fontSize: FontSizes.sm,
-    lineHeight: 18,
-  },
-});

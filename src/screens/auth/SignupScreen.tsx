@@ -15,10 +15,12 @@ import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 
 export function SignupScreen({ navigation }: any) {
   const { register, isLoading } = useAuthStore();
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,21 +52,21 @@ export function SignupScreen({ navigation }: any) {
 
   const passwordStrength = (pwd: string) => {
     if (pwd.length === 0) return { strength: 0, label: '', color: colors.border };
-    if (pwd.length < 8) return { strength: 1, label: 'Weak (min 8 chars)', color: colors.error };
-    if (!/[A-Z]/.test(pwd)) return { strength: 2, label: 'Add a capital letter', color: colors.warning };
-    return { strength: 3, label: 'Strong', color: colors.success };
+    if (pwd.length < 8) return { strength: 1, label: t.auth.minChars, color: colors.error };
+    if (!/[A-Z]/.test(pwd)) return { strength: 2, label: t.auth.uppercaseReq, color: colors.warning };
+    return { strength: 3, label: t.common.success, color: colors.success };
   };
 
   const strength = passwordStrength(password);
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t.common.error, t.auth.fieldRequired);
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert(t.common.error, t.auth.passMismatch);
       return;
     }
 
@@ -79,10 +81,10 @@ export function SignupScreen({ navigation }: any) {
         password,
         name,
       });
-      Alert.alert('Success', 'Account created successfully!');
+      Alert.alert(t.common.success, t.auth.signupSuccess);
       navigation.navigate('Onboarding');
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.response?.data?.message || 'Something went wrong');
+      Alert.alert(t.common.error, error.response?.data?.message || t.auth.registerError);
     }
   };
 
@@ -101,27 +103,27 @@ export function SignupScreen({ navigation }: any) {
           {/* Back Button */}
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
-            <Text style={dynamicStyles.backText}>Back to home</Text>
+            <Text style={dynamicStyles.backText}>{t.common.back}</Text>
           </TouchableOpacity>
 
           {/* Header */}
           <View style={styles.header}>
             <Logo size="lg" />
-            <Text style={dynamicStyles.title}>Create Account</Text>
-            <Text style={dynamicStyles.subtitle}>Start your journey to better skin</Text>
+            <Text style={dynamicStyles.title}>{t.auth.signupTitle}</Text>
+            <Text style={dynamicStyles.subtitle}>{t.auth.signupSubtitle}</Text>
           </View>
 
           {/* Form Card */}
           <Card variant="elevated" style={dynamicStyles.formCard}>
             <Input
-              label="Full Name"
+              label={t.auth.fullName}
               placeholder="John Doe"
               value={name}
               onChangeText={setName}
               icon={<Ionicons name="person-outline" size={20} color={colors.textTertiary} />}
             />
             <Input
-              label="Email"
+              label={t.auth.email}
               placeholder="your@email.com"
               value={email}
               onChangeText={setEmail}
@@ -130,7 +132,7 @@ export function SignupScreen({ navigation }: any) {
               icon={<Ionicons name="mail-outline" size={20} color={colors.textTertiary} />}
             />
             <Input
-              label="Password"
+              label={t.auth.password}
               placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
@@ -154,13 +156,13 @@ export function SignupScreen({ navigation }: any) {
             )}
 
             <Input
-              label="Confirm Password"
+              label={t.auth.confirmPassword}
               placeholder="••••••••"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
               icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
-              error={confirmPassword.length > 0 && password !== confirmPassword ? "Passwords don't match" : undefined}
+              error={confirmPassword.length > 0 && password !== confirmPassword ? t.auth.passMismatch : undefined}
             />
 
             {/* Terms Checkbox */}
@@ -171,9 +173,7 @@ export function SignupScreen({ navigation }: any) {
                 color={agreedToTerms ? colors.primary : colors.textTertiary}
               />
               <Text style={dynamicStyles.termsText}>
-                I agree to the{' '}
-                <Text style={dynamicStyles.termsLink}>Terms of Service</Text> and{' '}
-                <Text style={dynamicStyles.termsLink}>Privacy Policy</Text>
+                {t.settings.tabs.terms} {t.landing.footerPrivacy}
               </Text>
             </TouchableOpacity>
 
@@ -183,13 +183,13 @@ export function SignupScreen({ navigation }: any) {
               disabled={!agreedToTerms || (confirmPassword.length > 0 && password !== confirmPassword)}
               fullWidth
             >
-              Create Account
+              {t.auth.createAccount}
             </Button>
 
             {/* Divider */}
             <View style={styles.divider}>
               <View style={dynamicStyles.dividerLine} />
-              <Text style={dynamicStyles.dividerText}>Or continue with</Text>
+              <Text style={dynamicStyles.dividerText}>{t.auth.orContinue}</Text>
               <View style={dynamicStyles.dividerLine} />
             </View>
 
@@ -208,9 +208,9 @@ export function SignupScreen({ navigation }: any) {
 
             {/* Login link */}
             <View style={styles.loginRow}>
-              <Text style={dynamicStyles.loginText}>Already have an account? </Text>
+              <Text style={dynamicStyles.loginText}>{t.auth.haveAccount} </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={dynamicStyles.loginLink}>Sign in</Text>
+                <Text style={dynamicStyles.loginLink}>{t.auth.signIn}</Text>
               </TouchableOpacity>
             </View>
           </Card>

@@ -19,6 +19,7 @@ import {
 import { useAccessibilityStore } from '../../stores/accessibility.store';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { ToggleSwitch } from './ToggleSwitch';
+import { useTranslation } from '../../lib/i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -153,6 +154,8 @@ export function AccessibilityPanel() {
   const isSpeaking = store?.isSpeaking ?? false;
   const speechRate = store?.speechRate ?? 1.0;
   const language = store?.language ?? 'fr';
+
+  const { t } = useTranslation();
   
   const toggleTheme = store?.toggleTheme;
   const setContrastMode = store?.setContrastMode;
@@ -201,9 +204,10 @@ export function AccessibilityPanel() {
   }, [speak, stopSpeaking, language]);
 
   const languageOptions = [
-    { code: 'fr', label: 'Français', flag: '🇫🇷' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
-    { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+    { code: 'fr' as const, label: 'Français', flag: '🇫🇷' },
+    { code: 'en' as const, label: 'English', flag: '🇬🇧' },
+    { code: 'ar' as const, label: 'العربية', flag: '🇸🇦' },
+    { code: 'es' as const, label: 'Español', flag: '🇪🇸' }
   ];
 
   const isDark = theme === 'dark';
@@ -214,7 +218,7 @@ export function AccessibilityPanel() {
       <TouchableOpacity
         onPress={togglePanel}
         activeOpacity={0.8}
-        accessibilityLabel="Ouvrir le panneau d'accessibilité"
+        accessibilityLabel={t.accessibility.openPanel}
         accessibilityRole="button"
         style={styles.fab}
       >
@@ -335,7 +339,7 @@ interface PanelContentProps {
   linkHighlight: boolean;
   isSpeaking: boolean;
   speechRate: number;
-  language: 'fr' | 'en' | 'ar';
+  language: 'fr' | 'en' | 'ar' | 'es';
   openSections: { appearance: boolean; vision: boolean; speech: boolean; language: boolean };
   toggleTheme: () => void;
   setContrastMode: (mode: 'off' | 'medium' | 'high') => void;
@@ -349,9 +353,9 @@ interface PanelContentProps {
   resetZoom: () => void;
   stopSpeaking: () => void;
   setSpeechRate: (rate: number) => void;
-  setLanguage: (language: 'fr' | 'en' | 'ar') => void;
+  setLanguage: (language: 'fr' | 'en' | 'ar' | 'es') => void;
   handleTestSpeech: () => void;
-  languageOptions: Array<{ code: 'fr' | 'en' | 'ar'; label: string; flag: string }>;
+  languageOptions: Array<{ code: 'fr' | 'en' | 'ar' | 'es'; label: string; flag: string }>;
   closePanel: () => void;
   handleResetAll: () => void;
   toggle: (key: 'appearance' | 'vision' | 'speech' | 'language') => void;
@@ -389,6 +393,7 @@ function PanelContent({
   handleResetAll,
   toggle,
 }: PanelContentProps) {
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
   const panelThemeStyles = isDark
     ? {
@@ -417,7 +422,7 @@ function PanelContent({
             colors={['#0EA5E9', '#06B6D4']}
             style={styles.headerIcon}
           >
-            <Ionicons name="accessibility" size={18} color={Colors.white} />
+            <Ionicons name="alert-circle" size={16} color={Colors.warning} />
           </LinearGradient>
           <View>
             <Text style={[styles.headerTitle, isDark && styles.textLight]}>
@@ -429,7 +434,7 @@ function PanelContent({
         <TouchableOpacity
           onPress={closePanel}
           style={styles.closeButton}
-          accessibilityLabel="Fermer le panneau"
+          accessibilityLabel={t.accessibility.closePanel}
         >
           <Feather name="x" size={18} color={Colors.gray500} />
         </TouchableOpacity>
@@ -449,7 +454,7 @@ function PanelContent({
         <View style={styles.section}>
           <SectionHeader
             icon={<Feather name="eye" size={15} color={Colors.gray400} />}
-            label="APPARENCE"
+            label={t.accessibility.appearance}
             isOpen={openSections.appearance}
             onToggle={() => toggle('appearance')}
           />
@@ -466,13 +471,13 @@ function PanelContent({
                   />
                 }
                 iconBgColor={isDark ? Colors.indigo : Colors.amber}
-                title="Mode sombre"
-                description={isDark ? 'Mode sombre activé' : 'Mode clair activé'}
+                title={t.accessibility.darkMode}
+                description={isDark ? t.accessibility.darkEnabled : t.accessibility.lightEnabled}
                 action={
                   <ToggleSwitch
                     checked={isDark}
                     onChange={toggleTheme}
-                    accessibilityLabel="Basculer le mode sombre"
+                    accessibilityLabel={t.accessibility.darkMode}
                   />
                 }
               />
@@ -491,28 +496,28 @@ function PanelContent({
                   </View>
                   <View style={styles.featureContent}>
                     <Text style={[styles.featureTitle, isDark && styles.textLight]}>
-                      Contraste élevé
+                      {t.accessibility.highContrast}
                     </Text>
                     <Text style={styles.featureDescription}>
-                      Pour les utilisateurs malvoyants
+                      {t.accessibility.improveReadability}
                     </Text>
                   </View>
                 </View>
 
                   <View style={styles.contrastButtons}>
                   <ContrastButton
-                    label="Normal"
+                    label={t.accessibility.contrastNormal}
                     isActive={contrastMode === 'off'}
                     onPress={() => setContrastMode('off')}
                   />
                   <ContrastButton
-                    label="Moyen"
+                    label={t.accessibility.contrastMedium}
                     isActive={contrastMode === 'medium'}
                     onPress={() => setContrastMode('medium')}
                     gradient={['#F59E0B', '#EA580C']}
                   />
                   <ContrastButton
-                    label="Élevé"
+                    label={t.accessibility.contrastHigh}
                     isActive={contrastMode === 'high'}
                     onPress={() => setContrastMode('high')}
                     gradient={['#FBBF24', '#F59E0B']}
@@ -528,8 +533,8 @@ function PanelContent({
                     />
                     <Text style={styles.contrastInfoText}>
                       {contrastMode === 'medium'
-                        ? 'Contraste moyen activé (ratio ≥ 7:1)'
-                        : 'Contraste maximum activé (ratio ≥ 10:1)'}
+                        ? t.accessibility.contrastMediumActive
+                        : t.accessibility.contrastHighActive}
                     </Text>
                   </View>
                 )}
@@ -548,7 +553,7 @@ function PanelContent({
                     <Feather name="type" size={18} color={Colors.success} />
                   </View>
                   <Text style={[styles.featureTitle, isDark && styles.textLight, { flex: 1 }]}>
-                    Taille du texte
+                    {t.accessibility.textSize}
                   </Text>
                   <View style={[styles.zoomBadge, panelThemeStyles.badgeBackground]}>
                     <Text style={styles.zoomBadgeText}>{zoomLevel}%</Text>
@@ -587,7 +592,7 @@ function PanelContent({
                 {zoomLevel !== 100 && (
                   <TouchableOpacity onPress={resetZoom} style={styles.resetZoomButton}>
                     <Feather name="rotate-ccw" size={12} color={Colors.gray400} />
-                    <Text style={styles.resetZoomText}>Réinitialiser (100%)</Text>
+                    <Text style={styles.resetZoomText}>{t.accessibility.resetZoom}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -611,13 +616,13 @@ function PanelContent({
               <FeatureCard
                 icon={<Feather name="pause" size={18} color={Colors.white} />}
                 iconBgColor={Colors.purple}
-                title="Réduire les animations"
-                description="Limite les mouvements à l'écran"
+                title={t.accessibility.reduceAnimations}
+                description={t.accessibility.reduceAnimationsDesc}
                 action={
                   <ToggleSwitch
                     checked={reduceMotion}
                     onChange={toggleReduceMotion}
-                    accessibilityLabel="Réduire les animations"
+                    accessibilityLabel={t.accessibility.reduceAnimations}
                   />
                 }
               />
@@ -627,13 +632,13 @@ function PanelContent({
               <FeatureCard
                 icon={<MaterialCommunityIcons name="format-font" size={18} color={Colors.white} />}
                 iconBgColor={Colors.info}
-                title="Police dyslexie"
-                description="Police spéciale lisibilité (Courier/monospace)"
+                title={t.accessibility.dyslexiaFont}
+                description={t.accessibility.dyslexiaFontDesc}
                 action={
                   <ToggleSwitch
                     checked={dyslexiaFont}
                     onChange={toggleDyslexiaFont}
-                    accessibilityLabel="Police adaptée à la dyslexie"
+                    accessibilityLabel={t.accessibility.dyslexiaFont}
                   />
                 }
               />
@@ -643,13 +648,13 @@ function PanelContent({
               <FeatureCard
                 icon={<MaterialCommunityIcons name="format-line-spacing" size={18} color={Colors.white} />}
                 iconBgColor={Colors.teal}
-                title="Espacement du texte"
-                description="Augmente lisiblement l'espacement et la hauteur de ligne"
+                title={t.accessibility.textSpacing}
+                description={t.accessibility.textSpacingDesc}
                 action={
                   <ToggleSwitch
                     checked={textSpacing}
                     onChange={toggleTextSpacing}
-                    accessibilityLabel="Espacement du texte augmenté"
+                    accessibilityLabel={t.accessibility.textSpacing}
                   />
                 }
               />
@@ -659,13 +664,13 @@ function PanelContent({
               <FeatureCard
                 icon={<Feather name="target" size={18} color={Colors.white} />}
                 iconBgColor={Colors.orange}
-                title="Surlignage du focus"
-                description="Met en évidence l'élément sélectionné"
+                title={t.accessibility.focusIndicator}
+                description={t.accessibility.focusIndicatorDesc}
                 action={
                   <ToggleSwitch
                     checked={focusHighlight}
                     onChange={toggleFocusHighlight}
-                    accessibilityLabel="Surlignage du focus"
+                    accessibilityLabel={t.accessibility.focusIndicator}
                   />
                 }
               />
@@ -675,13 +680,13 @@ function PanelContent({
               <FeatureCard
                 icon={<Feather name="link" size={18} color={Colors.white} />}
                 iconBgColor={Colors.pink}
-                title="Surlignage des liens"
-                description="Met en évidence les liens cliquables"
+                title={t.accessibility.highlightLinks}
+                description={t.accessibility.highlightLinksDesc}
                 action={
                   <ToggleSwitch
                     checked={linkHighlight}
                     onChange={toggleLinkHighlight}
-                    accessibilityLabel="Surlignage des liens"
+                    accessibilityLabel={t.accessibility.highlightLinks}
                   />
                 }
               />
@@ -695,7 +700,7 @@ function PanelContent({
         <View style={styles.section}>
           <SectionHeader
             icon={<Feather name="volume-2" size={15} color={Colors.gray400} />}
-            label="SYNTHÈSE VOCALE"
+            label={t.accessibility.voiceReading}
             isOpen={openSections.speech}
             onToggle={() => toggle('speech')}
           />
@@ -708,7 +713,7 @@ function PanelContent({
                     <MaterialCommunityIcons name="volume-high" size={18} color={Colors.primary} />
                   </View>
                   <Text style={[styles.featureTitle, isDark && styles.textLight, { flex: 1 }]}>
-                    Lecture vocale
+                    {t.accessibility.voiceReading}
                   </Text>
                 </View>
 
@@ -721,7 +726,7 @@ function PanelContent({
                   >
                     <Feather name="play" size={16} color={isSpeaking ? Colors.gray400 : Colors.primary} />
                     <Text style={[styles.ttsButtonText, isSpeaking && styles.ttsButtonTextDisabled]}>
-                      Tester
+                      {t.accessibility.readSelected}
                     </Text>
                   </TouchableOpacity>
 
@@ -733,7 +738,7 @@ function PanelContent({
                   >
                     <Feather name="square" size={16} color={!isSpeaking ? Colors.gray400 : Colors.error} />
                     <Text style={[styles.ttsButtonText, !isSpeaking && styles.ttsButtonTextDisabled]}>
-                      Arrêter
+                      {t.accessibility.stop}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -782,7 +787,7 @@ function PanelContent({
         <View style={styles.section}>
           <SectionHeader
             icon={<MaterialCommunityIcons name="translate" size={15} color={Colors.gray400} />}
-            label="LANGUE"
+            label={t.accessibility.language}
             isOpen={openSections.language}
             onToggle={() => toggle('language')}
           />
@@ -823,7 +828,7 @@ function PanelContent({
            ══════════════════════════════════════════════════════════════ */}
         <TouchableOpacity onPress={handleResetAll} style={styles.resetButton}>
           <Feather name="rotate-ccw" size={14} color={Colors.gray500} />
-          <Text style={styles.resetButtonText}>Réinitialiser tous les paramètres</Text>
+          <Text style={styles.resetButtonText}>{t.accessibility.resetSettings}</Text>
         </TouchableOpacity>
       </ScrollView>
 

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 
 export function ResetPasswordScreen({ navigation }: any) {
   const [newPassword, setNewPassword] = useState('');
@@ -12,6 +13,7 @@ export function ResetPasswordScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -36,10 +38,10 @@ export function ResetPasswordScreen({ navigation }: any) {
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={48} color={colors.success} />
           </View>
-          <Text style={dynamicStyles.successTitle}>Password Reset</Text>
-          <Text style={dynamicStyles.successText}>You can now sign in with your new password.</Text>
+          <Text style={dynamicStyles.successTitle}>{t.auth.passwordReset}</Text>
+          <Text style={dynamicStyles.successText}>{t.auth.nowCanSignIn}</Text>
           <Button onPress={() => navigation.navigate('Login')} fullWidth>
-            Sign In
+            {t.auth.signIn}
           </Button>
         </Card>
       </SafeAreaView>
@@ -51,27 +53,27 @@ export function ResetPasswordScreen({ navigation }: any) {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Logo size="lg" />
-          <Text style={dynamicStyles.title}>New Password</Text>
-          <Text style={dynamicStyles.subtitle}>Choose a strong password for your account</Text>
+          <Text style={dynamicStyles.title}>{t.auth.newPasswordLabel}</Text>
+          <Text style={dynamicStyles.subtitle}>{t.auth.chooseStrongPassword}</Text>
         </View>
 
         <Card variant="elevated" style={dynamicStyles.formCard}>
           <Input
-            label="New Password"
-            placeholder="Min 8 characters"
+            label={t.auth.newPasswordLabel}
+            placeholder={t.auth.min8Chars}
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry
             icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
           />
           <Input
-            label="Confirm Password"
+            label={t.auth.confirmPassword}
             placeholder="••••••••"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
             icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
-            error={confirmPassword.length > 0 && newPassword !== confirmPassword ? "Passwords don't match" : undefined}
+            error={confirmPassword.length > 0 && newPassword !== confirmPassword ? t.auth.passMismatch : undefined}
           />
           <Button
             onPress={handleReset}
@@ -79,7 +81,7 @@ export function ResetPasswordScreen({ navigation }: any) {
             disabled={newPassword.length < 8 || newPassword !== confirmPassword}
             fullWidth
           >
-            Reset Password
+            {t.auth.resetPassword}
           </Button>
         </Card>
       </ScrollView>

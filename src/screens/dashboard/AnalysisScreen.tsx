@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, GeminiAnalysisResult } from '../../lib/types';
 import { formatDate } from '../../lib/utils';
@@ -14,6 +15,7 @@ type ScreenMode = 'results' | 'upload';
 
 export function AnalysisScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<ScreenMode>('results');
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,7 @@ export function AnalysisScreen() {
 
   const performAnalysis = async () => {
     if (!selectedImage?.base64) {
-      Alert.alert('Erreur', 'Veuillez sélectionner une photo.');
+      Alert.alert(t.common.error, t.analysis.uploadPhotos);
       return;
     }
 
@@ -94,13 +96,13 @@ export function AnalysisScreen() {
       if (result) {
         await loadLatestAnalysis();
         setMode('results');
-        Alert.alert('Succès', 'Votre analyse a été effectuée avec succès !');
+        Alert.alert(t.common.success, t.dashboard.analysisCompleted);
       }
     } catch (error: any) {
       console.error('Analysis error:', error);
       Alert.alert(
-        'Erreur',
-        error?.response?.data?.message || 'Impossible d\'effectuer l\'analyse. Veuillez réessayer.'
+        t.common.error,
+        error?.response?.data?.message || t.common.error
       );
     } finally {
       setUploading(false);
@@ -112,7 +114,7 @@ export function AnalysisScreen() {
     return (
       <SafeAreaView style={dynamicStyles.safeArea}>
         <View style={dynamicStyles.loadingContainer}>
-          <LoadingSpinner message="Chargement de l'analyse..." />
+          <LoadingSpinner message={t.common.loading} />
         </View>
       </SafeAreaView>
     );
@@ -122,12 +124,12 @@ export function AnalysisScreen() {
   const overallScore = latestAnalysis?.healthScore ?? 0;
 
   const categories = results?.detailedAnalysis ? [
-    { label: 'Hydratation', score: results.detailedAnalysis.hydration?.score ?? 0, status: getStatus(results.detailedAnalysis.hydration?.score), color: '#06B6D4' },
-    { label: 'Texture', score: results.detailedAnalysis.texture?.score ?? 0, status: getStatus(results.detailedAnalysis.texture?.score), color: '#8B5CF6' },
-    { label: 'Rides', score: results.detailedAnalysis.wrinkles?.score ?? 0, status: getStatus(results.detailedAnalysis.wrinkles?.score), color: '#F59E0B' },
-    { label: 'Élasticité', score: results.detailedAnalysis.elasticity?.score ?? 0, status: getStatus(results.detailedAnalysis.elasticity?.score), color: '#10B981' },
-    { label: 'Pigmentation', score: results.detailedAnalysis.pigmentation?.score ?? 0, status: getStatus(results.detailedAnalysis.pigmentation?.score), color: '#EC4899' },
-    { label: 'Pores', score: results.detailedAnalysis.pores?.score ?? 0, status: getStatus(results.detailedAnalysis.pores?.score), color: '#6366F1' },
+    { label: t.dashboard.hydration, score: results.detailedAnalysis.hydration?.score ?? 0, status: getStatus(results.detailedAnalysis.hydration?.score, t), color: '#06B6D4' },
+    { label: t.dashboard.texture, score: results.detailedAnalysis.texture?.score ?? 0, status: getStatus(results.detailedAnalysis.texture?.score, t), color: '#8B5CF6' },
+    { label: t.dashboard.wrinkles, score: results.detailedAnalysis.wrinkles?.score ?? 0, status: getStatus(results.detailedAnalysis.wrinkles?.score, t), color: '#F59E0B' },
+    { label: t.dashboard.skinMetrics, score: results.detailedAnalysis.elasticity?.score ?? 0, status: getStatus(results.detailedAnalysis.elasticity?.score, t), color: '#10B981' },
+    { label: t.dashboard.pigmentation, score: results.detailedAnalysis.pigmentation?.score ?? 0, status: getStatus(results.detailedAnalysis.pigmentation?.score, t), color: '#EC4899' },
+    { label: 'Pores', score: results.detailedAnalysis.pores?.score ?? 0, status: getStatus(results.detailedAnalysis.pores?.score, t), color: '#6366F1' },
   ] : [];
 
   const insights = results?.recommendations?.lifestyle?.slice(0, 3) || [];
@@ -136,24 +138,24 @@ export function AnalysisScreen() {
   if (mode === 'upload') {
     return (
       <SafeAreaView style={dynamicStyles.safeArea}>
-        <LoadingOverlay visible={uploading} message="Analyse en cours..." />
+        <LoadingOverlay visible={uploading} message={t.dashboard.analysisInProgress} />
         <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={dynamicStyles.title}>Nouvelle Analyse</Text>
-            <Text style={dynamicStyles.subtitle}>Prenez une photo de votre visage</Text>
+            <Text style={dynamicStyles.title}>{t.dashboard.newAnalysis}</Text>
+            <Text style={dynamicStyles.subtitle}>{t.dashboard.scanFace}</Text>
           </View>
 
           <View style={styles.uploadSection}>
             <ImagePicker
               onImageSelected={handleImageSelected}
-              label="Prendre une photo de votre visage"
+              label={t.dashboard.scanFace}
               showPreview={true}
             />
           </View>
 
           <View style={styles.tipsCard}>
             <Card>
-              <Text style={dynamicStyles.tipsTitle}>💡 Conseils pour une bonne photo</Text>
+              <Text style={dynamicStyles.tipsTitle}>💡 {t.dashboard.personalizedAdvice}</Text>
               <View style={styles.tipRow}>
                 <Ionicons name="sunny-outline" size={18} color={Colors.amber} />
                 <Text style={dynamicStyles.tipText}>Bonne lumière naturelle</Text>
@@ -170,15 +172,15 @@ export function AnalysisScreen() {
           </View>
 
           <View style={styles.buttonRow}>
-            <Button variant="secondary" onPress={cancelUpload} style={{ flex: 1 }}>
-              Annuler
+            <Button variant="outline" onPress={cancelUpload} style={{ flex: 1 }}>
+              {t.common.cancel}
             </Button>
             <Button
               onPress={performAnalysis}
               disabled={!selectedImage}
               style={{ flex: 1 }}
             >
-              Analyser
+              {t.analysis.startAnalysis}
             </Button>
           </View>
 
@@ -195,9 +197,9 @@ export function AnalysisScreen() {
         <View style={dynamicStyles.container}>
           <EmptyState
             icon="scan-outline"
-            title="Aucune analyse"
-            description="Faites votre première analyse pour découvrir l'état de votre peau"
-            actionLabel="Commencer l'analyse"
+            title={t.dashboard.noActivity}
+            description={t.dashboard.startAnalysis}
+            actionLabel={t.analysis.startAnalysis}
             onAction={startNewAnalysis}
           />
         </View>
@@ -215,7 +217,7 @@ export function AnalysisScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>Analyse de Peau</Text>
+          <Text style={dynamicStyles.title}>{t.nav.analysis}</Text>
           <Text style={dynamicStyles.subtitle}>
             Dernière analyse : {latestAnalysis.createdAt ? formatDate(latestAnalysis.createdAt) : 'Aujourd\'hui'}
           </Text>
@@ -223,13 +225,13 @@ export function AnalysisScreen() {
 
         {/* Overall Score */}
         <Card variant="elevated" style={styles.scoreCard}>
-          <Text style={dynamicStyles.scoreLabel}>Score Global</Text>
+          <Text style={dynamicStyles.scoreLabel}>{t.dashboard.globalScore}</Text>
           <View style={[styles.scoreCircle, { borderColor: colors.primary }]}>
             <Text style={dynamicStyles.scoreNumber}>{overallScore}</Text>
             <Text style={dynamicStyles.scoreMax}>/100</Text>
           </View>
           <Badge 
-            text={getOverallStatus(overallScore)} 
+            text={getOverallStatus(overallScore, t)} 
             variant={overallScore >= 70 ? 'success' : overallScore >= 50 ? 'warning' : 'error'} 
             size="md" 
           />
@@ -241,7 +243,7 @@ export function AnalysisScreen() {
         {/* Detailed Breakdown */}
         {categories.length > 0 && (
           <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Analyse Détaillée</Text>
+            <Text style={dynamicStyles.sectionTitle}>{t.dashboard.seeDetails}</Text>
             {categories.map((cat, index) => (
               <Card key={index} style={styles.categoryCard}>
                 <View style={styles.categoryHeader}>
@@ -263,7 +265,7 @@ export function AnalysisScreen() {
         {/* AI Insights */}
         {insights.length > 0 && (
           <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Conseils IA</Text>
+            <Text style={dynamicStyles.sectionTitle}>{t.dashboard.personalizedAdvice}</Text>
             <Card style={styles.insightsCard}>
               <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
                 <Ionicons name="sparkles" size={24} color={Colors.white} />
@@ -281,7 +283,7 @@ export function AnalysisScreen() {
         {/* Conditions detected */}
         {latestAnalysis.conditions && latestAnalysis.conditions.length > 0 && (
           <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Conditions Détectées</Text>
+            <Text style={dynamicStyles.sectionTitle}>{t.dashboard.detectedConditions}</Text>
             <Card>
               <View style={styles.conditionsRow}>
                 {latestAnalysis.conditions.map((condition, index) => (
@@ -295,7 +297,7 @@ export function AnalysisScreen() {
         {/* New Analysis Button */}
         <View style={styles.section}>
           <Button onPress={startNewAnalysis} fullWidth size="lg">
-            Nouvelle Analyse
+            {t.dashboard.newAnalysis}
           </Button>
         </View>
 
@@ -305,19 +307,21 @@ export function AnalysisScreen() {
   );
 }
 
-function getStatus(score?: number): string {
+function getStatus(score?: number, t?: any): string {
   if (!score) return 'N/A';
-  if (score >= 80) return 'Excellent';
-  if (score >= 60) return 'Bon';
-  if (score >= 40) return 'Moyen';
-  return 'À améliorer';
+  const s = t?.dashboard?.scoreLevel;
+  if (score >= 80) return s?.excellent ?? 'Excellent';
+  if (score >= 60) return s?.good ?? 'Bon';
+  if (score >= 40) return s?.average ?? 'Moyen';
+  return s?.needsImprovement ?? 'À améliorer';
 }
 
-function getOverallStatus(score: number): string {
-  if (score >= 80) return 'Excellent état';
-  if (score >= 70) return 'Bon état';
-  if (score >= 50) return 'État moyen';
-  return 'Attention requise';
+function getOverallStatus(score: number, t?: any): string {
+  const s = t?.dashboard?.scoreLevel;
+  if (score >= 80) return s?.excellent ?? 'Excellent';
+  if (score >= 70) return s?.good ?? 'Bon';
+  if (score >= 50) return s?.average ?? 'Moyen';
+  return s?.needsImprovement ?? 'Attention';
 }
 
 const styles = StyleSheet.create({

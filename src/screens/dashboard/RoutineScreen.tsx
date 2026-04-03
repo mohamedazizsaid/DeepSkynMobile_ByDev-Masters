@@ -9,8 +9,10 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { routineService } from '../../services/routine.service';
 import { usersService } from '../../services/users.service';
 import type { ProductRecommendation, Routine, RoutineStep } from '../../lib/types';
+import { useTranslation } from '../../lib/i18n';
 
 function RoutineReminderCard() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [reminders, setReminders] = useState({
@@ -52,7 +54,7 @@ function RoutineReminderCard() {
 
   if (loading) {
     return (
-      <Card style={[styles.tipsCard, { alignItems: 'center', paddingVertical: Spacing.xl }]}>
+      <Card style={[styles.tipsCard, { alignItems: 'center', paddingVertical: Spacing.xl }] as any}>
         <ActivityIndicator color={Colors.primary} size="small" />
       </Card>
     );
@@ -62,7 +64,7 @@ function RoutineReminderCard() {
     <Card style={styles.tipsCard}>
       <View style={[styles.tipsHeader, { marginBottom: Spacing.base }]}>
         <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
-        <Text style={[styles.tipsTitle, { color: Colors.primary }]}>Rappels de Routine</Text>
+        <Text style={[styles.tipsTitle, { color: Colors.primary }] as any}>{t.routine.reminders}</Text>
       </View>
 
       <View style={{ gap: Spacing.md }}>
@@ -73,7 +75,7 @@ function RoutineReminderCard() {
               <Ionicons name="sunny" size={16} color={reminders.morningEnabled ? '#0EA5E9' : Colors.gray400} />
             </View>
             <View>
-              <Text style={styles.reminderLabel}>Matin</Text>
+              <Text style={styles.reminderLabel}>{t.routine.morning}</Text>
               <TextInput 
                 value={reminders.morningTime}
                 onChangeText={(text) => setReminders({ ...reminders, morningTime: text })}
@@ -98,7 +100,7 @@ function RoutineReminderCard() {
               <Ionicons name="moon" size={16} color={reminders.eveningEnabled ? '#8B5CF6' : Colors.gray400} />
             </View>
             <View>
-              <Text style={styles.reminderLabel}>Soir</Text>
+              <Text style={styles.reminderLabel}>{t.routine.evening}</Text>
               <TextInput 
                 value={reminders.eveningTime}
                 onChangeText={(text) => setReminders({ ...reminders, eveningTime: text })}
@@ -116,7 +118,7 @@ function RoutineReminderCard() {
           />
         </View>
         
-        {saving && <Text style={{ fontSize: 10, color: Colors.gray400, textAlign: 'center' }}>Enregistrement...</Text>}
+        {saving && <Text style={{ fontSize: 10, color: Colors.gray400, textAlign: 'center' }}>{t.routine.saving}</Text>}
       </View>
     </Card>
   );
@@ -124,6 +126,7 @@ function RoutineReminderCard() {
 
 export function RoutineScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t, interpolate } = useTranslation();
   const [activeTab, setActiveTab] = useState<'morning' | 'evening'>('morning');
   const [showRecommendModal, setShowRecommendModal] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
@@ -222,10 +225,10 @@ export function RoutineScreen() {
     try {
       await routineService.generateAI({ type });
       await loadRoutines();
-      Alert.alert('Succès', `Routine ${type === 'AM' ? 'matin' : 'soir'} générée par l'IA !`);
+      Alert.alert(t.routine.success, type === 'AM' ? t.routine.generateSuccessDay : t.routine.generateSuccessNight);
     } catch (error) {
       console.error('Generate routine error:', error);
-      Alert.alert('Erreur', 'Impossible de générer la routine. Veuillez réessayer.');
+      Alert.alert(t.routine.error, t.routine.generateError);
     } finally {
       setGenerating(false);
     }
@@ -245,7 +248,7 @@ export function RoutineScreen() {
   if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.loadingContainer}>
-        <LoadingSpinner message="Chargement des routines..." />
+        <LoadingSpinner message={t.routine.loading} />
       </SafeAreaView>
     );
   }
@@ -260,8 +263,8 @@ export function RoutineScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>Ma Routine</Text>
-          <Text style={dynamicStyles.subtitle}>Étapes skincare personnalisées</Text>
+          <Text style={dynamicStyles.title}>{t.routine.myRoutine}</Text>
+          <Text style={dynamicStyles.subtitle}>{t.routine.myRoutineSubtitle}</Text>
         </View>
 
       {/* AM/PM Toggle */}
@@ -275,7 +278,7 @@ export function RoutineScreen() {
             style={styles.tabGradient}
           >
             <Ionicons name="sunny" size={20} color={activeTab === 'morning' ? Colors.white : Colors.gray400} />
-            <Text style={[dynamicStyles.tabText, activeTab === 'morning' ? dynamicStyles.tabTextActive : undefined]}>Matin</Text>
+            <Text style={[dynamicStyles.tabText, activeTab === 'morning' ? dynamicStyles.tabTextActive : undefined]}>{t.routine.morning}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -288,7 +291,7 @@ export function RoutineScreen() {
             style={styles.tabGradient}
           >
             <Ionicons name="moon" size={20} color={activeTab === 'evening' ? Colors.white : Colors.gray400} />
-            <Text style={[dynamicStyles.tabText, activeTab === 'evening' ? dynamicStyles.tabTextActive : undefined]}>Soir</Text>
+            <Text style={[dynamicStyles.tabText, activeTab === 'evening' ? dynamicStyles.tabTextActive : undefined]}>{t.routine.evening}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -298,14 +301,14 @@ export function RoutineScreen() {
         <View style={styles.generateSection}>
           <Card style={styles.generateCard}>
             <Ionicons name="sparkles" size={32} color={Colors.primary} />
-            <Text style={dynamicStyles.generateTitle}>Aucune routine {activeTab === 'morning' ? 'matin' : 'soir'}</Text>
-            <Text style={dynamicStyles.generateText}>Générez une routine personnalisée avec l'IA basée sur votre profil de peau</Text>
+            <Text style={dynamicStyles.generateTitle}>{activeTab === 'morning' ? t.routine.noRoutineMorning : t.routine.noRoutineEvening}</Text>
+            <Text style={dynamicStyles.generateText}>{t.routine.generateRoutineAI}</Text>
             <Button 
               onPress={() => generateRoutine(activeTab === 'morning' ? 'AM' : 'PM')}
               disabled={generating}
               style={{ marginTop: Spacing.md }}
             >
-              {generating ? 'Génération...' : 'Générer avec l\'IA'}
+              {generating ? t.routine.generating : t.routine.generateAI}
             </Button>
           </Card>
         </View>
@@ -315,7 +318,7 @@ export function RoutineScreen() {
       <View style={styles.infoTip}>
         <Ionicons name="sparkles" size={14} color={Colors.primary} />
         <Text style={dynamicStyles.infoTipText}>
-          Appuyez sur ✨ pour obtenir une recommandation produit IA
+          {t.routine.aiTip}
         </Text>
       </View>
 
@@ -362,10 +365,10 @@ export function RoutineScreen() {
         <Card style={styles.tipsCard}>
           <View style={styles.tipsHeader}>
             <Ionicons name="bulb-outline" size={20} color={Colors.amber} />
-            <Text style={styles.tipsTitle}>Pro Tips</Text>
+            <Text style={styles.tipsTitle}>{t.routine.proTips}</Text>
           </View>
           <Text style={styles.tipsText}>
-            Always wait 30 seconds between applying serums for better absorption. Apply products from thinnest to thickest consistency.
+            {t.routine.proTipsText}
           </Text>
         </Card>
       </View>
@@ -377,7 +380,7 @@ export function RoutineScreen() {
 
       {/* 14-Day Streak */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>14-Day Streak</Text>
+        <Text style={styles.sectionTitle}>{t.routine.streak}</Text>
         <Card style={styles.streakCard}>
           <View style={styles.streakGrid}>
             {streakDays.map((done, index) => (
@@ -396,7 +399,7 @@ export function RoutineScreen() {
               </View>
             ))}
           </View>
-          <Text style={dynamicStyles.streakText}>10/14 days completed</Text>
+          <Text style={dynamicStyles.streakText}>{interpolate(t.routine.streakDaysDone, { done: 10, total: 14 })}</Text>
         </Card>
       </View>
 
@@ -431,9 +434,9 @@ export function RoutineScreen() {
               {recommendLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color={Colors.primary} />
-                  <Text style={styles.loadingTitle}>Recherche IA en cours...</Text>
+                  <Text style={styles.loadingTitle}>{t.routine.aiSearchTitle}</Text>
                   <Text style={styles.loadingSubtitle}>
-                    Analyse pour {recommendStepName}
+                    {interpolate(t.routine.aiSearchSubtitle, { step: recommendStepName })}
                   </Text>
                 </View>
               ) : recommendation ? (
@@ -444,9 +447,9 @@ export function RoutineScreen() {
                       <Ionicons name="sparkles" size={22} color="#0EA5E9" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.modalTitle}>Produit Recommandé</Text>
+                      <Text style={styles.modalTitle}>{t.routine.recommendedProduct}</Text>
                       <Text style={styles.modalSubtitle}>
-                        Basé sur votre profil et les articles dermatologiques
+                        {t.routine.recommendedProductDesc}
                       </Text>
                     </View>
                   </View>
@@ -465,7 +468,7 @@ export function RoutineScreen() {
                         color={ratingColors[recommendation.rating] || Colors.primary}
                       />
                       <Text style={[styles.ratingText, { color: ratingColors[recommendation.rating] || Colors.primary }]}>
-                        {recommendation.rating === 'excellent' ? 'Excellent' : recommendation.rating === 'good' ? 'Bon choix' : 'Alternative'}
+                        {recommendation.rating === 'excellent' ? t.routine.excellent : recommendation.rating === 'good' ? t.routine.goodChoice : t.routine.alternative}
                       </Text>
                     </View>
 
@@ -475,7 +478,7 @@ export function RoutineScreen() {
                     {/* Key Ingredients */}
                     {recommendation.keyIngredients?.length > 0 && (
                       <View style={styles.ingredientsContainer}>
-                        <Text style={styles.ingredientsLabel}>Ingrédients clés</Text>
+                        <Text style={styles.ingredientsLabel}>{t.routine.keyIngredients}</Text>
                         <View style={styles.ingredientsList}>
                           {recommendation.keyIngredients.map((ing, i) => (
                             <View key={i} style={styles.ingredientTag}>
@@ -491,7 +494,7 @@ export function RoutineScreen() {
                   <View style={styles.whyCard}>
                     <View style={styles.whyHeader}>
                       <Ionicons name="shield-checkmark" size={16} color={Colors.success} />
-                      <Text style={styles.whyTitle}>Pourquoi ce produit ?</Text>
+                      <Text style={styles.whyTitle}>{t.routine.whyProduct}</Text>
                     </View>
                     <Text style={styles.whyText}>{recommendation.whyRecommended}</Text>
                   </View>
@@ -501,7 +504,7 @@ export function RoutineScreen() {
                     <View style={styles.qrContainer}>
                       <View style={styles.qrHeader}>
                         <Ionicons name="qr-code-outline" size={16} color="#0EA5E9" />
-                        <Text style={styles.qrLabel}>Scannez pour acheter</Text>
+                        <Text style={styles.qrLabel}>{t.routine.scanToBuy}</Text>
                       </View>
                       <View style={styles.qrImageWrapper}>
                         <Image
@@ -511,7 +514,7 @@ export function RoutineScreen() {
                         />
                       </View>
                       <Text style={styles.qrHint}>
-                        📱 Scannez ce code avec votre téléphone
+                        {t.routine.scanPhone}
                       </Text>
                     </View>
                   ) : null}
@@ -529,20 +532,20 @@ export function RoutineScreen() {
                       style={styles.ctaGradient}
                     >
                       <Ionicons name="bag-handle-outline" size={18} color={Colors.white} />
-                      <Text style={styles.ctaText}>Acheter maintenant</Text>
+                      <Text style={styles.ctaText}>{t.routine.buyNow}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
 
                   {/* Disclaimer */}
                   <Text style={styles.disclaimer}>
-                    🤖 Recommandation IA — consultez un professionnel pour des cas spécifiques
+                    {t.routine.disclaimer}
                   </Text>
                 </>
               ) : (
                 <View style={styles.loadingContainer}>
                   <Ionicons name="alert-circle-outline" size={40} color={Colors.gray400} />
-                  <Text style={styles.loadingTitle}>Impossible de charger</Text>
-                  <Text style={styles.loadingSubtitle}>Veuillez réessayer plus tard</Text>
+                  <Text style={styles.loadingTitle}>{t.routine.loadError}</Text>
+                  <Text style={styles.loadingSubtitle}>{t.routine.tryAgain}</Text>
                 </View>
               )}
             </ScrollView>

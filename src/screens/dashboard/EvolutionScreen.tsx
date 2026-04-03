@@ -9,11 +9,13 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, AnalysisStats } from '../../lib/types';
 import { formatDate } from '../../lib/utils/formatters';
+import { useTranslation } from '../../lib/i18n/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function EvolutionScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [selectedPeriod, setSelectedPeriod] = useState('1M');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,19 +88,19 @@ export function EvolutionScreen() {
 
   const summaryCards = [
     { 
-      label: 'Score Global', 
+      label: t.dashboard.globalScore, 
       value: stats?.averageHealthScore ? `${Math.round(stats.averageHealthScore)}%` : '--', 
       trend: getScoreChange(analysisHistory) >= 0 ? 'up' : 'down',
       color: Colors.primary 
     },
     { 
-      label: 'Analyses', 
+      label: t.dashboard.analyses, 
       value: stats?.totalAnalyses?.toString() || '0', 
       trend: 'up',
       color: '#06B6D4' 
     },
     { 
-      label: 'Score Max', 
+      label: t.evolution.overallScore, 
       value: analysisHistory[0] 
         ? `${getHealthScore(analysisHistory[0])}%` 
         : '--', 
@@ -106,7 +108,7 @@ export function EvolutionScreen() {
       color: '#8B5CF6' 
     },
     { 
-      label: 'Progression', 
+      label: t.evolution.progress, 
       value: getScoreChange(analysisHistory) >= 0 
         ? `+${getScoreChange(analysisHistory)}%` 
         : `${getScoreChange(analysisHistory)}%`, 
@@ -130,7 +132,7 @@ export function EvolutionScreen() {
     return (
       <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={dynamicStyles.loadingText}>Chargement...</Text>
+        <Text style={dynamicStyles.loadingText}>{t.common.loading}</Text>
       </SafeAreaView>
     );
   }
@@ -143,8 +145,8 @@ export function EvolutionScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>Évolution</Text>
-          <Text style={dynamicStyles.subtitle}>Suivez les progrès de votre peau</Text>
+          <Text style={dynamicStyles.title}>{t.evolution.title}</Text>
+          <Text style={dynamicStyles.subtitle}>{t.evolution.subtitle}</Text>
         </View>
 
       {/* Period Selector */}
@@ -182,11 +184,11 @@ export function EvolutionScreen() {
       {/* Chart */}
       <Card variant="elevated" style={styles.chartCard}>
         <View style={styles.chartHeader}>
-          <Text style={dynamicStyles.chartTitle}>Score de santé</Text>
+          <Text style={dynamicStyles.chartTitle}>{t.dashboard.skinHealth}</Text>
           {analysisHistory.length > 0 && (
             <Badge 
-              text={`${analysisHistory.length} analyses`} 
-              variant="info" 
+              text={`${analysisHistory.length} ${t.dashboard.analyses.toLowerCase()}`} 
+              variant="primary" 
               size="sm" 
             />
           )}
@@ -212,25 +214,25 @@ export function EvolutionScreen() {
               ))}
             </View>
             <View style={[styles.chartLegend, { borderTopColor: colors.border }]}>
-              <Text style={dynamicStyles.legendText}>Dernières analyses</Text>
+              <Text style={dynamicStyles.legendText}>{t.evolution.photoTimeline}</Text>
             </View>
           </View>
         ) : (
           <View style={[styles.chartPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
             <Ionicons name="analytics-outline" size={48} color={colors.border} />
-            <Text style={dynamicStyles.chartPlaceholderText}>Pas encore de données</Text>
+            <Text style={dynamicStyles.chartPlaceholderText}>{t.evolution.noData}</Text>
           </View>
         )}
       </Card>
 
       {/* Timeline */}
       <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
+        <Text style={dynamicStyles.sectionTitle}>{t.evolution.photoTimeline}</Text>
         {analysisHistory.length === 0 ? (
           <EmptyState
             icon="camera-outline"
-            title="Aucune analyse"
-            message="Faites votre première analyse pour commencer le suivi"
+            title={t.evolution.noData}
+            description={t.evolution.noDataDesc}
           />
         ) : (
           analysisHistory.map((analysis, index) => {
@@ -249,9 +251,9 @@ export function EvolutionScreen() {
                   </View>
                   <View style={styles.timelineContent}>
                     <Text style={dynamicStyles.timelineDate}>{formatDate(analysis.createdAt)}</Text>
-                    <Text style={dynamicStyles.timelineScore}>Score: {currentScore}%</Text>
+                    <Text style={dynamicStyles.timelineScore}>{t.evolution.score}: {currentScore}%</Text>
                     {skinType && (
-                      <Text style={dynamicStyles.timelineMeta}>Type: {skinType}</Text>
+                      <Text style={dynamicStyles.timelineMeta}>{skinType}</Text>
                     )}
                   </View>
                   {prevScore && (

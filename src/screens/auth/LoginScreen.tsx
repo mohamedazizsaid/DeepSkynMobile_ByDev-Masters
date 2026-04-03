@@ -17,12 +17,14 @@ import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 import { FaceIDScanner } from '../../components/auth/FaceIDScanner';
 import { authService } from '../../services/auth.service';
 
 export function LoginScreen({ navigation }: any) {
   const { login, faceLogin, isLoading } = useAuthStore();
   const { colors, fontSizes, settings } = useAccessibilityStyles();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -56,7 +58,7 @@ export function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      Alert.alert(t.common.error, t.auth.fieldRequired);
       return;
     }
 
@@ -73,7 +75,7 @@ export function LoginScreen({ navigation }: any) {
         navigation.navigate('Main');
       }
     } catch (error: any) {
-      Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
+      Alert.alert(t.common.error, error.response?.data?.message || t.auth.invalidCredentials);
     }
   };
 
@@ -84,11 +86,11 @@ export function LoginScreen({ navigation }: any) {
         setShowFaceID(false);
         navigation.navigate('Main');
       } else {
-        Alert.alert('Error', 'Face ID authentication failed');
+        Alert.alert(t.common.error, t.auth.faceIdError);
         setShowFaceID(false);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Face ID failed');
+      Alert.alert(t.common.error, error.response?.data?.message || t.auth.faceIdError);
       setShowFaceID(false);
     }
   };
@@ -135,14 +137,14 @@ export function LoginScreen({ navigation }: any) {
           {/* Back Button */}
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
-            <Text style={dynamicStyles.backText}>Back to home</Text>
+            <Text style={dynamicStyles.backText}>{t.common.back}</Text>
           </TouchableOpacity>
 
           {/* Logo & Header */}
           <View style={styles.header}>
             <Logo size="lg" />
-            <Text style={dynamicStyles.title}>Welcome Back</Text>
-            <Text style={dynamicStyles.subtitle}>Sign in to continue your skin journey</Text>
+            <Text style={dynamicStyles.title}>{t.auth.loginTitle}</Text>
+            <Text style={dynamicStyles.subtitle}>{t.auth.loginSubtitle}</Text>
           </View>
 
           {/* Form Card */}
@@ -150,7 +152,7 @@ export function LoginScreen({ navigation }: any) {
             {!showTwoFactor ? (
               <>
                 <Input
-                  label="Email"
+                  label={t.auth.email}
                   placeholder="your@email.com"
                   value={email}
                   onChangeText={setEmail}
@@ -160,7 +162,7 @@ export function LoginScreen({ navigation }: any) {
                 />
 
                 <Input
-                  label="Password"
+                  label={t.auth.password}
                   placeholder="••••••••"
                   value={password}
                   onChangeText={setPassword}
@@ -170,13 +172,13 @@ export function LoginScreen({ navigation }: any) {
 
                 <View style={styles.optionsRow}>
                   <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                    <Text style={dynamicStyles.forgotText}>Forgot password?</Text>
+                    <Text style={dynamicStyles.forgotText}>{t.auth.forgotPassword}</Text>
                   </TouchableOpacity>
 
                   {/* FaceID Option */}
                   <TouchableOpacity
                     style={styles.faceIdLink}
-                    onPress={() => email ? setShowFaceID(true) : Alert.alert('Info', 'Enter email first for FaceID')}
+                    onPress={() => email ? setShowFaceID(true) : Alert.alert('Info', t.auth.faceIdNoEmail)}
                   >
                     <Ionicons name="scan-outline" size={18} color={colors.primary} />
                     <Text style={dynamicStyles.faceIdText}>Face ID</Text>
@@ -184,7 +186,7 @@ export function LoginScreen({ navigation }: any) {
                 </View>
 
                 <Button onPress={handleLogin} loading={isLoading} fullWidth>
-                  Sign In
+                  {t.auth.signIn}
                 </Button>
               </>
             ) : (
@@ -193,8 +195,8 @@ export function LoginScreen({ navigation }: any) {
                   <View style={styles.twoFactorIcon}>
                     <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
                   </View>
-                  <Text style={dynamicStyles.twoFactorTitle}>2FA Verification</Text>
-                  <Text style={dynamicStyles.twoFactorSubtitle}>Enter the 6-digit code from your authenticator app</Text>
+                  <Text style={dynamicStyles.twoFactorTitle}>{t.auth.twoFactorTitle}</Text>
+                  <Text style={dynamicStyles.twoFactorSubtitle}>{t.auth.twoFactorSubtitle}</Text>
                 </View>
 
                 <Input
@@ -209,14 +211,14 @@ export function LoginScreen({ navigation }: any) {
                 />
 
                 <Button onPress={handleLogin} loading={isLoading} fullWidth>
-                  Verify Code
+                  {t.auth.verify}
                 </Button>
 
                 <TouchableOpacity
                   onPress={() => { setShowTwoFactor(false); setTwoFactorCode(''); }}
                   style={styles.cancel2fa}
                 >
-                  <Text style={dynamicStyles.cancel2faText}>Cancel</Text>
+                  <Text style={dynamicStyles.cancel2faText}>{t.common.cancel}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -224,7 +226,7 @@ export function LoginScreen({ navigation }: any) {
             {/* Divider */}
             <View style={styles.divider}>
               <View style={dynamicStyles.dividerLine} />
-              <Text style={dynamicStyles.dividerText}>Or continue with</Text>
+              <Text style={dynamicStyles.dividerText}>{t.auth.orContinue}</Text>
               <View style={dynamicStyles.dividerLine} />
             </View>
 
@@ -243,9 +245,9 @@ export function LoginScreen({ navigation }: any) {
 
             {/* Sign up link */}
             <View style={styles.signupRow}>
-              <Text style={dynamicStyles.signupText}>Don't have an account? </Text>
+              <Text style={dynamicStyles.signupText}>{t.auth.noAccount} </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-                <Text style={dynamicStyles.signupLink}>Sign up</Text>
+                <Text style={dynamicStyles.signupLink}>{t.auth.signUpFree}</Text>
               </TouchableOpacity>
             </View>
           </Card>

@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from './Card';
-import { Colors, Gradients, FontSizes, FontWeights, Spacing, BorderRadius } from '../../theme';
+import { Colors, Gradients, Spacing, BorderRadius, FontWeights } from '../../theme';
 import {
   WeatherData,
   AIAdviceResponse,
   fetchCompleteWeatherData,
 } from '../../services/weather.service';
+import { useTranslation } from '../../lib/i18n/useTranslation';
+import { useAccessibilityStyleSheet } from '../../stores/useAccessibilityStyles';
 
 const WMO_ICONS: Record<string, { icon: string; name: keyof typeof Ionicons.glyphMap }> = {
   clear: { icon: '☀️', name: 'sunny' },
@@ -30,10 +32,48 @@ interface WeatherWidgetProps {
 }
 
 export function WeatherWidget({ compact = false, showAdvice = true, onPress }: WeatherWidgetProps) {
+  const { t } = useTranslation();
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [advice, setAdvice] = useState<AIAdviceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useAccessibilityStyleSheet(({ colors, fontSizes }) => ({
+    card: { padding: 0, overflow: 'hidden', backgroundColor: colors.surface },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    locationIcon: { fontSize: 14 },
+    location: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: Colors.white },
+    refreshButton: { padding: Spacing.xs },
+    mainInfo: { alignItems: 'center', paddingVertical: Spacing.xl },
+    tempContainer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    weatherEmoji: { fontSize: 48 },
+    temperature: { fontSize: 56, fontWeight: FontWeights.bold, color: colors.text },
+    feelsLike: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+    metricsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: Spacing.lg, paddingHorizontal: Spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
+    metric: { alignItems: 'center', flex: 1 },
+    metricValue: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.xs },
+    metricLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
+    metricDivider: { width: 1, height: 40, backgroundColor: colors.borderLight },
+    adviceContainer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, marginHorizontal: Spacing.md, marginBottom: Spacing.md, borderRadius: BorderRadius.base },
+    adviceEmoji: { fontSize: 20 },
+    adviceText: { flex: 1, fontSize: fontSizes.sm, color: colors.text, lineHeight: 20 },
+    compactCard: { padding: Spacing.md, backgroundColor: colors.surface },
+    compactRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    compactInfo: { flex: 1 },
+    compactTemp: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text },
+    compactCity: { fontSize: fontSizes.xs, color: colors.textSecondary },
+    compactUV: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, backgroundColor: Colors.primaryAlpha10, borderRadius: BorderRadius.sm },
+    uvValue: { fontSize: fontSizes.sm, fontWeight: FontWeights.bold },
+    loadingCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg, gap: Spacing.sm, backgroundColor: colors.surface },
+    loadingText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    errorCard: { alignItems: 'center', padding: Spacing.lg, gap: Spacing.sm, backgroundColor: colors.surface },
+    errorText: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center' },
+    retryButton: { marginTop: Spacing.sm },
+    retryText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.medium },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, backgroundColor: Colors.primaryAlpha10, borderRadius: BorderRadius.full },
+    badgeTemp: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.primary },
+  }));
 
   const loadWeather = useCallback(async () => {
     try {
@@ -44,22 +84,22 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
       setAdvice(data.advice);
     } catch (err) {
       console.error('Weather load error:', err);
-      setError('Impossible de charger la météo');
+      setError(t.weatherWidget.error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t.weatherWidget.error]);
 
   useEffect(() => {
     loadWeather();
   }, [loadWeather]);
 
   const getUVLevel = (uv: number): { label: string; color: string } => {
-    if (uv <= 2) return { label: 'Faible', color: Colors.success };
-    if (uv <= 5) return { label: 'Modéré', color: Colors.warning };
-    if (uv <= 7) return { label: 'Élevé', color: Colors.amber };
-    if (uv <= 10) return { label: 'Très élevé', color: Colors.error };
-    return { label: 'Extrême', color: Colors.errorDark };
+    if (uv <= 2) return { label: t.weatherWidget.uvLevels.low, color: Colors.success };
+    if (uv <= 5) return { label: t.weatherWidget.uvLevels.moderate, color: Colors.warning };
+    if (uv <= 7) return { label: t.weatherWidget.uvLevels.high, color: Colors.amber };
+    if (uv <= 10) return { label: t.weatherWidget.uvLevels.veryHigh, color: Colors.error };
+    return { label: t.weatherWidget.uvLevels.extreme, color: Colors.errorDark };
   };
 
   const weatherIcon = weather ? WMO_ICONS[weather.condition] || WMO_ICONS.unknown : WMO_ICONS.unknown;
@@ -68,7 +108,7 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
     return (
       <Card style={styles.loadingCard}>
         <ActivityIndicator size="small" color={Colors.primary} />
-        <Text style={styles.loadingText}>Chargement météo...</Text>
+        <Text style={styles.loadingText}>{t.weatherWidget.loading}</Text>
       </Card>
     );
   }
@@ -77,9 +117,9 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
     return (
       <Card style={styles.errorCard}>
         <Ionicons name="cloud-offline-outline" size={24} color={Colors.gray400} />
-        <Text style={styles.errorText}>{error || 'Météo indisponible'}</Text>
+        <Text style={styles.errorText}>{error || t.weatherWidget.unavailable}</Text>
         <TouchableOpacity onPress={loadWeather} style={styles.retryButton}>
-          <Text style={styles.retryText}>Réessayer</Text>
+          <Text style={styles.retryText}>{t.weatherWidget.retry}</Text>
         </TouchableOpacity>
       </Card>
     );
@@ -95,7 +135,7 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
             <Text style={styles.weatherEmoji}>{weatherIcon.icon}</Text>
             <View style={styles.compactInfo}>
               <Text style={styles.compactTemp}>{Math.round(weather.temperature)}°C</Text>
-              <Text style={styles.compactCity}>{weather.city || 'Ma position'}</Text>
+              <Text style={styles.compactCity}>{weather.city || t.weatherWidget.myPosition}</Text>
             </View>
             <View style={styles.compactUV}>
               <Text style={[styles.uvValue, { color: uvLevel.color }]}>UV {weather.uvIndex}</Text>
@@ -117,7 +157,7 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
         >
           <View style={styles.headerLeft}>
             <Text style={styles.locationIcon}>📍</Text>
-            <Text style={styles.location}>{weather.city || 'Ma position'}</Text>
+            <Text style={styles.location}>{weather.city || t.weatherWidget.myPosition}</Text>
           </View>
           <TouchableOpacity onPress={loadWeather} style={styles.refreshButton}>
             <Ionicons name="refresh-outline" size={18} color={Colors.white} />
@@ -130,7 +170,7 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
             <Text style={styles.temperature}>{Math.round(weather.temperature)}°</Text>
           </View>
           <Text style={styles.feelsLike}>
-            Ressenti {Math.round(weather.feelsLike)}°C
+            {t.weatherWidget.feelsLike.replace('{temp}', Math.round(weather.feelsLike).toString())}
           </Text>
         </View>
 
@@ -138,7 +178,7 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
           <View style={styles.metric}>
             <Ionicons name="water-outline" size={18} color={Colors.teal} />
             <Text style={styles.metricValue}>{weather.humidity}%</Text>
-            <Text style={styles.metricLabel}>Humidité</Text>
+            <Text style={styles.metricLabel}>{t.weatherWidget.humidity}</Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metric}>
@@ -150,7 +190,7 @@ export function WeatherWidget({ compact = false, showAdvice = true, onPress }: W
           <View style={styles.metric}>
             <Ionicons name="speedometer-outline" size={18} color={Colors.purple} />
             <Text style={styles.metricValue}>{Math.round(weather.windSpeed)}</Text>
-            <Text style={styles.metricLabel}>km/h</Text>
+            <Text style={styles.metricLabel}>{t.weatherWidget.wind}</Text>
           </View>
         </View>
 
@@ -176,12 +216,13 @@ const getAdviceBgColor = (urgency: string): string => {
   }
 };
 
-interface WeatherBadgeProps {
-  onPress?: () => void;
-}
-
 export function WeatherBadge({ onPress }: WeatherBadgeProps) {
+  const { t } = useTranslation();
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const styles = useAccessibilityStyleSheet(({ colors, fontSizes }) => ({
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, backgroundColor: Colors.primaryAlpha10, borderRadius: BorderRadius.full },
+    badgeTemp: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.primary },
+  }));
 
   useEffect(() => {
     fetchCompleteWeatherData()
@@ -201,176 +242,6 @@ export function WeatherBadge({ onPress }: WeatherBadgeProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  locationIcon: {
-    fontSize: 14,
-  },
-  location: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.medium,
-    color: Colors.white,
-  },
-  refreshButton: {
-    padding: Spacing.xs,
-  },
-  mainInfo: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xl,
-  },
-  tempContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  weatherEmoji: {
-    fontSize: 48,
-  },
-  temperature: {
-    fontSize: 56,
-    fontWeight: FontWeights.bold,
-    color: Colors.gray900,
-  },
-  feelsLike: {
-    fontSize: FontSizes.sm,
-    color: Colors.gray500,
-    marginTop: Spacing.xs,
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.gray100,
-  },
-  metric: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  metricValue: {
-    fontSize: FontSizes.lg,
-    fontWeight: FontWeights.bold,
-    color: Colors.gray900,
-    marginTop: Spacing.xs,
-  },
-  metricLabel: {
-    fontSize: FontSizes.xs,
-    color: Colors.gray500,
-    marginTop: 2,
-  },
-  metricDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: Colors.gray200,
-  },
-  adviceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.base,
-  },
-  adviceEmoji: {
-    fontSize: 20,
-  },
-  adviceText: {
-    flex: 1,
-    fontSize: FontSizes.sm,
-    color: Colors.gray700,
-    lineHeight: 20,
-  },
-  // Compact styles
-  compactCard: {
-    padding: Spacing.md,
-  },
-  compactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  compactInfo: {
-    flex: 1,
-  },
-  compactTemp: {
-    fontSize: FontSizes.lg,
-    fontWeight: FontWeights.bold,
-    color: Colors.gray900,
-  },
-  compactCity: {
-    fontSize: FontSizes.xs,
-    color: Colors.gray500,
-  },
-  compactUV: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    backgroundColor: Colors.primaryAlpha10,
-    borderRadius: BorderRadius.sm,
-  },
-  uvValue: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.bold,
-  },
-  // Loading/Error styles
-  loadingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  loadingText: {
-    fontSize: FontSizes.sm,
-    color: Colors.gray500,
-  },
-  errorCard: {
-    alignItems: 'center',
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  errorText: {
-    fontSize: FontSizes.sm,
-    color: Colors.gray500,
-  },
-  retryButton: {
-    marginTop: Spacing.sm,
-  },
-  retryText: {
-    fontSize: FontSizes.sm,
-    color: Colors.primary,
-    fontWeight: FontWeights.medium,
-  },
-  // Badge styles
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    backgroundColor: Colors.primaryAlpha10,
-    borderRadius: BorderRadius.full,
-  },
-  badgeTemp: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold,
-    color: Colors.primary,
-  },
-});
+interface WeatherBadgeProps {
+  onPress?: () => void;
+}

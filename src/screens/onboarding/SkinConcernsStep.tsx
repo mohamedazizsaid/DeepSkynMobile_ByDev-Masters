@@ -2,64 +2,78 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card } from '../../components';
-import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
-import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { Colors, Spacing, BorderRadius, FontWeights } from '../../theme';
+import { useAccessibilityStyleSheet } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n/useTranslation';
 
 interface SkinConcernsStepProps {
   onNext: (data: any) => void;
   onBack: () => void;
+  initialValue?: string[];
 }
 
-const concerns = [
-  { id: 'acne', label: 'Acne & Breakouts', icon: 'alert-circle-outline' as const, color: '#EF4444' },
-  { id: 'wrinkles', label: 'Wrinkles & Fine Lines', icon: 'water-outline' as const, color: '#8B5CF6' },
-  { id: 'dark-spots', label: 'Dark Spots', icon: 'sunny-outline' as const, color: '#F59E0B' },
-  { id: 'dryness', label: 'Dryness', icon: 'water-outline' as const, color: '#06B6D4' },
-  { id: 'sensitivity', label: 'Sensitivity', icon: 'sparkles-outline' as const, color: '#F9A8D4' },
-  { id: 'redness', label: 'Redness', icon: 'alert-circle-outline' as const, color: '#FB7185' },
-  { id: 'large-pores', label: 'Large Pores', icon: 'cloudy-outline' as const, color: '#14B8A6' },
-  { id: 'dark-circles', label: 'Dark Circles', icon: 'eye-outline' as const, color: '#6366F1' },
-  { id: 'uneven-texture', label: 'Uneven Texture', icon: 'sparkles-outline' as const, color: '#EC4899' },
-  { id: 'dullness', label: 'Dullness', icon: 'sunny-outline' as const, color: '#A855F7' },
+const concernMetadata = [
+  { id: 'acne', icon: 'alert-circle-outline' as const, color: '#EF4444' },
+  { id: 'wrinkles', icon: 'water-outline' as const, color: '#8B5CF6' },
+  { id: 'dark-spots', icon: 'sunny-outline' as const, color: '#F59E0B' },
+  { id: 'dryness', icon: 'water-outline' as const, color: '#06B6D4' },
+  { id: 'sensitivity', icon: 'sparkles-outline' as const, color: '#F9A8D4' },
+  { id: 'redness', icon: 'alert-circle-outline' as const, color: '#FB7185' },
+  { id: 'large-pores', icon: 'cloudy-outline' as const, color: '#14B8A6' },
+  { id: 'dark-circles', icon: 'eye-outline' as const, color: '#6366F1' },
+  { id: 'uneven-texture', icon: 'sparkles-outline' as const, color: '#EC4899' },
+  { id: 'dullness', icon: 'sunny-outline' as const, color: '#A855F7' },
 ];
 
-export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
-  const { colors, fontSizes } = useAccessibilityStyles();
-  const [selected, setSelected] = useState<string[]>([]);
+export function SkinConcernsStep({ onNext, onBack, initialValue }: SkinConcernsStepProps) {
+  const { t } = useTranslation();
+  const [selected, setSelected] = useState<string[]>(initialValue || []);
 
-  const dynamicStyles = useMemo(() => ({
-    title: {
-      fontSize: fontSizes['2xl'],
-      color: colors.text,
+  const styles = useAccessibilityStyleSheet(({ colors, fontSizes }) => ({
+    scroll: { flex: 1 },
+    container: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing['2xl'] },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, textAlign: 'center', marginBottom: Spacing.md },
+    subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing['2xl'] },
+    card: { padding: Spacing.xl, marginBottom: Spacing.xl, backgroundColor: colors.surface },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, justifyContent: 'center' },
+    concernButton: {
+      width: '45%', padding: Spacing.lg, borderRadius: BorderRadius.base,
+      borderWidth: 2, borderColor: colors.border, alignItems: 'center',
     },
-    subtitle: {
-      fontSize: fontSizes.base,
-      color: colors.textSecondary,
+    concernActive: { borderColor: colors.primary, backgroundColor: colors.primary + '10' },
+    checkBadge: {
+      position: 'absolute', top: -8, right: -8,
+      width: 22, height: 22, borderRadius: 11,
+      backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
     },
-    concernLabel: {
-      fontSize: fontSizes.sm,
-      color: colors.text,
+    concernIcon: {
+      width: 48, height: 48, borderRadius: BorderRadius.base,
+      alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm,
     },
-    selectionText: {
-      fontSize: fontSizes.sm,
-      color: colors.primary,
+    concernLabel: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.text, textAlign: 'center' },
+    selectionInfo: {
+      marginTop: Spacing.xl, padding: Spacing.base,
+      backgroundColor: colors.primary + '15', borderRadius: BorderRadius.base,
     },
-  }), [colors, fontSizes]);
+    selectionText: { fontSize: fontSizes.sm, color: colors.primary, lineHeight: 20 },
+    buttons: { flexDirection: 'row', gap: Spacing.md },
+  }));
 
   const toggleConcern = (id: string) => {
     setSelected((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.container}>
-        <Text style={[styles.title, dynamicStyles.title]}>What Are Your Skin Concerns?</Text>
-        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Select all that apply - this helps us personalize your routine</Text>
+        <Text style={styles.title}>{t.onboarding.concerns.title}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.concerns.subtitle}</Text>
 
         <Card variant="elevated" style={styles.card}>
           <View style={styles.grid}>
-            {concerns.map((concern) => {
+            {concernMetadata.map((concern) => {
               const isSelected = selected.includes(concern.id);
+              const label = (t.onboarding.concerns.labels as any)[concern.id] || concern.id;
               return (
                 <TouchableOpacity
                   key={concern.id}
@@ -73,9 +87,9 @@ export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
                     </View>
                   )}
                   <View style={[styles.concernIcon, { backgroundColor: concern.color + '20' }]}>
-                    <Ionicons name={concern.icon as any} size={24} color={concern.color} />
+                    <Ionicons name={concern.icon} size={24} color={concern.color} />
                   </View>
-                  <Text style={[styles.concernLabel, dynamicStyles.concernLabel]}>{concern.label}</Text>
+                  <Text style={styles.concernLabel}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -83,49 +97,20 @@ export function SkinConcernsStep({ onNext, onBack }: SkinConcernsStepProps) {
 
           {selected.length > 0 && (
             <View style={styles.selectionInfo}>
-              <Text style={[styles.selectionText, dynamicStyles.selectionText]}>
-                ✨ You've selected <Text style={{ fontWeight: FontWeights.bold }}>{selected.length}</Text> concern{selected.length !== 1 ? 's' : ''}. We'll tailor your skincare routine to address these.
+              <Text style={styles.selectionText}>
+                {t.onboarding.concerns.selection.replace('{count}', selected.length.toString())}
               </Text>
             </View>
           )}
         </Card>
 
         <View style={styles.buttons}>
-          <Button variant="outline" onPress={onBack} style={{ flex: 1 }}>Back</Button>
+          <Button variant="outline" onPress={onBack} style={{ flex: 1 }}>← {t.onboarding.back}</Button>
           <Button onPress={() => onNext({ concerns: selected })} style={{ flex: 1 }} disabled={selected.length === 0}>
-            Continue
+            {t.onboarding.next} →
           </Button>
         </View>
       </View>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing['2xl'] },
-  title: { fontSize: FontSizes['2xl'], fontWeight: FontWeights.bold, color: Colors.gray900, textAlign: 'center', marginBottom: Spacing.md },
-  subtitle: { fontSize: FontSizes.base, color: Colors.gray500, textAlign: 'center', marginBottom: Spacing['2xl'] },
-  card: { padding: Spacing['2xl'], marginBottom: Spacing.xl },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, justifyContent: 'center' },
-  concernButton: {
-    width: '45%', padding: Spacing.lg, borderRadius: BorderRadius.base,
-    borderWidth: 2, borderColor: Colors.gray200, alignItems: 'center',
-  },
-  concernActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha5 },
-  checkBadge: {
-    position: 'absolute', top: -8, right: -8,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-  },
-  concernIcon: {
-    width: 48, height: 48, borderRadius: BorderRadius.base,
-    alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm,
-  },
-  concernLabel: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.gray700, textAlign: 'center' },
-  selectionInfo: {
-    marginTop: Spacing.xl, padding: Spacing.base,
-    backgroundColor: Colors.primaryAlpha10, borderRadius: BorderRadius.base,
-  },
-  selectionText: { fontSize: FontSizes.sm, color: Colors.primary, lineHeight: 20 },
-  buttons: { flexDirection: 'row', gap: Spacing.md },
-});

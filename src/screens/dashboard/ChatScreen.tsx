@@ -11,6 +11,7 @@ import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shado
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { chatService } from '../../services/chat.service';
 import type { ChatHistory, ChatMessage } from '../../lib/types';
+import { useTranslation } from '../../lib/i18n';
 
 interface DisplayMessage {
   id: string;
@@ -21,6 +22,7 @@ interface DisplayMessage {
 
 export function ChatScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,12 +66,7 @@ export function ChatScreen() {
     },
   }), [colors, fontSizes]);
 
-  const suggestions = [
-    'Conseils routine',
-    'Aide produits',
-    'Problème de peau',
-    'Conseils nutrition',
-  ];
+  const suggestions = t.chatPage.quickSuggestions;
 
   const loadHistory = useCallback(async () => {
     try {
@@ -110,7 +107,7 @@ export function ChatScreen() {
         setMessages([{
           id: 'welcome',
           type: 'ai',
-          text: 'Bonjour ! Je suis votre coach skincare IA. Comment puis-je vous aider aujourd\'hui ?',
+          text: t.chatPage.welcomeMessage,
         }]);
       }
     } catch (error) {
@@ -156,7 +153,7 @@ export function ChatScreen() {
 
       setCurrentChatId(response.id);
 
-      const aiResponse = response.assistantResponse || 'Je n\'ai pas pu traiter votre demande.';
+      const aiResponse = response.assistantResponse || t.chatPage.toasts.genericError;
       const aiDisplayMessage: DisplayMessage = {
         id: `ai-${Date.now()}`,
         type: 'ai',
@@ -169,7 +166,7 @@ export function ChatScreen() {
       const errorMessage: DisplayMessage = {
         id: `error-${Date.now()}`,
         type: 'ai',
-        text: 'Désolé, une erreur s\'est produite. Veuillez réessayer.',
+        text: t.chatPage.toasts.genericError,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -186,18 +183,18 @@ export function ChatScreen() {
 
   const startNewChat = () => {
     Alert.alert(
-      'Nouvelle conversation',
-      'Voulez-vous commencer une nouvelle conversation ?',
+      t.chatPage.history.title,
+      t.chatPage.history.empty,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Oui',
+          text: t.common.next,
           onPress: () => {
             setCurrentChatId(null);
             setMessages([{
               id: 'welcome',
               type: 'ai',
-              text: 'Bonjour ! Comment puis-je vous aider avec votre peau aujourd\'hui ?',
+              text: t.chatPage.welcomeMessage,
             }]);
           },
         },
@@ -208,7 +205,7 @@ export function ChatScreen() {
   if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.loadingContainer}>
-        <LoadingSpinner message="Chargement de la conversation..." />
+        <LoadingSpinner message={t.common.loading} />
       </SafeAreaView>
     );
   }
@@ -223,9 +220,9 @@ export function ChatScreen() {
             <Ionicons name="sparkles" size={20} color={Colors.white} />
           </LinearGradient>
           <View style={{ flex: 1 }}>
-            <Text style={dynamicStyles.headerTitle}>Coach Skincare IA</Text>
+            <Text style={dynamicStyles.headerTitle}>{t.chatPage.header.title}</Text>
             <Text style={dynamicStyles.headerSubtitle}>
-              {sending ? 'Réflexion...' : 'En ligne • Propulsé par l\'IA'}
+              {sending ? t.chatPage.message.aiTyping : t.chatPage.header.online}
             </Text>
           </View>
           <TouchableOpacity onPress={startNewChat} style={styles.newChatButton}>
@@ -289,7 +286,7 @@ export function ChatScreen() {
         <View style={dynamicStyles.inputBar}>
           <TextInput
             style={dynamicStyles.input}
-            placeholder="Posez-moi une question sur votre peau..."
+            placeholder={t.chatPage.inputPlaceholder}
             placeholderTextColor={colors.textTertiary}
             value={message}
             onChangeText={setMessage}

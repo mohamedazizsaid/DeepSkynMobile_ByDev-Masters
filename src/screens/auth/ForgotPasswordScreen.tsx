@@ -5,12 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
+import { useTranslation } from '../../lib/i18n';
 
 export function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const { colors, fontSizes } = useAccessibilityStyles();
+  const { t } = useTranslation();
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -39,16 +41,16 @@ export function ForgotPasswordScreen({ navigation }: any) {
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={48} color={colors.success} />
           </View>
-          <Text style={dynamicStyles.successTitle}>Check Your Email</Text>
+          <Text style={dynamicStyles.successTitle}>{t.auth.checkEmail}</Text>
           <Text style={dynamicStyles.successText}>
-            We've sent password reset instructions to{' '}
+            {t.auth.resetInstructionsSent}{' '}
             <Text style={{ fontWeight: FontWeights.medium, color: colors.text }}>{email}</Text>
           </Text>
           <Button onPress={() => navigation.navigate('Login')} fullWidth>
-            Back to Sign In
+            {t.auth.backToSignIn}
           </Button>
           <TouchableOpacity onPress={() => setSent(false)} style={styles.retryButton}>
-            <Text style={dynamicStyles.retryText}>Didn't receive the email? Try again</Text>
+            <Text style={dynamicStyles.retryText}>{t.auth.notReceivedEmail}</Text>
           </TouchableOpacity>
         </Card>
       </SafeAreaView>
@@ -60,18 +62,18 @@ export function ForgotPasswordScreen({ navigation }: any) {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
-          <Text style={dynamicStyles.backText}>Back to sign in</Text>
+          <Text style={dynamicStyles.backText}>{t.auth.backToSignIn}</Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
           <Logo size="lg" />
-          <Text style={dynamicStyles.title}>Reset Password</Text>
-          <Text style={dynamicStyles.subtitle}>Enter your email to receive reset instructions</Text>
+          <Text style={dynamicStyles.title}>{t.auth.resetPassword}</Text>
+          <Text style={dynamicStyles.subtitle}>{t.auth.enterEmailReset}</Text>
         </View>
 
         <Card variant="elevated" style={dynamicStyles.formCard}>
           <Input
-            label="Email Address"
+            label={t.auth.email}
             placeholder="your@email.com"
             value={email}
             onChangeText={setEmail}
@@ -80,13 +82,13 @@ export function ForgotPasswordScreen({ navigation }: any) {
             icon={<Ionicons name="mail-outline" size={20} color={colors.textTertiary} />}
           />
           <Button onPress={handleSubmit} loading={loading} fullWidth>
-            Send Reset Link
+            {t.auth.sendResetLink}
           </Button>
 
           <View style={styles.loginRow}>
-            <Text style={dynamicStyles.loginText}>Remember your password? </Text>
+            <Text style={dynamicStyles.loginText}>{t.auth.rememberPassword} </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={dynamicStyles.loginLink}>Sign in</Text>
+              <Text style={dynamicStyles.loginLink}>{t.auth.signIn}</Text>
             </TouchableOpacity>
           </View>
         </Card>
