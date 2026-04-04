@@ -26,8 +26,8 @@ export const authService = {
         return res.data;
     },
 
-    async faceLogin(email: string) {
-        const res = await apiClient.post('/auth/face-login', { email });
+    async faceLogin(email: string, imageBase64: string) {
+        const res = await apiClient.post('/auth/face-login', { email, imageBase64 });
         return res.data;
     },
 
@@ -58,6 +58,16 @@ export const authService = {
 
     async updateProfile(data: any) {
         const res = await apiClient.patch('/auth/profile', data);
+        return res.data;
+    },
+
+    async updateAvatar(avatarBase64: string) {
+        const res = await apiClient.patch('/auth/profile/avatar', { avatarUrl: avatarBase64 });
+        return res.data;
+    },
+
+    async updateCoverPhoto(coverBase64: string) {
+        const res = await apiClient.patch('/auth/profile/cover', { coverPhotoUrl: coverBase64 });
         return res.data;
     },
 

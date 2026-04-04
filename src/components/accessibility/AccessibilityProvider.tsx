@@ -33,6 +33,7 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
   const { loadPreferences, setTheme, toggleReduceMotion } = useAccessibilityStore();
   const accessibilityStyles = useAccessibilityStyles();
   const systemColorScheme = useColorScheme();
+  const isRTL = accessibilityStyles.settings.language === 'ar';
   
   // Load preferences on mount
   useEffect(() => {
@@ -76,6 +77,8 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
   useEffect(() => {
     const baseTextStyle: any = {
       color: accessibilityStyles.colors.text,
+      writingDirection: isRTL ? 'rtl' : 'ltr',
+      textAlign: isRTL ? 'right' : 'left',
     };
 
     if (accessibilityStyles.settings.textSpacing) {
@@ -93,6 +96,8 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
 
     const baseInputStyle: any = {
       color: accessibilityStyles.colors.text,
+      writingDirection: isRTL ? 'rtl' : 'ltr',
+      textAlign: isRTL ? 'right' : 'left',
     };
 
     if (accessibilityStyles.settings.textSpacing) {
@@ -127,6 +132,7 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
     };
   }, [
     accessibilityStyles.colors.text,
+    isRTL,
     accessibilityStyles.settings.textSpacing,
     accessibilityStyles.settings.dyslexiaFont,
   ]);

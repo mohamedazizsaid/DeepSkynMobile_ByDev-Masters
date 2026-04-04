@@ -7,7 +7,6 @@ import {
     Dimensions,
     ActivityIndicator,
     Platform,
-    Alert,
 } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
 import Animated, {
@@ -22,17 +21,18 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { BlurView } from 'expo-blur';
+import MaskedView from '@react-native-masked-view/masked-view';
+import Svg, { Path } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_SIZE = width * 0.75;
-
-// How many consecutive frames must detect a face
-const REQUIRED_FACE_FRAMES = 8;
-// Interval for the scan simulator once a face is confirmed
-const SCAN_INTERVAL_MS = 300;
+const SCAN_TOP = (height - SCAN_SIZE) / 2;
+const SCAN_LEFT = (width - SCAN_SIZE) / 2;
+const SCAN_CENTER_X = SCAN_LEFT + SCAN_SIZE / 2;
+const SCAN_CENTER_Y = SCAN_TOP + SCAN_SIZE / 2;
 
 interface FaceIDScannerProps {
-    onSuccess: () => void;
+    onSuccess: (imageBase64: string) => void;
     onCancel: () => void;
     email: string;
 }
@@ -43,11 +43,8 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
     const [progress, setProgress] = useState(0);
     const [faceDetected, setFaceDetected] = useState(false);
     const [statusMessage, setStatusMessage] = useState('Position your face in the circle');
-    const faceFrameCount = useRef(0);
-    const noFaceFrameCount = useRef(0);
     const scanCompleted = useRef(false);
     const cameraRef = useRef<any>(null);
-    const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Animations
     const scanLineY = useSharedValue(0);
@@ -59,78 +56,52 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
             const { status } = await Camera.requestCameraPermissionsAsync();
             setHasPermission(status === 'granted');
         })();
-        return () => {
-            if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
-        };
     }, []);
 
-    // Start periodic face-check captures when scanning begins
-    useEffect(() => {
-        if (scanning && !scanCompleted.current) {
-            faceFrameCount.current = 0;
-            noFaceFrameCount.current = 0;
-            setStatusMessage('Detecting face... hold still');
+    const captureFaceImage = async () => {
+        if (!cameraRef.current || scanCompleted.current) return;
 
-            captureIntervalRef.current = setInterval(async () => {
-                if (scanCompleted.current) return;
+        setStatusMessage('Capturing face...');
+        setProgress(40);
 
-                try {
-                    if (cameraRef.current) {
-                        // Take a quick picture to "prove" the camera is active
-                        // In Expo Go, real face detection APIs may be limited,
-                        // so we use takePictureAsync as a proxy check.
-                        const photo = await cameraRef.current.takePictureAsync({
-                            quality: 0.1,
-                            skipProcessing: true,
-                            shutterSound: false,
-                        });
+        try {
+            const photo = await cameraRef.current.takePictureAsync({
+                quality: 0.6,
+                base64: true,
+                skipProcessing: false,
+                shutterSound: false,
+            });
 
-                        if (photo && photo.uri) {
-                            // Photo captured successfully → user is in front of camera
-                            faceFrameCount.current += 1;
-                            noFaceFrameCount.current = 0;
+            if (!photo?.base64) {
+                setFaceDetected(false);
+                setScanning(false);
+                setStatusMessage('Face capture failed. Try again.');
+                return;
+            }
 
-                            const pct = Math.min(100, Math.round((faceFrameCount.current / REQUIRED_FACE_FRAMES) * 100));
-                            setProgress(pct);
-                            setFaceDetected(true);
-                            setStatusMessage(`Scanning... ${pct}%`);
-
-                            if (faceFrameCount.current >= REQUIRED_FACE_FRAMES) {
-                                scanCompleted.current = true;
-                                setProgress(100);
-                                setStatusMessage('Face verified ✓');
-                                if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
-                                setTimeout(onSuccess, 800);
-                            }
-                        } else {
-                            handleNoFace();
-                        }
-                    } else {
-                        handleNoFace();
-                    }
-                } catch (err) {
-                    handleNoFace();
-                }
-            }, SCAN_INTERVAL_MS);
-        }
-
-        return () => {
-            if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
-        };
-    }, [scanning]);
-
-    const handleNoFace = () => {
-        noFaceFrameCount.current += 1;
-        setFaceDetected(false);
-        if (noFaceFrameCount.current > 10) {
-            setStatusMessage('No face detected. Ensure good lighting.');
-            faceFrameCount.current = Math.max(0, faceFrameCount.current - 1);
-            const pct = Math.min(100, Math.round((faceFrameCount.current / REQUIRED_FACE_FRAMES) * 100));
-            setProgress(pct);
-        } else {
-            setStatusMessage('Detecting face... hold still');
+            scanCompleted.current = true;
+            setFaceDetected(true);
+            setProgress(100);
+            setStatusMessage('Face captured. Verifying...');
+            onSuccess(photo.base64);
+        } catch (_err) {
+            setFaceDetected(false);
+            setScanning(false);
+            setStatusMessage('Face capture failed. Try again.');
         }
     };
+
+    useEffect(() => {
+        if (!scanning || scanCompleted.current) return;
+
+        setStatusMessage('Align your face and hold still...');
+        setProgress(10);
+        const timeout = setTimeout(() => {
+            captureFaceImage();
+        }, 900);
+
+        return () => clearTimeout(timeout);
+    }, [scanning]);
 
     // Start scan animations
     useEffect(() => {
@@ -172,9 +143,8 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
 
     const handleStartScan = () => {
         scanCompleted.current = false;
-        faceFrameCount.current = 0;
-        noFaceFrameCount.current = 0;
         setProgress(0);
+        setFaceDetected(false);
         setScanning(true);
     };
 
@@ -198,7 +168,23 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
                 facing="front"
             />
 
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            <MaskedView
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+                maskElement={
+                    <View style={styles.maskContainer}>
+                        <Svg width={width} height={height}>
+                            <Path
+                                d={`M0 0 H${width} V${height} H0 Z M${SCAN_CENTER_X},${SCAN_CENTER_Y} m -${SCAN_SIZE / 2},0 a ${SCAN_SIZE / 2},${SCAN_SIZE / 2} 0 1,0 ${SCAN_SIZE},0 a ${SCAN_SIZE / 2},${SCAN_SIZE / 2} 0 1,0 -${SCAN_SIZE},0`}
+                                fill="#fff"
+                                fillRule="evenodd"
+                            />
+                        </Svg>
+                    </View>
+                }
+            >
+                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            </MaskedView>
 
             {/* Header */}
             <View style={styles.header}>
@@ -288,6 +274,9 @@ const styles = StyleSheet.create({
         height: SCAN_SIZE + 40,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    maskContainer: {
+        ...StyleSheet.absoluteFillObject,
     },
     cutoutContainer: {
         width: SCAN_SIZE,

@@ -1,5 +1,17 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Switch,
+  Alert,
+  Linking,
+  TextInput,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,42 +21,115 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStore } from '../../stores/accessibility.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from '../../services/auth.service';
+import { usersService } from '../../services/users.service';
+
+type SettingsView =
+  | 'main'
+  | 'personal'
+  | '2fa'
+  | 'password'
+  | 'notifications'
+  | 'appearance'
+  | 'language'
+  | 'payment'
+  | 'help'
+  | 'terms';
 
 export function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuthStore();
-  const { colors, fontSizes } = useAccessibilityStyles();
-  const { t } = useTranslation();
+  const { colors, fontSizes, settings } = useAccessibilityStyles();
+  const { t, language, setLanguage, isRTL } = useTranslation();
   const { 
+    theme,
     reduceMotion, 
     contrastMode, 
     zoomLevel,
+    setTheme,
     toggleReduceMotion,
     setContrastMode,
     zoomIn,
     zoomOut,
     resetZoom,
   } = useAccessibilityStore();
-  
-  const [notifications, setNotifications] = useState(true);
-  const [routineReminder, setRoutineReminder] = useState(true);
-  const [language, setLanguage] = useState(t.settings.language.title);
+
+  const [currentView, setCurrentView] = useState<SettingsView>('main');
+  const [notifications, setNotifications] = useState({
+    email_routines: true,
+    email_reports: true,
+    email_tips: false,
+    app_routines: true,
+    app_ai: true,
+    app_community: true,
+  });
+  const [savingNotifications, setSavingNotifications] = useState(false);
+
+  const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
+  const [loadingTwoFactor, setLoadingTwoFactor] = useState(false);
+  const [setupLoadingTwoFactor, setSetupLoadingTwoFactor] = useState(false);
+  const [twoFactorQrCode, setTwoFactorQrCode] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [disableTwoFactorMode, setDisableTwoFactorMode] = useState(false);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
-    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text },
+    title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, textAlign: isRTL ? 'right' as const : 'left' as const },
+    subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: isRTL ? 'right' as const : 'left' as const },
+    menuCard: { padding: 0, backgroundColor: colors.surface },
     userCard: { marginHorizontal: Spacing.xl, marginTop: Spacing.xl, padding: Spacing.base, backgroundColor: colors.surface },
     userName: { fontSize: fontSizes.base, fontWeight: FontWeights.bold, color: colors.text },
     userEmail: { fontSize: fontSizes.sm, color: colors.textSecondary },
     sectionTitle: { fontSize: fontSizes.sm, fontWeight: FontWeights.bold, color: colors.textSecondary, textTransform: 'uppercase' as const, marginBottom: Spacing.sm },
     settingsCard: { padding: 0, backgroundColor: colors.surface },
     settingLabel: { fontSize: fontSizes.base, color: colors.text },
-    settingValue: { fontSize: fontSizes.sm, color: colors.textTertiary },
+    settingValue: { fontSize: fontSizes.sm, color: colors.textTertiary, textAlign: isRTL ? 'left' as const : 'right' as const },
+    description: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
+    statusText: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.lg,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontSize: fontSizes.xl,
+      letterSpacing: 6,
+      textAlign: 'center' as const,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.base,
+      marginTop: Spacing.md,
+    },
     settingRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
     deleteText: { fontSize: fontSizes.sm, color: colors.error },
+    languageBadge: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    activeLanguageBadge: {
+      borderColor: colors.primary,
+      backgroundColor: Colors.primaryAlpha10,
+    },
     footerText: { fontSize: fontSizes.xs, color: colors.textTertiary },
-  }), [colors, fontSizes]);
+  }), [colors, fontSizes, isRTL]);
+
+  useEffect(() => {
+    const initial = user?.settings?.notifications;
+    if (initial && typeof initial === 'object') {
+      setNotifications((prev) => ({ ...prev, ...initial }));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (currentView === '2fa') {
+      loadTwoFactorStatus();
+    }
+  }, [currentView]);
 
   const userName = user?.name || t.common.user;
   const userEmail = user?.email || 'email@example.com';
@@ -53,7 +138,101 @@ export function SettingsScreen({ navigation }: any) {
   const highContrast = contrastMode === 'high';
   const setHighContrast = (value: boolean) => setContrastMode(value ? 'high' : 'off');
   const largeText = zoomLevel > 100;
-  const setLargeText = (value: boolean) => value ? zoomIn() : resetZoom();
+  const setLargeText = (value: boolean) => (value ? zoomIn() : resetZoom());
+
+  const loadTwoFactorStatus = useCallback(async () => {
+    setLoadingTwoFactor(true);
+    try {
+      const status = await authService.get2faStatus();
+      setIsTwoFactorEnabled(Boolean(status?.enabled));
+    } catch {
+      Alert.alert(t.common.error, t.settings.logoutError);
+    } finally {
+      setLoadingTwoFactor(false);
+    }
+  }, [t]);
+
+  const handleGenerate2FA = useCallback(async () => {
+    setSetupLoadingTwoFactor(true);
+    try {
+      const result = await authService.generate2fa();
+      setTwoFactorQrCode(result?.qrCode || '');
+      setTwoFactorSecret(result?.secret || '');
+      setDisableTwoFactorMode(false);
+      setTwoFactorCode('');
+    } catch (error: any) {
+      Alert.alert(t.common.error, error?.response?.data?.message || t.settings.logoutError);
+    } finally {
+      setSetupLoadingTwoFactor(false);
+    }
+  }, [t]);
+
+  const handleEnable2FA = useCallback(async () => {
+    if (twoFactorCode.length !== 6) {
+      Alert.alert(t.common.error, t.settings.security.mismatch);
+      return;
+    }
+    setSetupLoadingTwoFactor(true);
+    try {
+      await authService.enable2fa(twoFactorCode);
+      setIsTwoFactorEnabled(true);
+      setTwoFactorCode('');
+      setTwoFactorQrCode('');
+      setTwoFactorSecret('');
+      Alert.alert(t.common.success, t.settings.security.twoFactorActive);
+    } catch (error: any) {
+      Alert.alert(t.common.error, error?.response?.data?.message || t.settings.security.mismatch);
+    } finally {
+      setSetupLoadingTwoFactor(false);
+    }
+  }, [twoFactorCode, t]);
+
+  const handleDisable2FA = useCallback(async () => {
+    if (twoFactorCode.length !== 6) {
+      Alert.alert(t.common.error, t.settings.security.mismatch);
+      return;
+    }
+    setSetupLoadingTwoFactor(true);
+    try {
+      await authService.disable2fa(twoFactorCode);
+      setIsTwoFactorEnabled(false);
+      setDisableTwoFactorMode(false);
+      setTwoFactorCode('');
+      Alert.alert(t.common.success, t.settings.security.twoFactorInactive);
+    } catch (error: any) {
+      Alert.alert(t.common.error, error?.response?.data?.message || t.settings.security.mismatch);
+    } finally {
+      setSetupLoadingTwoFactor(false);
+    }
+  }, [twoFactorCode, t]);
+
+  const handleToggleNotification = useCallback(async (key: keyof typeof notifications) => {
+    const updated = { ...notifications, [key]: !notifications[key] };
+    setNotifications(updated);
+    setSavingNotifications(true);
+
+    try {
+      await usersService.updateMe({
+        settings: {
+          ...(user?.settings || {}),
+          notifications: updated,
+        },
+      });
+    } catch {
+      setNotifications(notifications);
+      Alert.alert(t.common.error, t.settings.notifications.syncing);
+    } finally {
+      setSavingNotifications(false);
+    }
+  }, [notifications, user, t]);
+
+  const openUrl = useCallback(async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(t.common.error, t.common.error);
+    }
+  }, [t]);
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -65,13 +244,12 @@ export function SettingsScreen({ navigation }: any) {
           text: t.nav.logout, 
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('auth_token');
             logout();
           }
         },
       ]
     );
-  }, [logout]);
+  }, [logout, t]);
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -88,125 +266,101 @@ export function SettingsScreen({ navigation }: any) {
         },
       ]
     );
-  }, []);
+  }, [t]);
 
-  const handleContactSupport = () => {
-    Linking.openURL('mailto:support@deepskyn.com?subject=Support%20Mobile%20App');
-  };
+  const sectionMenu = [
+    {
+      title: t.settings.sections.account,
+      items: [
+        { id: 'personal', icon: 'person-outline', label: t.settings.tabs.personal, description: t.settings.personal.subtitle },
+        { id: '2fa', icon: 'shield-checkmark-outline', label: t.settings.tabs['2fa'], description: t.settings.security.twoFactorSubtitle },
+        { id: 'password', icon: 'lock-closed-outline', label: t.settings.tabs.password, description: t.settings.security.passwordSubtitle },
+      ],
+    },
+    {
+      title: t.settings.sections.preferences,
+      items: [
+        { id: 'notifications', icon: 'notifications-outline', label: t.settings.tabs.notifications, description: t.settings.notifications.subtitle },
+        { id: 'appearance', icon: 'color-palette-outline', label: t.settings.tabs.appearance, description: t.settings.appearance.subtitle },
+        { id: 'language', icon: 'language-outline', label: t.settings.tabs.language, description: t.settings.language.subtitle },
+      ],
+    },
+    {
+      title: t.settings.sections.support,
+      items: [
+        { id: 'payment', icon: 'card-outline', label: t.subscriptionScreen.title, description: t.subscriptionScreen.currentPlan },
+        { id: 'help', icon: 'help-circle-outline', label: t.settings.tabs.help, description: t.settings.help.subtitle },
+        { id: 'terms', icon: 'document-text-outline', label: t.settings.tabs.terms, description: t.settings.terms.subtitle },
+      ],
+    },
+  ] as const;
 
-  const handlePrivacyPolicy = () => {
-    Linking.openURL('https://deepskyn.com/privacy');
-  };
+  const languageOptions = [
+    { code: 'fr', label: 'Français', flag: 'FR' },
+    { code: 'en', label: 'English', flag: 'EN' },
+    { code: 'ar', label: 'العربية', flag: 'AR' },
+  ] as const;
 
-  const handleTermsOfService = () => {
-    Linking.openURL('https://deepskyn.com/terms');
-  };
+  const allRightsReservedLabel = language === 'ar'
+    ? 'جميع الحقوق محفوظة.'
+    : language === 'en'
+      ? 'All rights reserved.'
+      : 'Tous droits reserves.';
 
-  const accountSettings = [
-    { icon: 'person-outline', label: t.settings.personal.title, type: 'link', onPress: () => navigation?.navigate?.('Profile') },
-    { icon: 'lock-closed-outline', label: t.settings.security.passwordTitle, type: 'link', onPress: () => Alert.alert('Info', t.auth.forgotPassword) },
-    { icon: 'language-outline', label: t.settings.tabs.language, type: 'value', value: language },
-  ];
-
-  const preferenceSettings = [
-    { icon: 'notifications-outline', label: t.settings.notifications.title, type: 'toggle', value: notifications, onToggle: setNotifications },
-    { icon: 'alarm-outline', label: t.settings.notifications.routines, type: 'toggle', value: routineReminder, onToggle: setRoutineReminder },
-  ];
-
-  const accessibilitySettings = [
-    { icon: 'contrast-outline', label: t.accessibility.highContrast, type: 'toggle', value: highContrast, onToggle: setHighContrast },
-    { icon: 'text-outline', label: t.accessibility.textSize, type: 'toggle', value: largeText, onToggle: setLargeText },
-    { icon: 'flash-off-outline', label: t.accessibility.reduceAnimations, type: 'toggle', value: reduceMotion, onToggle: toggleReduceMotion },
-  ];
-
-  const supportSettings = [
-    { icon: 'help-circle-outline', label: t.settings.tabs.help, type: 'link', onPress: () => Linking.openURL('https://deepskyn.com/help') },
-    { icon: 'chatbubble-outline', label: t.settings.help.emailTitle, type: 'link', onPress: handleContactSupport },
-    { icon: 'document-text-outline', label: t.landing.footerPrivacy, type: 'link', onPress: handlePrivacyPolicy },
-    { icon: 'newspaper-outline', label: t.settings.tabs.terms, type: 'link', onPress: handleTermsOfService },
-  ];
-
-  const renderSettingRow = (item: any, index: number, isLast: boolean) => (
-    <TouchableOpacity 
-      key={index} 
-      style={[styles.settingRow, !isLast ? dynamicStyles.settingRowBorder : undefined]} 
-      activeOpacity={0.6}
-      onPress={item.onPress}
-      disabled={item.type === 'toggle'}
+  const renderMenuItem = (item: { id: string; icon: string; label: string; description: string }, index: number, isLast: boolean) => (
+    <TouchableOpacity
+      key={item.id}
+      style={[styles.settingRow, !isLast ? dynamicStyles.settingRowBorder : undefined, isRTL && styles.settingRowRtl]}
+      activeOpacity={0.8}
+      onPress={() => setCurrentView(item.id as SettingsView)}
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
     >
-      <View style={styles.settingLeft}>
-        <Ionicons name={item.icon} size={22} color={colors.textSecondary} />
-        <Text style={dynamicStyles.settingLabel}>{item.label}</Text>
+      <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+        <Ionicons name={item.icon as any} size={22} color={colors.textSecondary} />
+        <View style={{ flex: 1 }}>
+          <Text style={[dynamicStyles.settingLabel, isRTL && { textAlign: 'right' }]}>{item.label}</Text>
+          <Text style={[dynamicStyles.description, isRTL && { textAlign: 'right' }]}>{item.description}</Text>
+        </View>
       </View>
-      {item.type === 'link' && <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />}
-      {item.type === 'value' && <Text style={dynamicStyles.settingValue}>{item.value}</Text>}
-      {item.type === 'toggle' && (
-        <Switch
-          value={item.value}
-          onValueChange={item.onToggle}
-          trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
-          thumbColor={item.value ? Colors.primary : colors.border}
-        />
-      )}
+      <Ionicons
+        name={isRTL ? 'chevron-back' : 'chevron-forward'}
+        size={20}
+        color={colors.textTertiary}
+      />
     </TouchableOpacity>
   );
 
-  return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
-      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={dynamicStyles.title}>{t.settings.title}</Text>
-        </View>
-
-      {/* User Info Card */}
-      <TouchableOpacity onPress={() => navigation?.navigate?.('Profile')}>
+  const renderMainView = () => (
+    <>
+      <TouchableOpacity
+        onPress={() => navigation?.navigate?.('Profile')}
+        accessibilityRole="button"
+        accessibilityLabel={t.settings.personal.title}
+      >
         <Card variant="elevated" style={dynamicStyles.userCard}>
-          <View style={styles.userRow}>
+          <View style={[styles.userRow, isRTL && styles.userRowRtl]}>
             <LinearGradient colors={Gradients.primary} style={styles.userAvatar}>
               <Text style={styles.userAvatarText}>{userInitials}</Text>
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={dynamicStyles.userName}>{userName}</Text>
-              <Text style={dynamicStyles.userEmail}>{userEmail}</Text>
+              <Text style={[dynamicStyles.userName, isRTL && { textAlign: 'right' }]}>{userName}</Text>
+              <Text style={[dynamicStyles.userEmail, isRTL && { textAlign: 'right' }]}>{userEmail}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textTertiary} />
           </View>
         </Card>
       </TouchableOpacity>
 
-      {/* Account */}
-      <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>{t.settings.sections.account}</Text>
-        <Card style={dynamicStyles.settingsCard}>
-          {accountSettings.map((item, i) => renderSettingRow(item, i, i === accountSettings.length - 1))}
-        </Card>
-      </View>
+      {sectionMenu.map((section) => (
+        <View key={section.title} style={styles.section}>
+          <Text style={[dynamicStyles.sectionTitle, isRTL && { textAlign: 'right' }]}>{section.title}</Text>
+          <Card style={dynamicStyles.menuCard}>
+            {section.items.map((item, idx) => renderMenuItem(item, idx, idx === section.items.length - 1))}
+          </Card>
+        </View>
+      ))}
 
-      {/* Preferences */}
-      <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>{t.settings.sections.preferences}</Text>
-        <Card style={dynamicStyles.settingsCard}>
-          {preferenceSettings.map((item, i) => renderSettingRow(item, i, i === preferenceSettings.length - 1))}
-        </Card>
-      </View>
-
-      {/* Accessibility */}
-      <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>{t.accessibility.title}</Text>
-        <Card style={dynamicStyles.settingsCard}>
-          {accessibilitySettings.map((item, i) => renderSettingRow(item, i, i === accessibilitySettings.length - 1))}
-        </Card>
-      </View>
-
-      {/* Support */}
-      <View style={styles.section}>
-        <Text style={dynamicStyles.sectionTitle}>{t.settings.sections.support}</Text>
-        <Card style={dynamicStyles.settingsCard}>
-          {supportSettings.map((item, i) => renderSettingRow(item, i, i === supportSettings.length - 1))}
-        </Card>
-      </View>
-
-      {/* Danger Zone */}
       <View style={styles.section}>
         <Button
           variant="outline"
@@ -216,14 +370,475 @@ export function SettingsScreen({ navigation }: any) {
         >
           <Text style={{ color: Colors.error }}>{t.nav.logout}</Text>
         </Button>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDeleteAccount}
+          accessibilityRole="button"
+          accessibilityLabel={t.common.delete}
+        >
           <Text style={dynamicStyles.deleteText}>{t.common.delete}</Text>
         </TouchableOpacity>
       </View>
+    </>
+  );
+
+  const renderBackHeader = (title: string, subtitle?: string) => (
+    <View style={styles.section}>
+      <TouchableOpacity
+        onPress={() => setCurrentView('main')}
+        style={[styles.backRow, isRTL && styles.backRowRtl]}
+        accessibilityRole="button"
+        accessibilityLabel={t.common.back || 'Back'}
+      >
+        <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.textSecondary} />
+        <Text style={dynamicStyles.settingLabel}>{t.common.back || 'Back'}</Text>
+      </TouchableOpacity>
+      <Text style={[dynamicStyles.title, { marginTop: Spacing.sm }]}>{title}</Text>
+      {subtitle ? <Text style={dynamicStyles.subtitle}>{subtitle}</Text> : null}
+    </View>
+  );
+
+  const renderPersonalView = () => (
+    <>
+      {renderBackHeader(t.settings.personal.title, t.settings.personal.subtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <View style={[styles.settingRow, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.personal.email}</Text>
+            </View>
+            <Text style={dynamicStyles.settingValue}>{userEmail}</Text>
+          </View>
+          <View style={[styles.settingRow, dynamicStyles.settingRowBorder, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.personal.fullName}</Text>
+            </View>
+            <Text style={dynamicStyles.settingValue}>{userName}</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.settingRow, isRTL && styles.settingRowRtl]}
+            onPress={() => navigation?.navigate?.('Profile')}
+            accessibilityRole="button"
+            accessibilityLabel={t.settings.personal.details}
+          >
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="open-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.personal.details}</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderTwoFactorView = () => (
+    <>
+      {renderBackHeader(t.settings.security.twoFactorTitle, t.settings.security.twoFactorSubtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          {loadingTwoFactor ? (
+            <View style={{ padding: Spacing.lg, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={[dynamicStyles.description, { marginTop: Spacing.sm }]}>{t.common.loading}</Text>
+            </View>
+          ) : (
+            <View style={{ padding: Spacing.base }}>
+              <Text style={dynamicStyles.settingLabel}>
+                {isTwoFactorEnabled ? t.settings.security.twoFactorActive : t.settings.security.twoFactorInactive}
+              </Text>
+
+              {!isTwoFactorEnabled && !twoFactorSecret ? (
+                <Button
+                  onPress={handleGenerate2FA}
+                  style={{ marginTop: Spacing.md }}
+                  loading={setupLoadingTwoFactor}
+                >
+                  {t.settings.security.setup}
+                </Button>
+              ) : null}
+
+              {!isTwoFactorEnabled && Boolean(twoFactorSecret) ? (
+                <View style={{ marginTop: Spacing.md }}>
+                  {twoFactorQrCode ? (
+                    <Image
+                      source={{ uri: twoFactorQrCode }}
+                      style={styles.qrCode}
+                      accessibilityLabel={t.settings.security.step1}
+                    />
+                  ) : null}
+                  <Text style={[dynamicStyles.description, { marginTop: Spacing.sm }]}>
+                    {t.settings.security.secretKey}: {twoFactorSecret}
+                  </Text>
+                  <TextInput
+                    value={twoFactorCode}
+                    onChangeText={(value) => setTwoFactorCode(value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    style={dynamicStyles.input}
+                    accessibilityLabel={t.settings.security.verify}
+                  />
+                  <Button
+                    onPress={handleEnable2FA}
+                    style={{ marginTop: Spacing.md }}
+                    loading={setupLoadingTwoFactor}
+                  >
+                    {t.settings.security.enable}
+                  </Button>
+                </View>
+              ) : null}
+
+              {isTwoFactorEnabled ? (
+                <View style={{ marginTop: Spacing.md }}>
+                  {!disableTwoFactorMode ? (
+                    <Button
+                      variant="outline"
+                      onPress={() => {
+                        setDisableTwoFactorMode(true);
+                        setTwoFactorCode('');
+                      }}
+                    >
+                      {t.settings.security.disable}
+                    </Button>
+                  ) : (
+                    <>
+                      <TextInput
+                        value={twoFactorCode}
+                        onChangeText={(value) => setTwoFactorCode(value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        placeholderTextColor={colors.textTertiary}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        style={dynamicStyles.input}
+                        accessibilityLabel={t.settings.security.verify}
+                      />
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: Spacing.sm, marginTop: Spacing.md }}>
+                        <View style={{ flex: 1 }}>
+                          <Button
+                            variant="outline"
+                            onPress={() => {
+                              setDisableTwoFactorMode(false);
+                              setTwoFactorCode('');
+                            }}
+                          >
+                            {t.common.cancel}
+                          </Button>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Button
+                            onPress={handleDisable2FA}
+                            style={{ backgroundColor: Colors.error }}
+                            loading={setupLoadingTwoFactor}
+                          >
+                            {t.common.disable}
+                          </Button>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
+              ) : null}
+            </View>
+          )}
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderPasswordView = () => (
+    <>
+      {renderBackHeader(t.settings.security.passwordTitle, t.settings.security.passwordSubtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <View style={{ padding: Spacing.base }}>
+            <Text style={dynamicStyles.settingLabel}>{t.auth.forgotPassword}</Text>
+            <Text style={dynamicStyles.statusText}>{t.settings.help.emailDesc}</Text>
+            <Button
+              variant="outline"
+              style={{ marginTop: Spacing.md }}
+              onPress={() => openUrl('mailto:support@deepskyn.com?subject=Reset%20Password%20Request')}
+            >
+              {t.settings.help.emailTitle}
+            </Button>
+          </View>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderNotificationsView = () => {
+    const rows = [
+      { key: 'email_routines' as const, label: t.settings.notifications.routines, desc: t.settings.notifications.routinesDesc },
+      { key: 'email_reports' as const, label: t.settings.notifications.reports, desc: t.settings.notifications.reportsDesc },
+      { key: 'email_tips' as const, label: t.settings.notifications.tips, desc: t.settings.notifications.tipsDesc },
+      { key: 'app_ai' as const, label: t.settings.notifications.aiSpecialist, desc: t.settings.notifications.aiSpecialistDesc },
+      { key: 'app_community' as const, label: t.settings.notifications.community, desc: t.settings.notifications.communityDesc },
+    ];
+
+    return (
+      <>
+        {renderBackHeader(t.settings.notifications.title, t.settings.notifications.subtitle)}
+        <View style={styles.section}>
+          <Card style={dynamicStyles.settingsCard}>
+            {rows.map((row, index) => (
+              <View key={row.key} style={[styles.settingRow, index < rows.length - 1 ? dynamicStyles.settingRowBorder : undefined, isRTL && styles.settingRowRtl]}>
+                <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl, { flex: 1 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[dynamicStyles.settingLabel, isRTL && { textAlign: 'right' }]}>{row.label}</Text>
+                    <Text style={[dynamicStyles.description, isRTL && { textAlign: 'right' }]}>{row.desc}</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={Boolean(notifications[row.key])}
+                  onValueChange={() => handleToggleNotification(row.key)}
+                  disabled={savingNotifications}
+                  trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
+                  thumbColor={notifications[row.key] ? Colors.primary : colors.border}
+                  accessibilityLabel={row.label}
+                />
+              </View>
+            ))}
+          </Card>
+        </View>
+      </>
+    );
+  };
+
+  const renderAppearanceView = () => (
+    <>
+      {renderBackHeader(t.settings.appearance.title, t.settings.appearance.subtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <View style={[styles.settingRow, dynamicStyles.settingRowBorder, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="sunny-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.appearance.theme}</Text>
+            </View>
+            <Switch
+              value={theme === 'dark'}
+              onValueChange={(value) => setTheme(value ? 'dark' : 'light')}
+              trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
+              thumbColor={theme === 'dark' ? Colors.primary : colors.border}
+              accessibilityLabel={t.settings.appearance.theme}
+            />
+          </View>
+
+          <View style={[styles.settingRow, dynamicStyles.settingRowBorder, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="contrast-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.appearance.contrast}</Text>
+            </View>
+            <Switch
+              value={highContrast}
+              onValueChange={setHighContrast}
+              trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
+              thumbColor={highContrast ? Colors.primary : colors.border}
+              accessibilityLabel={t.settings.appearance.contrast}
+            />
+          </View>
+
+          <View style={[styles.settingRow, dynamicStyles.settingRowBorder, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="text-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.accessibility.textSize}</Text>
+            </View>
+            <Switch
+              value={largeText}
+              onValueChange={setLargeText}
+              trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
+              thumbColor={largeText ? Colors.primary : colors.border}
+              accessibilityLabel={t.accessibility.textSize}
+            />
+          </View>
+
+          <View style={[styles.settingRow, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="flash-off-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.accessibility.reduceAnimations}</Text>
+            </View>
+            <Switch
+              value={reduceMotion}
+              onValueChange={toggleReduceMotion}
+              trackColor={{ false: colors.border, true: Colors.primaryAlpha30 }}
+              thumbColor={reduceMotion ? Colors.primary : colors.border}
+              accessibilityLabel={t.accessibility.reduceAnimations}
+            />
+          </View>
+        </Card>
+
+        <Card style={{ ...dynamicStyles.settingsCard, marginTop: Spacing.md }}>
+          <View style={{ padding: Spacing.base }}>
+            <Text style={dynamicStyles.settingLabel}>{t.settings.appearance.zoom}: {zoomLevel}%</Text>
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: Spacing.sm, marginTop: Spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Button variant="outline" onPress={zoomOut}>-</Button>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button variant="outline" onPress={resetZoom}>{t.common.reset}</Button>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button variant="outline" onPress={zoomIn}>+</Button>
+              </View>
+            </View>
+          </View>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderLanguageView = () => (
+    <>
+      {renderBackHeader(t.settings.language.title, t.settings.language.subtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <View style={{ padding: Spacing.base }}>
+            {languageOptions.map((option) => {
+              const selected = language === option.code;
+              return (
+                <TouchableOpacity
+                  key={option.code}
+                  style={[dynamicStyles.languageBadge, selected ? dynamicStyles.activeLanguageBadge : undefined]}
+                  onPress={() => setLanguage(option.code as any)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={option.label}
+                >
+                  <View style={[styles.languageRow, isRTL && styles.languageRowRtl]}>
+                    <Text style={dynamicStyles.settingLabel}>{option.label}</Text>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: Spacing.sm }}>
+                      <Text style={dynamicStyles.settingValue}>{option.flag}</Text>
+                      {selected ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderPaymentView = () => (
+    <>
+      {renderBackHeader(t.subscriptionScreen.title, t.subscriptionScreen.subtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <View style={{ padding: Spacing.base }}>
+            <Text style={dynamicStyles.settingLabel}>{t.subscriptionScreen.currentPlan}</Text>
+            <Text style={dynamicStyles.statusText}>{t.subscriptionScreen.premiumPlan}</Text>
+            <Button
+              style={{ marginTop: Spacing.md }}
+              onPress={() => navigation?.navigate?.('Subscription')}
+            >
+              {t.subscriptionScreen.title}
+            </Button>
+          </View>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderHelpView = () => (
+    <>
+      {renderBackHeader(t.settings.help.title, t.settings.help.subtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <TouchableOpacity
+            style={[styles.settingRow, dynamicStyles.settingRowBorder, isRTL && styles.settingRowRtl]}
+            onPress={() => openUrl('https://deepskyn.com/help')}
+            accessibilityRole="button"
+            accessibilityLabel={t.settings.tabs.help}
+          >
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="help-circle-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.tabs.help}</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.settingRow, isRTL && styles.settingRowRtl]}
+            onPress={() => openUrl('mailto:support@deepskyn.com?subject=Support%20Mobile%20App')}
+            accessibilityRole="button"
+            accessibilityLabel={t.settings.help.emailTitle}
+          >
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.help.emailTitle}</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderTermsView = () => (
+    <>
+      {renderBackHeader(t.settings.terms.title, t.settings.terms.subtitle)}
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <TouchableOpacity
+            style={[styles.settingRow, dynamicStyles.settingRowBorder, isRTL && styles.settingRowRtl]}
+            onPress={() => openUrl('https://deepskyn.com/terms')}
+            accessibilityRole="button"
+            accessibilityLabel={t.settings.tabs.terms}
+          >
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.settings.tabs.terms}</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.settingRow, isRTL && styles.settingRowRtl]}
+            onPress={() => openUrl('https://deepskyn.com/privacy')}
+            accessibilityRole="button"
+            accessibilityLabel={t.landing.footerPrivacy}
+          >
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <Ionicons name="shield-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>{t.landing.footerPrivacy}</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </Card>
+      </View>
+    </>
+  );
+
+  const renderContent = () => {
+    if (currentView === 'personal') return renderPersonalView();
+    if (currentView === '2fa') return renderTwoFactorView();
+    if (currentView === 'password') return renderPasswordView();
+    if (currentView === 'notifications') return renderNotificationsView();
+    if (currentView === 'appearance') return renderAppearanceView();
+    if (currentView === 'language') return renderLanguageView();
+    if (currentView === 'payment') return renderPaymentView();
+    if (currentView === 'help') return renderHelpView();
+    if (currentView === 'terms') return renderTermsView();
+    return renderMainView();
+  };
+
+  return (
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={dynamicStyles.title}>{currentView === 'main' ? t.settings.title : t.settings.managePreferences}</Text>
+          {currentView === 'main' ? (
+            <Text style={dynamicStyles.subtitle}>{t.settings.managePreferences}</Text>
+          ) : null}
+        </View>
+
+        {renderContent()}
 
       <View style={styles.footer}>
         <Text style={dynamicStyles.footerText}>DeepSkyn v1.0.0</Text>
-        <Text style={dynamicStyles.footerText}>© 2026 DeepSkyn. {t.landing.allRightsReserved}</Text>
+        <Text style={dynamicStyles.footerText}>© 2026 DeepSkyn. {allRightsReservedLabel}</Text>
       </View>
 
       <View style={{ height: 30 }} />
@@ -235,17 +850,30 @@ export function SettingsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  userRowRtl: { flexDirection: 'row-reverse' },
   userAvatar: {
     width: 52, height: 52, borderRadius: 26,
     alignItems: 'center', justifyContent: 'center',
   },
   userAvatarText: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.white },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  backRowRtl: { flexDirection: 'row-reverse' },
   settingRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.base, paddingVertical: Spacing.md,
   },
+  settingRowRtl: { flexDirection: 'row-reverse' },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  settingLeftRtl: { flexDirection: 'row-reverse' },
+  languageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  languageRowRtl: { flexDirection: 'row-reverse' },
+  qrCode: {
+    width: 180,
+    height: 180,
+    alignSelf: 'center',
+    borderRadius: BorderRadius.md,
+  },
   deleteButton: { alignItems: 'center', marginTop: Spacing.md, padding: Spacing.sm },
   footer: { alignItems: 'center', marginTop: Spacing['2xl'] },
 });

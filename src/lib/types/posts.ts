@@ -6,9 +6,11 @@ export interface Post {
   message: string;
   createdAt: string;
   updatedAt: string;
-  user?: { name: string; avatar: string | null };
+  user?: { id?: string; name: string; avatar: string | null };
   _count?: { likes: number; comments: number };
   isLiked?: boolean;
+  reaction?: string | null;
+  reactionSummary?: Record<string, number>;
 }
 
 export interface CreatePostDto {
@@ -19,11 +21,15 @@ export interface CreatePostDto {
 export interface Comment {
   id: string;
   userId: string;
-  postId: string;
+  postId?: string;
+  parentId?: string;
   comment: string;
+  message?: string;
   createdAt: string;
   updatedAt: string;
-  user?: { name: string; avatar: string | null };
+  user?: { id?: string; name: string; avatar: string | null };
+  isLiked?: boolean;
+  _count?: { likes: number };
 }
 
 export interface CreateCommentDto {

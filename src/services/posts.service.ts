@@ -1,7 +1,60 @@
 import apiClient from './api-client';
 import type { Post, CreatePostDto, Comment, CreateCommentDto, PaginatedResponse } from '../lib/types';
 
+export interface StoryDto {
+  id: string;
+  userId: string;
+  name?: string;
+  avatar?: string | null;
+  mediaUrl: string;
+  musicUrl?: string | null;
+  musicTitle?: string | null;
+  createdAt?: string;
+  likesCount?: number;
+  commentsCount?: number;
+  isLiked?: boolean;
+}
+
+export interface FreeMusicDto {
+  id: string;
+  title: string;
+  artist?: string;
+  url: string;
+  source?: string;
+}
+
+interface ITunesTrack {
+  trackId: number;
+  trackName: string;
+  artistName: string;
+  previewUrl?: string;
+}
+
 export const postsService = {
+  async searchPublicMusicCatalog(query?: string): Promise<FreeMusicDto[]> {
+    try {
+      const term = encodeURIComponent((query || 'popular hits').trim());
+      const endpoint = `https://itunes.apple.com/search?term=${term}&entity=song&limit=25`;
+      const res = await fetch(endpoint);
+      if (!res.ok) return [];
+
+      const payload = await res.json();
+      const tracks: ITunesTrack[] = Array.isArray(payload?.results) ? payload.results : [];
+
+      return tracks
+        .filter((t) => !!t.previewUrl)
+        .map((t) => ({
+          id: `itunes-${t.trackId}`,
+          title: t.trackName,
+          artist: t.artistName,
+          url: t.previewUrl as string,
+          source: 'itunes-preview',
+        }));
+    } catch {
+      return [];
+    }
+  },
+
   async create(data: CreatePostDto): Promise<Post> {
     const res = await apiClient.post<Post>('/posts', data);
     return res.data;
@@ -21,6 +74,13 @@ export const postsService = {
     return res.data;
   },
 
+  async getArchivedPosts(page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
+    const res = await apiClient.get<PaginatedResponse<Post>>('/posts/archives', {
+      params: { page, limit },
+    });
+    return res.data;
+  },
+
   async getById(id: string): Promise<Post> {
     const res = await apiClient.get<Post>(`/posts/${id}`);
     return res.data;
@@ -35,8 +95,13 @@ export const postsService = {
     await apiClient.delete(`/posts/${id}`);
   },
 
-  async toggleLike(postId: string): Promise<any> {
-    const res = await apiClient.post(`/likes/${postId}/toggle`);
+  async toggleArchive(id: string): Promise<Post> {
+    const res = await apiClient.patch<Post>(`/posts/${id}/archive`);
+    return res.data;
+  },
+
+  async toggleLike(postId: string, type: string = 'like'): Promise<any> {
+    const res = await apiClient.post(`/likes/${postId}/toggle`, { type });
     return res.data;
   },
 
@@ -64,5 +129,64 @@ export const postsService = {
 
   async deleteComment(id: string): Promise<void> {
     await apiClient.delete(`/comments/${id}`);
+  },
+
+  async toggleCommentLike(commentId: string): Promise<{ liked: boolean }> {
+    const res = await apiClient.post<{ liked: boolean }>(`/comments/${commentId}/like`);
+    return res.data;
+  },
+
+  async createStory(mediaUrl: string, userId: string, musicUrl?: string, musicTitle?: string): Promise<any> {
+    const res = await apiClient.post('/stories', {
+      mediaUrl,
+      userId,
+      musicUrl,
+      musicTitle,
+    });
+    return res.data;
+  },
+
+  async getActiveStories(): Promise<StoryDto[]> {
+    const res = await apiClient.get<StoryDto[]>('/stories');
+    return res.data;
+  },
+
+  async getFreeMusicForStories(query?: string): Promise<FreeMusicDto[]> {
+    try {
+      if (!query) {
+        const res = await apiClient.get<FreeMusicDto[]>('/stories/music/free');
+        const backend = Array.isArray(res.data) ? res.data : [];
+        if (backend.length > 0) return backend;
+        return this.searchPublicMusicCatalog('trending');
+      }
+
+      const res = await apiClient.get<FreeMusicDto[]>('/stories/music/search', {
+        params: { query },
+      });
+      const backend = Array.isArray(res.data) ? res.data : [];
+      if (backend.length > 0) return backend;
+      return this.searchPublicMusicCatalog(query);
+    } catch {
+      return this.searchPublicMusicCatalog(query);
+    }
+  },
+
+  async toggleStoryLike(storyId: string): Promise<{ liked: boolean; likesCount: number }> {
+    const res = await apiClient.post<{ liked: boolean; likesCount: number }>(`/stories/${storyId}/like`);
+    return res.data;
+  },
+
+  async getStoryComments(storyId: string): Promise<Comment[]> {
+    const res = await apiClient.get<Comment[]>(`/stories/${storyId}/comments`);
+    return res.data;
+  },
+
+  async addStoryComment(storyId: string, comment: string): Promise<Comment> {
+    const res = await apiClient.post<Comment>(`/stories/${storyId}/comments`, { comment });
+    return res.data;
+  },
+
+  async deleteStoryComment(commentId: string): Promise<void> {
+    await apiClient.delete(`/stories/comments/${commentId}`);
   },
 };

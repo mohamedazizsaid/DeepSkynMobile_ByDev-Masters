@@ -71,7 +71,7 @@ export function ProfileSetupStep({ onComplete }: ProfileSetupStepProps) {
     dateTextPlaceholder: { color: colors.textSecondary },
     genderOptions: { flexDirection: 'row', gap: Spacing.sm },
     genderOption: { flex: 1, flexDirection: 'column', alignItems: 'center', padding: Spacing.base, borderRadius: BorderRadius.base, backgroundColor: colors.backgroundSecondary, borderWidth: 2, borderColor: colors.border, position: 'relative' },
-    genderOptionSelected: { backgroundColor: colors.primaryAlpha10, borderColor: colors.primary },
+    genderOptionSelected: { backgroundColor: 'rgba(14, 165, 233, 0.1)', borderColor: colors.primary },
     genderEmoji: { fontSize: 28, marginBottom: Spacing.xs },
     genderLabel: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.textSecondary },
     genderLabelSelected: { color: colors.primary, fontWeight: FontWeights.semibold },

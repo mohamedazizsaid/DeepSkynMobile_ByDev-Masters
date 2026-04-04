@@ -15,7 +15,7 @@ export function OnboardingProgressBar({ currentStep, totalSteps, steps }: Onboar
 
   const dynamicStyles = useMemo(() => ({
     circle: {
-      backgroundColor: colors.card,
+      backgroundColor: colors.surface,
       borderColor: colors.border,
     },
     circleCompleted: {

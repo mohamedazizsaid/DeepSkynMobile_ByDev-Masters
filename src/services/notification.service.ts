@@ -1,9 +1,15 @@
 import apiClient from './api-client';
-import type { Notification, PaginatedResponse } from '../lib/types';
+import type { Notification } from '../lib/types';
+
+interface NotificationListResponse {
+  notifications: Notification[];
+  total: number;
+  unreadCount: number;
+}
 
 export const notificationService = {
-  async getAll(page = 1, limit = 20, unreadOnly = false): Promise<PaginatedResponse<Notification>> {
-    const res = await apiClient.get<PaginatedResponse<Notification>>('/notifications', {
+  async getAll(page = 1, limit = 20, unreadOnly = false): Promise<NotificationListResponse> {
+    const res = await apiClient.get<NotificationListResponse>('/notifications', {
       params: { page, limit, unreadOnly },
     });
     return res.data;

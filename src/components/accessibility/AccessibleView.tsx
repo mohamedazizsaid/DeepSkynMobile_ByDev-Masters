@@ -119,10 +119,10 @@ export function AccessiblePressable({
   
   return (
     <Pressable
-      style={({ pressed, focused }) => [
+      style={({ pressed }) => [
         { backgroundColor },
-        showFocusHighlight && (pressed || focused) && settings.focusHighlight ? focusStyle : {},
-        typeof style === 'function' ? style({ pressed, focused }) : style,
+        showFocusHighlight && pressed && settings.focusHighlight ? focusStyle : {},
+        typeof style === 'function' ? style({ pressed }) : style,
       ]}
       {...props}
     >

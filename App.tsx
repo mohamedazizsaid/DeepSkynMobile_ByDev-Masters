@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler'; // Required for JS Stack
 import React, { useEffect, useState } from 'react';
+import { I18nManager } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,10 +12,20 @@ import { LaunchSplashScreen } from './src/components/splash/LaunchSplashScreen';
 import { useAccessibilityStore } from './src/stores/accessibility.store';
 
 function AppContent() {
+  const language = useAccessibilityStore(state => state.language);
+  const isRTL = language === 'ar';
+
+  useEffect(() => {
+    if (I18nManager.isRTL !== isRTL) {
+      I18nManager.allowRTL(isRTL);
+      I18nManager.forceRTL(isRTL);
+    }
+  }, [isRTL]);
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, direction: isRTL ? 'rtl' : 'ltr' }}>
       <SafeAreaProvider>
-        <NavigationContainer>
+        <NavigationContainer direction={isRTL ? 'rtl' : 'ltr'}>
           <StatusBar style="auto" />
           <RootNavigator />
           <AccessibilityPanel />

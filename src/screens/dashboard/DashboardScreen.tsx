@@ -32,14 +32,17 @@ export function DashboardScreen({ navigation }: any) {
   const { user, logout, needsGuidedTour, markGuidedTourComplete } = useAuthStore();
   const { unreadCount, fetchUnreadCount } = useNotificationStore();
   const { togglePanel: openAccessibilityPanel } = useAccessibilityStore();
-  const { colors, fontSizes, getAnimDuration } = useAccessibilityStyles();
+  const { colors, fontSizes, getAnimDuration, settings } = useAccessibilityStyles();
   const { t } = useTranslation();
   const [data, setData] = useState<DashboardData>({ latestAnalysis: null, stats: null });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
+  const swipeHintAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const swipeOpacityAnim = useRef(new Animated.Value(1)).current;
   const isNavigatingFromSwipe = useRef(false);
 
   // Dynamic styles based on accessibility settings
@@ -53,11 +56,9 @@ export function DashboardScreen({ navigation }: any) {
       marginBottom: Spacing.md,
       paddingHorizontal: Spacing.lg,
       paddingVertical: Spacing.md,
-      backgroundColor: colors.surface,
-      borderRadius: BorderRadius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...Shadows.sm,
+      borderRadius: 28,
+      overflow: 'hidden' as const,
+      ...Shadows.lg,
     },
     profileRow: {
       flexDirection: 'row' as const,
@@ -77,16 +78,20 @@ export function DashboardScreen({ navigation }: any) {
       fontWeight: FontWeights.bold,
       color: Colors.white,
     },
-    greeting: { fontSize: fontSizes.base, color: colors.textSecondary },
-    name: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: colors.text },
-    userMeta: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: 2 },
+    greeting: { fontSize: fontSizes.base, color: 'rgba(255,255,255,0.9)' },
+    name: { fontSize: fontSizes.xl, fontWeight: FontWeights.bold, color: Colors.white },
+    userMeta: { fontSize: fontSizes.xs, color: 'rgba(255,255,255,0.86)', marginTop: 2 },
     sectionTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.base },
     scoreLabel: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text },
     scoreNumber: { fontSize: fontSizes['3xl'], fontWeight: FontWeights.bold, color: colors.primary },
     headerButton: {
       width: 40, height: 40, borderRadius: BorderRadius.base,
-      backgroundColor: colors.surface, alignItems: 'center' as const, justifyContent: 'center' as const,
-      borderWidth: 1, borderColor: colors.border, ...Shadows.sm,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.4)',
+      ...Shadows.sm,
     },
     dropdown: {
       position: 'absolute' as const, top: 70, right: Spacing.xl,
@@ -196,6 +201,54 @@ export function DashboardScreen({ navigation }: any) {
     }).start();
   }, [showDropdown, dropdownAnim, getAnimDuration]);
 
+  // Swipe hint animation - premium loop
+  useEffect(() => {
+    if (!showSwipeHint) return;
+
+    const sequence = Animated.sequence([
+      // Pause before starting
+      Animated.delay(300),
+      // Swipe animation: right to left with elastic feel
+      Animated.parallel([
+        Animated.timing(swipeHintAnim.x, {
+          toValue: -70,
+          duration: getAnimDuration(1000),
+          useNativeDriver: true,
+        }),
+        Animated.timing(swipeOpacityAnim, {
+          toValue: 0.4,
+          duration: getAnimDuration(1000),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Hold
+      Animated.delay(200),
+      // Reset
+      Animated.parallel([
+        Animated.timing(swipeHintAnim.x, {
+          toValue: 0,
+          duration: getAnimDuration(300),
+          useNativeDriver: true,
+        }),
+        Animated.timing(swipeOpacityAnim, {
+          toValue: 1,
+          duration: getAnimDuration(300),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Repeat delay
+      Animated.delay(600),
+    ]);
+
+    Animated.loop(sequence).start();
+
+    // Auto-hide after 2 seconds
+    const hideTimer = setTimeout(() => {
+    }, 15000);
+
+    return () => clearTimeout(hideTimer);
+  }, [showSwipeHint, swipeHintAnim, swipeOpacityAnim, getAnimDuration]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadDashboardData();
@@ -223,6 +276,7 @@ export function DashboardScreen({ navigation }: any) {
 
     if (isStrongLeftSwipe || isLongLeftSwipe) {
       isNavigatingFromSwipe.current = true;
+      setShowSwipeHint(false); // Hide hint on swipe
       navigation.navigate('Community');
 
       setTimeout(() => {
@@ -320,12 +374,13 @@ export function DashboardScreen({ navigation }: any) {
           }
         >
         {/* Header */}
-        <View style={[styles.header, dynamicStyles.headerCard]}>
+        <LinearGradient colors={Gradients.primary} style={[styles.header, dynamicStyles.headerCard]}>
+          <View style={styles.headerGlow} />
           <View style={dynamicStyles.profileRow}>
             {user?.avatar ? (
               <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
             ) : (
-              <LinearGradient colors={Gradients.primary} style={dynamicStyles.avatarFallback}>
+              <LinearGradient colors={Gradients.purple} style={dynamicStyles.avatarFallback}>
                 <Text style={dynamicStyles.avatarInitials}>{userInitials}</Text>
               </LinearGradient>
             )}
@@ -339,24 +394,66 @@ export function DashboardScreen({ navigation }: any) {
             <TouchableOpacity 
               style={dynamicStyles.headerButton}
               onPress={() => navigation.navigate('Notifications')}
-              accessibilityLabel="Notifications"
+              accessibilityLabel={t.notificationsScreen.title}
             >
-              <Ionicons name="notifications-outline" size={22} color={colors.text} />
+              <Ionicons name="notifications" size={21} color={Colors.white} />
               {unreadCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
+            <TouchableOpacity
+              style={dynamicStyles.headerButton}
+              onPress={() => navigation.navigate('Settings')}
+              accessibilityLabel={t.settings.title}
+            >
+              <Ionicons name="settings" size={21} color={Colors.white} />
+            </TouchableOpacity>
             <TouchableOpacity 
-              style={[dynamicStyles.headerButton, showDropdown && { backgroundColor: colors.primaryLight + '20', borderColor: colors.primary }]}
+              style={[dynamicStyles.headerButton, showDropdown && { backgroundColor: 'rgba(255,255,255,0.3)', borderColor: Colors.white }]}
               onPress={() => setShowDropdown(!showDropdown)}
               accessibilityLabel="Paramètres"
             >
-              <Ionicons name="list-outline" size={22} color={showDropdown ? colors.primary : colors.text} />
+              <Ionicons name="grid" size={21} color={Colors.white} />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
+
+        {/* Swipe Hint Indicator - Premium */}
+        {showSwipeHint && (
+          <Animated.View
+            style={[
+              styles.swipeHintContainer,
+              { opacity: swipeOpacityAnim },
+            ]}
+            pointerEvents="none"
+          >
+            <View style={[styles.swipeHintBadge, { borderColor: colors.primary + '30' }]}>
+              <View style={styles.swipeHintContent}>
+                <Text style={[styles.swipeHintLabel, { color: colors.primary }]}>
+                  {t.nav.community || 'Communauté'}
+                </Text>
+                <Animated.View
+                  style={[
+                    styles.swipeArrow,
+                    { 
+                      transform: [
+                        { translateX: swipeHintAnim.x },
+                        { scaleX: swipeOpacityAnim.interpolate({
+                          inputRange: [0.4, 1],
+                          outputRange: [0.7, 1],
+                        }) }
+                      ] 
+                    },
+                  ]}
+                >
+                  <Ionicons name="arrow-back" size={16} color={colors.primary} />
+                </Animated.View>
+              </View>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Settings Dropdown */}
         {showDropdown && (
@@ -577,6 +674,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md,
     zIndex: 100,
   },
+  headerGlow: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    right: -25,
+    top: -25,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -713,4 +819,39 @@ const styles = StyleSheet.create({
   },
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.sm },
   insightText: { flex: 1, fontSize: FontSizes.sm, color: Colors.gray700, lineHeight: 20 },
+  swipeHintContainer: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  swipeHintBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...Shadows.md,
+  },
+  swipeHintContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  swipeHintLabel: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    letterSpacing: 0.3,
+  },
+  swipeArrow: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

@@ -37,7 +37,7 @@ export function ChatScreen() {
     headerTitle: { fontSize: fontSizes.base, fontWeight: FontWeights.bold, color: colors.text },
     headerSubtitle: { fontSize: fontSizes.xs, color: colors.success },
     messageBubble: {
-      padding: Spacing.md, borderRadius: BorderRadius.lg, maxWidth: '90%',
+      padding: Spacing.md, borderRadius: BorderRadius.lg, maxWidth: '90%' as const,
     },
     userBubble: {
       backgroundColor: colors.primary, borderBottomRightRadius: 4,

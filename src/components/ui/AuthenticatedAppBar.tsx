@@ -20,6 +20,7 @@ export function AuthenticatedAppBar() {
   const drawerProgress = useRef(new Animated.Value(0)).current;
   const logoPulse = useRef(new Animated.Value(1)).current;
   const logoTilt = useRef(new Animated.Value(0)).current;
+  const alarmRing = useRef(new Animated.Value(0)).current;
 
   const isDark = settings.theme === 'dark';
 
@@ -73,6 +74,12 @@ export function AuthenticatedAppBar() {
 
   const drawerItems = useMemo(() => ([
     {
+      key: 'profile',
+      label: t.nav.profile,
+      icon: 'person-outline' as const,
+      onPress: () => navigateTo(() => navigation.navigate('Profile')),
+    },
+    {
       key: 'analysis',
       label: t.nav.analysis,
       icon: 'scan-outline' as const,
@@ -115,14 +122,25 @@ export function AuthenticatedAppBar() {
   });
 
   const logoRotate = logoTilt.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: ['-8deg', '0deg', '8deg'],
+    inputRange: [-1, -0.5, 0, 0.5, 1],
+    outputRange: ['-16deg', '-8deg', '0deg', '8deg', '16deg'],
+  });
+
+  const alarmRingScale = alarmRing.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.55],
+  });
+
+  const alarmRingOpacity = alarmRing.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [0.45, 0.18, 0],
   });
 
   useEffect(() => {
     if (settings.reduceMotion) {
       logoPulse.setValue(1);
       logoTilt.setValue(0);
+      alarmRing.setValue(0);
       return;
     }
 
@@ -145,31 +163,69 @@ export function AuthenticatedAppBar() {
       Animated.sequence([
         Animated.timing(logoTilt, {
           toValue: 1,
-          duration: getAnimDuration(260),
+          duration: getAnimDuration(95),
           useNativeDriver: true,
         }),
         Animated.timing(logoTilt, {
           toValue: -1,
-          duration: getAnimDuration(260),
+          duration: getAnimDuration(95),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoTilt, {
+          toValue: 0.85,
+          duration: getAnimDuration(85),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoTilt, {
+          toValue: -0.85,
+          duration: getAnimDuration(85),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoTilt, {
+          toValue: 0.45,
+          duration: getAnimDuration(70),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoTilt, {
+          toValue: -0.45,
+          duration: getAnimDuration(70),
           useNativeDriver: true,
         }),
         Animated.timing(logoTilt, {
           toValue: 0,
-          duration: getAnimDuration(220),
+          duration: getAnimDuration(120),
           useNativeDriver: true,
         }),
-        Animated.delay(getAnimDuration(850)),
+        Animated.delay(getAnimDuration(1150)),
+      ])
+    );
+
+    const ringLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(alarmRing, {
+          toValue: 1,
+          duration: getAnimDuration(700),
+          useNativeDriver: true,
+        }),
+        Animated.timing(alarmRing, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+        Animated.delay(getAnimDuration(550)),
       ])
     );
 
     pulseLoop.start();
     tiltLoop.start();
+    ringLoop.start();
 
     return () => {
       pulseLoop.stop();
       tiltLoop.stop();
+      ringLoop.stop();
     };
-  }, [logoPulse, logoTilt, settings.reduceMotion, getAnimDuration]);
+  }, [logoPulse, logoTilt, alarmRing, settings.reduceMotion, getAnimDuration]);
 
   const handleAppBarSwipe = useCallback((event: any) => {
     const { state, translationX, velocityX } = event.nativeEvent;
@@ -212,17 +268,30 @@ export function AuthenticatedAppBar() {
               accessibilityRole="button"
               accessibilityLabel={t.accessibility.openPanel}
             >
-              <Animated.View
-                style={[
-                  styles.logoBox,
-                  {
-                    borderColor: logoBoxBorderColor,
-                    transform: [{ scale: logoPulse }, { rotate: logoRotate }],
-                  },
-                ]}
-              >
-                <Ionicons name="sparkles" size={19} color={Colors.white} />
-              </Animated.View>
+              <View style={styles.logoAlarmWrap}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.logoAlarmRing,
+                    {
+                      borderColor: Colors.primary,
+                      opacity: alarmRingOpacity,
+                      transform: [{ scale: alarmRingScale }],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.logoBox,
+                    {
+                      borderColor: logoBoxBorderColor,
+                      transform: [{ scale: logoPulse }, { rotate: logoRotate }],
+                    },
+                  ]}
+                >
+                  <Ionicons name="sparkles" size={19} color={Colors.white} />
+                </Animated.View>
+              </View>
               <Text style={[styles.brandText, { color: brandTextColor }]}>DeepSkyn</Text>
             </TouchableOpacity>
 
@@ -273,8 +342,29 @@ export function AuthenticatedAppBar() {
                   style={styles.drawerHeaderOverlay}
                 >
                   <View style={styles.drawerHeader}>
-                    <View style={[styles.logoBox, { borderColor: logoBoxBorderColor }]}>
-                      <Ionicons name="sparkles" size={19} color={Colors.white} />
+                    <View style={styles.logoAlarmWrap}>
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.logoAlarmRing,
+                          {
+                            borderColor: Colors.primary,
+                            opacity: alarmRingOpacity,
+                            transform: [{ scale: alarmRingScale }],
+                          },
+                        ]}
+                      />
+                      <Animated.View
+                        style={[
+                          styles.logoBox,
+                          {
+                            borderColor: logoBoxBorderColor,
+                            transform: [{ scale: logoPulse }, { rotate: logoRotate }],
+                          },
+                        ]}
+                      >
+                        <Ionicons name="sparkles" size={19} color={Colors.white} />
+                      </Animated.View>
                     </View>
                     <Text style={[styles.drawerTitle, textStyle, { color: brandTextColor, fontSize: fontSizes.xl }]}>DeepSkyn</Text>
                   </View>
@@ -298,6 +388,19 @@ export function AuthenticatedAppBar() {
               </View>
 
               <View style={[styles.drawerFooter, { borderTopColor: colors.borderLight || colors.border }]}> 
+                <TouchableOpacity
+                  style={[styles.drawerSettingsButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+                  onPress={() => closeDrawer(() => navigation.navigate('Settings'))}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.nav.settings}
+                >
+                  <Ionicons name="settings-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.drawerSettingsText, textStyle, { color: colors.text, fontSize: fontSizes.base }]}> 
+                    {t.nav.settings}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={[styles.drawerLogoutButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
                   onPress={() => closeDrawer(() => logout())}
@@ -346,6 +449,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.sm,
+  },
+  logoAlarmWrap: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoAlarmRing: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
   },
   brandText: {
     fontSize: 27,
@@ -414,6 +530,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     padding: Spacing.base,
     paddingBottom: Spacing.lg,
+  },
+  drawerSettingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.base,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
+  },
+  drawerSettingsText: {
+    fontWeight: '700',
   },
   drawerLogoutButton: {
     flexDirection: 'row',

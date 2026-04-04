@@ -21,7 +21,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   fetchNotifications: async (page = 1) => {
     try {
       const result = await notificationService.getAll(page, 20);
-      set({ notifications: result.data || [] });
+      const notifications = Array.isArray((result as any)?.notifications)
+        ? (result as any).notifications
+        : Array.isArray((result as any)?.data)
+          ? (result as any).data
+          : [];
+      set({ notifications });
     } catch {
       // silent fail
     }
