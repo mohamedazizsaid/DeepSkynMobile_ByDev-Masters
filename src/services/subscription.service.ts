@@ -1,5 +1,5 @@
 import apiClient from './api-client';
-import type { Subscription, SubscriptionPlanInfo } from '../lib/types';
+import type { Subscription, SubscriptionPlanInfo, SubscriptionUsageSummary } from '../lib/types';
 
 export const subscriptionService = {
   async getMySubscription(): Promise<Subscription> {
@@ -14,6 +14,11 @@ export const subscriptionService = {
 
   async getPlans(): Promise<SubscriptionPlanInfo[]> {
     const res = await apiClient.get<SubscriptionPlanInfo[]>('/subscriptions/plans');
+    return res.data;
+  },
+
+  async getUsageSummary(): Promise<SubscriptionUsageSummary> {
+    const res = await apiClient.get<SubscriptionUsageSummary>('/subscriptions/me/usage');
     return res.data;
   },
 

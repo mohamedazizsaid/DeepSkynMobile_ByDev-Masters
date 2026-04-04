@@ -74,7 +74,7 @@ function StoryBar({ t, stories, onStoryPress }: { t: any; stories: any[]; onStor
   );
 }
 
-function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, sentiment, onSentimentChange, location, onLocationChange, userAvatar }: { 
+function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, sentiment, onSentimentChange, location, onLocationChange, userAvatar, resetToken }: { 
   text: string; 
   setText: (t: string) => void; 
   onPublish: () => void;
@@ -86,10 +86,15 @@ function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, 
   location?: string;
   onLocationChange?: (location: string) => void;
   userAvatar?: string | null;
+  resetToken?: number;
 }) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [showSentiments, setShowSentiments] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
+
+  useEffect(() => {
+    setSelectedMedia(null);
+  }, [resetToken]);
 
   const sentiments = [
     { emoji: '😍', label: 'Ravie' },
@@ -321,6 +326,7 @@ function CommentsModal({
   postId, 
   t, 
   comments = [], 
+  loading = false,
   onAddComment, 
   onDeleteComment,
   onLikeComment 
@@ -330,6 +336,7 @@ function CommentsModal({
   postId: string; 
   t: any;
   comments?: Comment[];
+  loading?: boolean;
   onAddComment: (comment: string) => void;
   onDeleteComment: (commentId: string) => void;
   onLikeComment: (commentId: string) => void;
@@ -383,10 +390,16 @@ function CommentsModal({
             </View>
           )}
           ListEmptyComponent={
-            <View style={s.emptyComments}>
-              <Ionicons name="chatbubble-outline" size={32} color={Colors.gray300} />
-              <Text style={s.emptyText}>{t.community.noComments || 'Pas de commentaires'}</Text>
-            </View>
+            loading ? (
+              <View style={s.emptyComments}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
+            ) : (
+              <View style={s.emptyComments}>
+                <Ionicons name="chatbubble-outline" size={32} color={Colors.gray300} />
+                <Text style={s.emptyText}>{t.community.noComments || 'Pas de commentaires'}</Text>
+              </View>
+            )
           }
           contentContainerStyle={{ paddingBottom: 100 }}
         />
@@ -436,6 +449,7 @@ export function CommunityScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [postText, setPostText] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [composerResetToken, setComposerResetToken] = useState(0);
   const [selectedPostMedia, setSelectedPostMedia] = useState<string | null>(null);
   const [selectedSentiment, setSelectedSentiment] = useState('');
   const [postLocation, setPostLocation] = useState('');
@@ -591,15 +605,18 @@ export function CommunityScreen() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    await Promise.all([
-      loadPosts(),
-      loadMyPosts(),
-      loadArchivedPosts(),
-      loadStories(),
-      loadSuggestions(),
-      loadUserStats(),
-    ]);
-    setLoading(false);
+    try {
+      await Promise.all([
+        loadPosts(),
+        loadMyPosts(),
+        loadArchivedPosts(),
+        loadStories(),
+        loadSuggestions(),
+        loadUserStats(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }, [loadPosts, loadMyPosts, loadArchivedPosts, loadStories, loadSuggestions, loadUserStats]);
 
   useEffect(() => {
@@ -608,8 +625,11 @@ export function CommunityScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await loadData();
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadData]);
 
   const handlePublish = async () => {
@@ -626,7 +646,8 @@ export function CommunityScreen() {
       setSelectedPostMedia(null);
       setSelectedSentiment('');
       setPostLocation('');
-      await loadData();
+      setComposerResetToken((prev) => prev + 1);
+      await Promise.all([loadPosts(), loadMyPosts(), loadUserStats()]);
       Alert.alert(t.common.success || 'Succès', t.community.postPublished || 'Votre publication a été créée !');
     } catch (error) {
       Alert.alert(t.common.error || 'Erreur', t.community.uploadError || 'Impossible de publier pour le moment');
@@ -895,85 +916,94 @@ export function CommunityScreen() {
 
       {/* ═══ FEED TAB ═══ */}
       {activeTab === 'feed' && (
-        <ScrollView 
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PostItem
+              post={item}
+              onLike={handleLike}
+              onReact={handleReaction}
+              onComment={handleCommentPress}
+              onArchive={handleArchivePost}
+              onDelete={handleDeletePost}
+              isOwner={item.userId === currentUserId}
+              t={t}
+            />
+          )}
+          ListHeaderComponent={
+            <>
+              <View style={s.storyBarContainer}>
+                <View style={s.storyOwnWrap}>
+                  <TouchableOpacity
+                    style={s.storyItemOwn}
+                    onPress={() => {
+                      if (ownStory) {
+                        const idx = stories.findIndex((st: any) => st.id === currentUserId);
+                        setSelectedStoryIndex(idx >= 0 ? idx : 0);
+                      } else {
+                        setStoryUploadOpen(true);
+                      }
+                    }}
+                  >
+                    <View style={s.storyRingOwn}>
+                      {user?.avatar ? (
+                        <Image source={{ uri: user.avatar }} style={s.storyAvatar} />
+                      ) : (
+                        <LinearGradient colors={Gradients.primary as any} style={s.storyAvatar}>
+                          <Ionicons name="person" size={20} color={Colors.white} />
+                        </LinearGradient>
+                      )}
+                    </View>
+                    <Text style={s.storyName} numberOfLines={1}>{t.community.yourStory || 'Votre story'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.addStoryMiniBtnAttached} onPress={() => setStoryUploadOpen(true)}>
+                    <Ionicons name="add" size={11} color={Colors.white} />
+                  </TouchableOpacity>
+                </View>
+                <StoryBar t={t} stories={otherStories} onStoryPress={(idx) => {
+                  const target = otherStories[idx];
+                  const globalIdx = stories.findIndex((sItem: any) => sItem.id === target?.id);
+                  setSelectedStoryIndex(globalIdx >= 0 ? globalIdx : 0);
+                }} />
+              </View>
+
+              <PostComposer
+                text={postText}
+                setText={setPostText}
+                onPublish={handlePublish}
+                publishing={publishing}
+                t={t}
+                onMediaSelect={setSelectedPostMedia}
+                sentiment={selectedSentiment}
+                onSentimentChange={setSelectedSentiment}
+                location={postLocation}
+                onLocationChange={setPostLocation}
+                userAvatar={user?.avatar}
+                resetToken={composerResetToken}
+              />
+            </>
+          }
+          ListEmptyComponent={
+            loading ? (
+              <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+              </View>
+            ) : (
+              <EmptyState
+                icon="chatbubbles-outline"
+                title={t.community.noPosts || 'Aucune publication'}
+                description={t.community.beFirst || 'Soyez le premier à publier !'}
+              />
+            )
+          }
+          ListFooterComponent={<View style={{ height: 30 }} />}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        >
-          <View style={s.storyBarContainer}>
-            <View style={s.storyOwnWrap}>
-              <TouchableOpacity
-                style={s.storyItemOwn}
-                onPress={() => {
-                  if (ownStory) {
-                    const idx = stories.findIndex((st: any) => st.id === currentUserId);
-                    setSelectedStoryIndex(idx >= 0 ? idx : 0);
-                  } else {
-                    setStoryUploadOpen(true);
-                  }
-                }}
-              >
-                <View style={s.storyRingOwn}>
-                  {user?.avatar ? (
-                    <Image source={{ uri: user.avatar }} style={s.storyAvatar} />
-                  ) : (
-                    <LinearGradient colors={Gradients.primary as any} style={s.storyAvatar}>
-                      <Ionicons name="person" size={20} color={Colors.white} />
-                    </LinearGradient>
-                  )}
-                </View>
-                <Text style={s.storyName} numberOfLines={1}>{t.community.yourStory || 'Votre story'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.addStoryMiniBtnAttached} onPress={() => setStoryUploadOpen(true)}>
-                <Ionicons name="add" size={11} color={Colors.white} />
-              </TouchableOpacity>
-            </View>
-            <StoryBar t={t} stories={otherStories} onStoryPress={(idx) => {
-              const target = otherStories[idx];
-              const globalIdx = stories.findIndex((sItem: any) => sItem.id === target?.id);
-              setSelectedStoryIndex(globalIdx >= 0 ? globalIdx : 0);
-            }} />
-          </View>
-
-          <PostComposer 
-            text={postText} 
-            setText={setPostText} 
-            onPublish={handlePublish} 
-            publishing={publishing} 
-            t={t}
-            onMediaSelect={setSelectedPostMedia}
-            sentiment={selectedSentiment}
-            onSentimentChange={setSelectedSentiment}
-            location={postLocation}
-            onLocationChange={setPostLocation}
-            userAvatar={user?.avatar}
-          />
-          {loading ? (
-            <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-          ) : posts.length === 0 ? (
-            <EmptyState
-              icon="chatbubbles-outline"
-              title={t.community.noPosts || 'Aucune publication'}
-              description={t.community.beFirst || 'Soyez le premier à publier !'}
-            />
-          ) : (
-            posts.map((post) => (
-              <PostItem
-                key={post.id}
-                post={post}
-                onLike={handleLike}
-                onReact={handleReaction}
-                onComment={handleCommentPress}
-                onArchive={handleArchivePost}
-                onDelete={handleDeletePost}
-                isOwner={post.userId === currentUserId}
-                t={t}
-              />
-            ))
-          )}
-          <View style={{ height: 30 }} />
-        </ScrollView>
+          initialNumToRender={6}
+          windowSize={7}
+          removeClippedSubviews
+        />
       )}
 
       {/* ═══ PROFILE TAB ═══ */}
@@ -1040,6 +1070,7 @@ export function CommunityScreen() {
             location={postLocation}
             onLocationChange={setPostLocation}
             userAvatar={user?.avatar}
+            resetToken={composerResetToken}
           />
           {myPosts.map((post) => (
             <PostItem
@@ -1249,6 +1280,7 @@ export function CommunityScreen() {
         postId={selectedPostId || ''}
         t={t}
         comments={postComments}
+        loading={loadingComments}
         onAddComment={handleAddComment}
         onDeleteComment={handleDeleteComment}
         onLikeComment={handleLikeComment}

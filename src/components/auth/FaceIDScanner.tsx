@@ -45,6 +45,10 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
     const [statusMessage, setStatusMessage] = useState('Position your face in the circle');
     const scanCompleted = useRef(false);
     const cameraRef = useRef<any>(null);
+    const attemptsRef = useRef(0);
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const MAX_ATTEMPTS = 12;
 
     // Animations
     const scanLineY = useSharedValue(0);
@@ -57,6 +61,23 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
             setHasPermission(status === 'granted');
         })();
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const scheduleNextCapture = (delay = 700) => {
+        if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+        }
+        retryTimeoutRef.current = setTimeout(() => {
+            captureFaceImage();
+        }, delay);
+    };
 
     const captureFaceImage = async () => {
         if (!cameraRef.current || scanCompleted.current) return;
@@ -73,9 +94,16 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
             });
 
             if (!photo?.base64) {
-                setFaceDetected(false);
-                setScanning(false);
-                setStatusMessage('Face capture failed. Try again.');
+                attemptsRef.current += 1;
+                setProgress(Math.min(90, 10 + attemptsRef.current * 6));
+                if (attemptsRef.current >= MAX_ATTEMPTS) {
+                    setFaceDetected(false);
+                    setScanning(false);
+                    setStatusMessage('Face capture failed. Please retry.');
+                    return;
+                }
+                setStatusMessage('Capture missed. Hold still and keep face centered...');
+                scheduleNextCapture();
                 return;
             }
 
@@ -85,9 +113,15 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
             setStatusMessage('Face captured. Verifying...');
             onSuccess(photo.base64);
         } catch (_err) {
-            setFaceDetected(false);
-            setScanning(false);
-            setStatusMessage('Face capture failed. Try again.');
+            attemptsRef.current += 1;
+            if (attemptsRef.current >= MAX_ATTEMPTS) {
+                setFaceDetected(false);
+                setScanning(false);
+                setStatusMessage('Face capture failed. Please retry.');
+                return;
+            }
+            setStatusMessage('Retrying capture... Keep steady.');
+            scheduleNextCapture();
         }
     };
 
@@ -96,11 +130,13 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
 
         setStatusMessage('Align your face and hold still...');
         setProgress(10);
-        const timeout = setTimeout(() => {
-            captureFaceImage();
-        }, 900);
+        scheduleNextCapture(900);
 
-        return () => clearTimeout(timeout);
+        return () => {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+        };
     }, [scanning]);
 
     // Start scan animations
@@ -143,6 +179,7 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
 
     const handleStartScan = () => {
         scanCompleted.current = false;
+        attemptsRef.current = 0;
         setProgress(0);
         setFaceDetected(false);
         setScanning(true);
@@ -210,7 +247,7 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
                     <View style={styles.progressBorder} />
                 </View>
 
-                {scanning && (
+                {(scanning || statusMessage !== 'Position your face in the circle') && (
                     <View style={styles.progressLabel}>
                         <Text style={styles.progressText}>
                             {statusMessage}

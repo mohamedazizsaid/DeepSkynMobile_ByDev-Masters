@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, Button, LoadingSpinner } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
@@ -23,6 +23,7 @@ interface DisplayMessage {
 export function ChatScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,10 +62,10 @@ export function ChatScreen() {
     },
     inputBar: {
       flexDirection: 'row' as const, alignItems: 'flex-end' as const, gap: Spacing.sm,
-      paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Math.max(Spacing.sm, insets.bottom),
       backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border,
     },
-  }), [colors, fontSizes]);
+  }), [colors, fontSizes, insets.bottom]);
 
   const suggestions = t.chatPage.quickSuggestions;
 
@@ -212,7 +213,11 @@ export function ChatScreen() {
 
   return (
     <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 8}
+      >
         <View style={dynamicStyles.container}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -235,6 +240,7 @@ export function ChatScreen() {
           ref={scrollViewRef}
           style={styles.messagesList} 
           contentContainerStyle={styles.messagesContent}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map((msg) => (

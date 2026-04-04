@@ -3,12 +3,13 @@ import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState } from '../../components';
-import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
+import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget } from '../../components';
+import { Colors, Gradients, Spacing, BorderRadius, FontWeights } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
-import type { Analysis, GeminiAnalysisResult } from '../../lib/types';
+import { subscriptionService } from '../../services/subscription.service';
+import type { Analysis, AnalysisStats, SubscriptionUsageSummary } from '../../lib/types';
 import { formatDate } from '../../lib/utils';
 
 type ScreenMode = 'results' | 'upload';
@@ -18,7 +19,12 @@ export function AnalysisScreen() {
   const { t } = useTranslation();
   const [mode, setMode] = useState<ScreenMode>('results');
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
+  const [stats, setStats] = useState<AnalysisStats | null>(null);
+  const [advice, setAdvice] = useState<string | null>(null);
+  const [usage, setUsage] = useState<SubscriptionUsageSummary | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<Array<{ id: string; date: string; score: number; status: Analysis['status']; skinType?: string | null }>>([]);
   const [loading, setLoading] = useState(true);
+  const [adviceLoading, setAdviceLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
@@ -39,13 +45,71 @@ export function AnalysisScreen() {
     insightText: { fontSize: fontSizes.sm, color: colors.text, flex: 1, lineHeight: 20 },
     tipsTitle: { fontSize: fontSizes.base, fontWeight: FontWeights.semibold, color: colors.text, marginBottom: Spacing.md },
     tipText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    helperText: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: Spacing.sm },
+    sectionSubtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: Spacing.md },
+    mutedText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    insightHeadline: { fontSize: fontSizes.base, color: colors.text, fontWeight: FontWeights.semibold, marginBottom: Spacing.sm },
+    timelineDate: { fontSize: fontSizes.base, color: colors.text, fontWeight: FontWeights.medium },
+    timelineMeta: { fontSize: fontSizes.xs, color: colors.textTertiary, marginTop: 2 },
+    quotaTitle: { fontSize: fontSizes.base, color: colors.text, fontWeight: FontWeights.bold },
+    quotaText: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs },
+    recommendationTitle: { fontSize: fontSizes.sm, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.sm },
+    recommendationItem: { fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: 4, lineHeight: 18 },
+    warningTitle: { fontSize: fontSizes.sm, fontWeight: FontWeights.bold, color: Colors.error, marginBottom: Spacing.sm },
+    warningItem: { fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: 4, lineHeight: 18 },
   }), [colors, fontSizes]);
 
-  const loadLatestAnalysis = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const analysis = await analysisService.getLatest();
-      setLatestAnalysis(analysis);
-      setMode('results');
+      const [latestRes, statsRes, historyRes, usageRes] = await Promise.allSettled([
+        analysisService.getLatest(),
+        analysisService.getStats(),
+        analysisService.getAll(1, 10),
+        subscriptionService.getUsageSummary(),
+      ]);
+
+      if (latestRes.status === 'fulfilled') {
+        setLatestAnalysis(latestRes.value);
+      } else {
+        setLatestAnalysis(null);
+      }
+
+      if (statsRes.status === 'fulfilled') {
+        setStats(statsRes.value);
+      }
+
+      if (historyRes.status === 'fulfilled' && Array.isArray(historyRes.value.analyses)) {
+        const normalized = historyRes.value.analyses
+          .slice(0, 10)
+          .map((item) => ({
+            id: item.id,
+            date: item.createdAt,
+            score: item.healthScore ?? item.results?.healthScore ?? 0,
+            status: item.status,
+            skinType: item.results?.skinType,
+          }));
+        setAnalysisHistory(normalized);
+      } else {
+        setAnalysisHistory([]);
+      }
+
+      if (usageRes.status === 'fulfilled') {
+        setUsage(usageRes.value);
+      }
+
+      if (latestRes.status === 'fulfilled') {
+        setAdviceLoading(true);
+        try {
+          const adviceText = await analysisService.getAdvice();
+          setAdvice(typeof adviceText === 'string' ? adviceText : null);
+        } catch {
+          setAdvice(null);
+        } finally {
+          setAdviceLoading(false);
+        }
+      } else {
+        setAdvice(null);
+      }
     } catch (error) {
       console.log('No analysis found or error:', error);
       setLatestAnalysis(null);
@@ -56,12 +120,12 @@ export function AnalysisScreen() {
   }, []);
 
   useEffect(() => {
-    loadLatestAnalysis();
-  }, [loadLatestAnalysis]);
+    loadData();
+  }, [loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadLatestAnalysis();
+    loadData();
   };
 
   const handleImageSelected = (uri: string, base64?: string) => {
@@ -79,6 +143,15 @@ export function AnalysisScreen() {
   };
 
   const performAnalysis = async () => {
+    const analysisLimitReached = !!usage && !usage.isPremium && usage.quotas.analyses.remaining !== null && usage.quotas.analyses.remaining <= 0;
+    if (analysisLimitReached) {
+      Alert.alert(
+        t.common.error,
+        `Limite mensuelle atteinte. Réinitialisation: ${formatResetDate(usage?.quotas.analyses.resetsAt)}`
+      );
+      return;
+    }
+
     if (!selectedImage?.base64) {
       Alert.alert(t.common.error, t.analysis.uploadPhotos);
       return;
@@ -94,7 +167,7 @@ export function AnalysisScreen() {
       });
 
       if (result) {
-        await loadLatestAnalysis();
+        await loadData();
         setMode('results');
         Alert.alert(t.common.success, t.dashboard.analysisCompleted);
       }
@@ -110,6 +183,35 @@ export function AnalysisScreen() {
     }
   };
 
+  const results = latestAnalysis?.results;
+  const overallScore = latestAnalysis?.healthScore ?? 0;
+  const previousScore = analysisHistory.length > 1 ? analysisHistory[1].score : null;
+  const scoreChange = previousScore === null ? 0 : overallScore - previousScore;
+  const analysisLimit = usage?.quotas.analyses.limit ?? null;
+  const analysisUsed = usage?.quotas.analyses.used ?? 0;
+  const analysisRemaining = usage?.quotas.analyses.remaining ?? null;
+  const nearAnalysisLimit = !!usage && !usage.isPremium && analysisRemaining !== null && analysisRemaining > 0 && analysisRemaining <= 1;
+  const analysisLimitReached = !!usage && !usage.isPremium && analysisRemaining !== null && analysisRemaining <= 0;
+
+  const categories = results?.detailedAnalysis ? [
+    { label: t.dashboard.hydration, score: results.detailedAnalysis.hydration?.score ?? 0, status: getStatus(results.detailedAnalysis.hydration?.score, t), color: '#06B6D4' },
+    { label: t.dashboard.texture, score: results.detailedAnalysis.texture?.score ?? 0, status: getStatus(results.detailedAnalysis.texture?.score, t), color: '#8B5CF6' },
+    { label: t.dashboard.wrinkles, score: results.detailedAnalysis.wrinkles?.score ?? 0, status: getStatus(results.detailedAnalysis.wrinkles?.score, t), color: '#F59E0B' },
+    { label: t.dashboard.skinMetrics, score: results.detailedAnalysis.elasticity?.score ?? 0, status: getStatus(results.detailedAnalysis.elasticity?.score, t), color: '#10B981' },
+    { label: t.dashboard.pigmentation, score: results.detailedAnalysis.pigmentation?.score ?? 0, status: getStatus(results.detailedAnalysis.pigmentation?.score, t), color: '#EC4899' },
+    { label: 'Pores', score: results.detailedAnalysis.pores?.score ?? 0, status: getStatus(results.detailedAnalysis.pores?.score, t), color: '#6366F1' },
+    { label: 'Acné', score: results.detailedAnalysis.acne?.score ?? 0, status: getStatus(results.detailedAnalysis.acne?.score, t), color: '#EF4444' },
+    { label: 'Rougeurs', score: results.detailedAnalysis.redness?.score ?? 0, status: getStatus(results.detailedAnalysis.redness?.score, t), color: '#F97316' },
+  ] : [];
+
+  const recommendationSource = latestAnalysis?.recommendations || results?.recommendations;
+  const lifestyleInsights = recommendationSource?.lifestyle?.slice(0, 3) || [];
+  const historyChartData = analysisHistory
+    .filter((item) => item.status === 'completed')
+    .slice(0, 7)
+    .reverse();
+  const maxHistoryScore = Math.max(...historyChartData.map((point) => point.score), 100);
+
   if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
@@ -119,20 +221,6 @@ export function AnalysisScreen() {
       </SafeAreaView>
     );
   }
-
-  const results = latestAnalysis?.results;
-  const overallScore = latestAnalysis?.healthScore ?? 0;
-
-  const categories = results?.detailedAnalysis ? [
-    { label: t.dashboard.hydration, score: results.detailedAnalysis.hydration?.score ?? 0, status: getStatus(results.detailedAnalysis.hydration?.score, t), color: '#06B6D4' },
-    { label: t.dashboard.texture, score: results.detailedAnalysis.texture?.score ?? 0, status: getStatus(results.detailedAnalysis.texture?.score, t), color: '#8B5CF6' },
-    { label: t.dashboard.wrinkles, score: results.detailedAnalysis.wrinkles?.score ?? 0, status: getStatus(results.detailedAnalysis.wrinkles?.score, t), color: '#F59E0B' },
-    { label: t.dashboard.skinMetrics, score: results.detailedAnalysis.elasticity?.score ?? 0, status: getStatus(results.detailedAnalysis.elasticity?.score, t), color: '#10B981' },
-    { label: t.dashboard.pigmentation, score: results.detailedAnalysis.pigmentation?.score ?? 0, status: getStatus(results.detailedAnalysis.pigmentation?.score, t), color: '#EC4899' },
-    { label: 'Pores', score: results.detailedAnalysis.pores?.score ?? 0, status: getStatus(results.detailedAnalysis.pores?.score, t), color: '#6366F1' },
-  ] : [];
-
-  const insights = results?.recommendations?.lifestyle?.slice(0, 3) || [];
 
   // Upload mode
   if (mode === 'upload') {
@@ -177,12 +265,20 @@ export function AnalysisScreen() {
             </Button>
             <Button
               onPress={performAnalysis}
-              disabled={!selectedImage}
+              disabled={!selectedImage || analysisLimitReached}
               style={{ flex: 1 }}
             >
               {t.analysis.startAnalysis}
             </Button>
           </View>
+
+          {analysisLimitReached && (
+            <View style={styles.limitInfo}>
+              <Text style={dynamicStyles.helperText}>
+                Limite mensuelle atteinte. Réinitialisation: {formatResetDate(usage?.quotas.analyses.resetsAt)}
+              </Text>
+            </View>
+          )}
 
           <View style={{ height: 30 }} />
         </ScrollView>
@@ -223,6 +319,63 @@ export function AnalysisScreen() {
           </Text>
         </View>
 
+        {!usage?.isPremium && analysisLimit !== null && (
+          <View style={styles.section}>
+            <Card style={styles.quotaCard}>
+              <View style={styles.quotaHeader}>
+                <Ionicons name="flash-outline" size={18} color={analysisLimitReached ? Colors.error : nearAnalysisLimit ? Colors.warning : colors.primary} />
+                <Text style={dynamicStyles.quotaTitle}>
+                  {analysisLimitReached ? 'Limite atteinte' : nearAnalysisLimit ? 'Presque à la limite' : 'Quota mensuel'}
+                </Text>
+              </View>
+              <Text style={dynamicStyles.quotaText}>
+                {analysisLimitReached
+                  ? `Prochaine réinitialisation: ${formatResetDate(usage?.quotas.analyses.resetsAt)}`
+                  : `Analyses utilisées: ${analysisUsed}/${analysisLimit}`}
+              </Text>
+              {analysisLimit !== null && analysisLimit > 0 && (
+                <View style={styles.quotaProgressWrap}>
+                  <ProgressBar progress={Math.round((analysisUsed / analysisLimit) * 100)} color={analysisLimitReached ? Colors.error : Colors.primary} height={8} />
+                </View>
+              )}
+            </Card>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={dynamicStyles.sectionTitle}>Météo et environnement</Text>
+          <WeatherWidget showAdvice />
+        </View>
+
+        {(latestAnalysis.status === 'processing' || latestAnalysis.status === 'failed') && (
+          <View style={styles.section}>
+            <Card>
+              <View style={styles.statusRow}>
+                <Ionicons
+                  name={latestAnalysis.status === 'processing' ? 'sync-outline' : 'alert-circle-outline'}
+                  size={20}
+                  color={latestAnalysis.status === 'processing' ? colors.primary : Colors.error}
+                />
+                <View style={styles.statusContent}>
+                  <Text style={dynamicStyles.insightHeadline}>
+                    {latestAnalysis.status === 'processing' ? 'Analyse en cours' : 'Analyse échouée'}
+                  </Text>
+                  <Text style={dynamicStyles.mutedText}>
+                    {latestAnalysis.status === 'processing'
+                      ? 'Votre analyse est en cours de traitement. Tirez vers le bas pour actualiser.'
+                      : 'L\'analyse a échoué. Vous pouvez relancer une nouvelle analyse.'}
+                  </Text>
+                </View>
+                {latestAnalysis.status === 'failed' && (
+                  <Button onPress={startNewAnalysis} size="sm">
+                    Réessayer
+                  </Button>
+                )}
+              </View>
+            </Card>
+          </View>
+        )}
+
         {/* Overall Score */}
         <Card variant="elevated" style={styles.scoreCard}>
           <Text style={dynamicStyles.scoreLabel}>{t.dashboard.globalScore}</Text>
@@ -235,8 +388,21 @@ export function AnalysisScreen() {
             variant={overallScore >= 70 ? 'success' : overallScore >= 50 ? 'warning' : 'error'} 
             size="md" 
           />
+          <View style={styles.scoreMetaRow}>
+            <Badge text={`Analyses: ${stats?.totalAnalyses ?? analysisHistory.length}`} variant="neutral" size="sm" />
+            {previousScore !== null && (
+              <Badge
+                text={`${scoreChange >= 0 ? '+' : ''}${scoreChange} pts`}
+                variant={scoreChange >= 0 ? 'success' : 'error'}
+                size="sm"
+              />
+            )}
+          </View>
           {results.skinType && (
             <Text style={dynamicStyles.skinType}>Type de peau : {results.skinType}</Text>
+          )}
+          {latestAnalysis.skinAge && (
+            <Text style={dynamicStyles.skinType}>Âge estimé de la peau : {latestAnalysis.skinAge} ans</Text>
           )}
         </Card>
 
@@ -262,21 +428,111 @@ export function AnalysisScreen() {
           </View>
         )}
 
+        {/* Analysis History */}
+        {historyChartData.length > 1 && (
+          <View style={styles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
+            <Text style={dynamicStyles.sectionSubtitle}>Évolution des 7 dernières analyses complétées</Text>
+            <Card style={styles.historyCard}>
+              <View style={styles.barChart}>
+                {historyChartData.map((point) => (
+                  <View key={point.id} style={styles.barColumn}>
+                    <View style={styles.barWrapper}>
+                      <LinearGradient
+                        colors={Gradients.primary}
+                        style={[styles.bar, { height: `${Math.max(8, (point.score / maxHistoryScore) * 100)}%` }]}
+                      />
+                    </View>
+                    <Text style={styles.barValue}>{Math.round(point.score)}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            {analysisHistory.slice(0, 5).map((item, index) => {
+              const prev = analysisHistory[index + 1];
+              const change = prev ? item.score - prev.score : 0;
+              return (
+                <Card key={item.id} style={styles.timelineCard}>
+                  <View style={styles.timelineRow}>
+                    <View style={styles.timelineLeft}>
+                      <Text style={dynamicStyles.timelineDate}>{formatDate(item.date)}</Text>
+                      <Text style={dynamicStyles.timelineMeta}>{item.skinType || 'Type non disponible'}</Text>
+                    </View>
+                    <View style={styles.timelineRight}>
+                      <Text style={styles.timelineScore}>{item.score}%</Text>
+                      {prev && (
+                        <Badge text={`${change >= 0 ? '+' : ''}${change}`} variant={change >= 0 ? 'success' : 'error'} size="sm" />
+                      )}
+                    </View>
+                  </View>
+                </Card>
+              );
+            })}
+          </View>
+        )}
+
         {/* AI Insights */}
-        {insights.length > 0 && (
+        {(lifestyleInsights.length > 0 || adviceLoading || advice || results?.summary) && (
           <View style={styles.section}>
             <Text style={dynamicStyles.sectionTitle}>{t.dashboard.personalizedAdvice}</Text>
             <Card style={styles.insightsCard}>
               <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
                 <Ionicons name="sparkles" size={24} color={Colors.white} />
               </LinearGradient>
-              {insights.map((insight, index) => (
+              {adviceLoading ? (
+                <Text style={dynamicStyles.insightText}>Génération des conseils IA...</Text>
+              ) : advice ? (
+                <Text style={dynamicStyles.insightText}>{advice}</Text>
+              ) : results?.summary ? (
+                <Text style={dynamicStyles.insightText}>{results.summary}</Text>
+              ) : null}
+
+              {lifestyleInsights.map((insight, index) => (
                 <View key={index} style={styles.insightRow}>
                   <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                   <Text style={dynamicStyles.insightText}>{insight}</Text>
                 </View>
               ))}
             </Card>
+          </View>
+        )}
+
+        {/* Recommendations */}
+        {recommendationSource && (
+          <View style={styles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Recommandations personnalisées</Text>
+            <View style={styles.recommendationGrid}>
+              <Card style={styles.recommendationCard}>
+                <Text style={dynamicStyles.recommendationTitle}>Produits</Text>
+                {recommendationSource.products?.slice(0, 4).map((item, index) => (
+                  <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
+                ))}
+              </Card>
+
+              <Card style={styles.recommendationCard}>
+                <Text style={dynamicStyles.recommendationTitle}>Ingrédients</Text>
+                {recommendationSource.ingredients?.slice(0, 4).map((item, index) => (
+                  <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
+                ))}
+              </Card>
+
+              <Card style={styles.recommendationCard}>
+                <Text style={dynamicStyles.recommendationTitle}>Habitudes de vie</Text>
+                {recommendationSource.lifestyle?.slice(0, 4).map((item, index) => (
+                  <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
+                ))}
+              </Card>
+            </View>
+
+            {!!recommendationSource.warnings?.length && (
+              <Card style={styles.warningCard}>
+                <Text style={dynamicStyles.warningTitle}>Points de vigilance</Text>
+                {recommendationSource.warnings.slice(0, 4).map((warning, index) => (
+                  <Text key={index} style={dynamicStyles.warningItem}>• {warning}</Text>
+                ))}
+              </Card>
+            )}
           </View>
         )}
 
@@ -326,10 +582,16 @@ function getOverallStatus(score: number, t?: any): string {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  quotaCard: { padding: Spacing.lg },
+  quotaHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  quotaProgressWrap: { marginTop: Spacing.md },
+  statusRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  statusContent: { flex: 1 },
   scoreCard: {
     marginHorizontal: Spacing.xl, marginTop: Spacing.xl,
     padding: Spacing['2xl'], alignItems: 'center',
   },
+  scoreMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md },
   scoreCircle: {
     width: 130, height: 130, borderRadius: 65,
     borderWidth: 6,
@@ -348,9 +610,36 @@ const styles = StyleSheet.create({
   },
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.md },
   conditionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.md },
+  historyCard: { padding: Spacing.xl },
+  barChart: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 140 },
+  barColumn: { alignItems: 'center', flex: 1 },
+  barWrapper: { width: 20, height: 110, justifyContent: 'flex-end' },
+  bar: { width: 20, borderRadius: BorderRadius.sm, minHeight: 8 },
+  barValue: { marginTop: Spacing.xs, fontSize: 11, color: Colors.gray500 },
+  timelineCard: { marginTop: Spacing.sm, padding: Spacing.base },
+  timelineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  timelineLeft: { flex: 1, paddingRight: Spacing.md },
+  timelineRight: { alignItems: 'flex-end', gap: Spacing.xs },
+  timelineScore: { fontSize: 16, fontWeight: FontWeights.bold, color: Colors.primary },
+  recommendationGrid: { gap: Spacing.md },
+  recommendationCard: { padding: Spacing.base },
+  warningCard: { marginTop: Spacing.md, padding: Spacing.base, borderWidth: 1, borderColor: Colors.errorAlpha10 },
   // Upload mode styles
   uploadSection: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   tipsCard: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   buttonRow: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  limitInfo: { paddingHorizontal: Spacing.xl, marginTop: Spacing.sm },
 });
+
+function formatResetDate(value?: string | null): string {
+  if (!value) return 'bientôt';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

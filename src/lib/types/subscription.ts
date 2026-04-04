@@ -23,3 +23,20 @@ export interface SubscriptionPlanInfo {
   currency: string;
   features: string[];
 }
+
+export interface UsageQuotaItem {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  resetsAt: string | null;
+}
+
+export interface SubscriptionUsageSummary {
+  isPremium: boolean;
+  subscription: Subscription;
+  quotas: {
+    analyses: UsageQuotaItem;
+    aiRoutines: UsageQuotaItem;
+    chatMessages: UsageQuotaItem;
+  };
+}
