@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget } from '../../components';
-import { Colors, Gradients, Spacing, BorderRadius, FontWeights } from '../../theme';
+import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis } from '../../components';
+import type { FaceTag } from '../../components';
+import { Colors, Gradients, Spacing, BorderRadius, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import { subscriptionService } from '../../services/subscription.service';
-import type { Analysis, AnalysisStats, SubscriptionUsageSummary } from '../../lib/types';
+import { predictiveRoutineService } from '../../services/predictive-routine.service';
+import { getLocation } from '../../services/weather.service';
+import type { Analysis, AnalysisStats, SubscriptionUsageSummary, PredictiveRoutine } from '../../lib/types';
 import { formatDate } from '../../lib/utils';
 
 type ScreenMode = 'results' | 'upload';
@@ -28,6 +31,11 @@ export function AnalysisScreen() {
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
+
+  // Predictive Routine State
+  const [generatingRoutine, setGeneratingRoutine] = useState(false);
+  const [predictiveRoutine, setPredictiveRoutine] = useState<PredictiveRoutine | null>(null);
+  const [showRoutineModal, setShowRoutineModal] = useState(false);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -142,6 +150,88 @@ export function AnalysisScreen() {
     setSelectedImage(null);
   };
 
+  // Generate Predictive Routine
+  const handleGeneratePredictiveRoutine = async () => {
+    if (!latestAnalysis?.results) {
+      Alert.alert('Erreur', 'Aucune analyse disponible pour générer une routine.');
+      return;
+    }
+
+    setGeneratingRoutine(true);
+    try {
+      // Get user location
+      const location = await getLocation();
+      
+      // Build analysis result for API
+      const analysisResult = {
+        condition: latestAnalysis.results.summary || 'Normal',
+        detectedIssues: [
+          ...(latestAnalysis.results.conditions || []),
+          ...(latestAnalysis.results.concerns || []),
+          ...(latestAnalysis.conditions || []),
+        ],
+        skinType: latestAnalysis.results.skinType || 'Normal',
+      };
+
+      // Generate predictive routine
+      const routine = await predictiveRoutineService.generate({
+        analysisId: latestAnalysis.id,
+        analysisResult,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+
+      setPredictiveRoutine(routine);
+      setShowRoutineModal(true);
+
+      // Mark as viewed
+      await predictiveRoutineService.markAsViewed(routine.id);
+    } catch (error: any) {
+      console.error('Error generating predictive routine:', error);
+      Alert.alert(
+        'Erreur',
+        error.message || 'Impossible de générer la routine prédictive. Veuillez réessayer.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setGeneratingRoutine(false);
+    }
+  };
+
+  // Accept and validate routine
+  const handleAcceptRoutine = async () => {
+    if (!predictiveRoutine) return;
+
+    try {
+      await predictiveRoutineService.validateAndActivate(predictiveRoutine.id);
+      
+      setShowRoutineModal(false);
+      setPredictiveRoutine(null);
+      
+      Alert.alert(
+        '✅ Routine activée !',
+        'Votre routine personnalisée a été créée. Rendez-vous dans l\'onglet Routine pour la consulter.',
+        [{ text: 'OK' }]
+      );
+    } catch (error: any) {
+      console.error('Error validating routine:', error);
+      Alert.alert('Erreur', 'Impossible de valider la routine. Veuillez réessayer.');
+    }
+  };
+
+  // Dismiss routine
+  const handleDismissRoutine = async () => {
+    if (!predictiveRoutine) return;
+
+    try {
+      await predictiveRoutineService.dismiss(predictiveRoutine.id);
+      setShowRoutineModal(false);
+      setPredictiveRoutine(null);
+    } catch (error) {
+      console.error('Error dismissing routine:', error);
+    }
+  };
+
   const performAnalysis = async () => {
     const analysisLimitReached = !!usage && !usage.isPremium && usage.quotas.analyses.remaining !== null && usage.quotas.analyses.remaining <= 0;
     if (analysisLimitReached) {
@@ -203,6 +293,67 @@ export function AnalysisScreen() {
     { label: 'Acné', score: results.detailedAnalysis.acne?.score ?? 0, status: getStatus(results.detailedAnalysis.acne?.score, t), color: '#EF4444' },
     { label: 'Rougeurs', score: results.detailedAnalysis.redness?.score ?? 0, status: getStatus(results.detailedAnalysis.redness?.score, t), color: '#F97316' },
   ] : [];
+
+  // Generate face tags from analysis results for overlay display
+  const faceTags: FaceTag[] = useMemo(() => {
+    if (!latestAnalysis || !results?.detailedAnalysis) return [];
+    
+    const tags: FaceTag[] = [];
+    const detailedAnalysis = results.detailedAnalysis;
+    
+    // Map detailed analysis scores to face tags with zones
+    const analysisToTagMap: Array<{
+      key: keyof typeof detailedAnalysis;
+      label: string;
+      condition: string;
+      zones: string[];
+    }> = [
+      { key: 'acne', label: 'Acné', condition: 'acne', zones: ['forehead', 'left_cheek', 'right_cheek', 'chin'] },
+      { key: 'wrinkles', label: 'Rides', condition: 'wrinkles', zones: ['forehead', 'left_eye', 'right_eye'] },
+      { key: 'pigmentation', label: 'Pigmentation', condition: 'hyperpigmentation', zones: ['left_cheek', 'right_cheek'] },
+      { key: 'redness', label: 'Rougeurs', condition: 'redness', zones: ['nose', 'left_cheek', 'right_cheek'] },
+      { key: 'pores', label: 'Pores', condition: 'pores', zones: ['nose', 'left_cheek', 'right_cheek'] },
+      { key: 'hydration', label: 'Déshydratation', condition: 'dehydration', zones: ['left_cheek', 'right_cheek'] },
+      { key: 'texture', label: 'Texture', condition: 'texture', zones: ['left_cheek', 'right_cheek'] },
+    ];
+
+    analysisToTagMap.forEach((item, index) => {
+      const metric = detailedAnalysis[item.key];
+      if (metric && metric.score < 70) { // Only show conditions needing attention
+        const severity = metric.score < 40 ? 'severe' : metric.score < 55 ? 'moderate' : 'mild';
+        // Pick zone based on index to spread markers
+        const zone = item.zones[index % item.zones.length];
+        
+        tags.push({
+          id: `tag-${item.key}`,
+          condition: item.condition,
+          label: item.label,
+          severity,
+          confidence: Math.max(60, 100 - Math.floor(metric.score / 2)), // Higher confidence for lower scores
+          zone,
+          description: metric.description,
+        });
+      }
+    });
+
+    // Also add conditions from the conditions array if available
+    latestAnalysis.conditions?.forEach((condition, idx) => {
+      const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+      const existingTag = tags.find(t => t.condition === conditionKey);
+      if (!existingTag) {
+        tags.push({
+          id: `condition-${idx}`,
+          condition: conditionKey,
+          label: condition,
+          severity: 'moderate',
+          confidence: 75,
+          zone: ['forehead', 'left_cheek', 'right_cheek', 'nose', 'chin'][idx % 5],
+        });
+      }
+    });
+
+    return tags.slice(0, 6); // Limit to 6 tags maximum for cleaner display
+  }, [latestAnalysis, results?.detailedAnalysis]);
 
   const recommendationSource = latestAnalysis?.recommendations || results?.recommendations;
   const lifestyleInsights = recommendationSource?.lifestyle?.slice(0, 3) || [];
@@ -406,6 +557,21 @@ export function AnalysisScreen() {
           )}
         </Card>
 
+        {/* Face Analysis Image with Tags */}
+        {latestAnalysis.images && latestAnalysis.images.length > 0 && faceTags.length > 0 && (
+          <View style={styles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Zones analysées</Text>
+            <FaceTagsOverlay
+              imageUri={latestAnalysis.images[0]}
+              tags={faceTags}
+              imageWidth={Dimensions.get('window').width - Spacing.lg * 2}
+              imageHeight={(Dimensions.get('window').width - Spacing.lg * 2) * 1.2}
+              showConnectors={true}
+              animateOnMount={true}
+            />
+          </View>
+        )}
+
         {/* Detailed Breakdown */}
         {categories.length > 0 && (
           <View style={styles.section}>
@@ -550,6 +716,69 @@ export function AnalysisScreen() {
           </View>
         )}
 
+        {/* 🆕 Predictive Routine CTA */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            onPress={handleGeneratePredictiveRoutine}
+            disabled={generatingRoutine}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                borderRadius: BorderRadius.xl,
+                padding: Spacing.lg,
+                ...Shadows.md,
+              }}
+            >
+              <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const }}>
+                <View
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    justifyContent: 'center' as const,
+                    alignItems: 'center' as const,
+                    marginRight: Spacing.md,
+                  }}
+                >
+                  {generatingRoutine ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Ionicons name="sparkles" size={28} color={Colors.white} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: Colors.white,
+                      fontSize: fontSizes.lg,
+                      fontWeight: FontWeights.bold,
+                    }}
+                  >
+                    {generatingRoutine ? 'Génération en cours...' : 'Générer ma routine IA'}
+                  </Text>
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.85)',
+                      fontSize: fontSizes.sm,
+                      marginTop: 4,
+                    }}
+                  >
+                    Programme personnalisé 7 jours basé sur votre analyse
+                  </Text>
+                </View>
+                {!generatingRoutine && (
+                  <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+                )}
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* New Analysis Button */}
         <View style={styles.section}>
           <Button onPress={startNewAnalysis} fullWidth size="lg">
@@ -559,6 +788,16 @@ export function AnalysisScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* 🆕 Predictive Routine Modal */}
+      <PredictiveRoutineModal
+        visible={showRoutineModal}
+        routine={predictiveRoutine}
+        loading={generatingRoutine}
+        onAccept={handleAcceptRoutine}
+        onDismiss={handleDismissRoutine}
+        onClose={() => setShowRoutineModal(false)}
+      />
     </SafeAreaView>
   );
 }

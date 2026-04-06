@@ -12,6 +12,11 @@ export { LoadingOverlay, LoadingSpinner } from './ui/LoadingOverlay';
 export { EmptyState } from './ui/EmptyState';
 export { ImagePicker, MultiImagePicker } from './ui/ImagePicker';
 export { WeatherWidget, WeatherBadge } from './ui/WeatherWidget';
+export { PredictiveRoutineModal } from './ui/PredictiveRoutineModal';
+export { PredictiveRoutineCard } from './ui/PredictiveRoutineCard';
+export { AnalysisScanAnimation } from './ui/AnalysisScanAnimation';
+export { FaceTagsOverlay, createFaceTagsFromAnalysis } from './ui/FaceTagsOverlay';
+export type { FaceTag } from './ui/FaceTagsOverlay';
 
 // Accessibility Components
 export { AccessibilityPanel, ToggleSwitch } from './accessibility';

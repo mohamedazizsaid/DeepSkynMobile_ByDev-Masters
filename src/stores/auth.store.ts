@@ -26,7 +26,8 @@ interface AuthState {
 
     login: (data: any) => Promise<{ requiresTwoFactor: boolean; success: boolean }>;
     register: (data: any) => Promise<void>;
-    faceLogin: (email: string, imageBase64: string) => Promise<boolean>;
+    faceLogin: (email: string) => Promise<boolean>;
+    loginWithGoogle: (idToken: string) => Promise<void>;
     loadUser: () => Promise<void>;
     logout: () => Promise<void>;
     markOnboardingComplete: () => Promise<void>;
@@ -47,7 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     needsGuidedTour: () => {
         const user = get().user;
-        return user !== null && !!user.onboardingComplete && !user.guidedTourComplete;
+        return user !== null && user.onboardingComplete && !user.guidedTourComplete;
     },
 
     login: async (data) => {
@@ -94,10 +95,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    faceLogin: async (email, imageBase64) => {
+    faceLogin: async (email) => {
         set({ isLoading: true });
         try {
-            const result = await authService.faceLogin(email, imageBase64);
+            const result = await authService.faceLogin(email);
             if (result.tokens) {
                 await AsyncStorage.setItem('access_token', result.tokens.access_token);
                 await AsyncStorage.setItem('refresh_token', result.tokens.refresh_token);
@@ -107,6 +108,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
             set({ isLoading: false });
             return false;
+        } catch (error) {
+            set({ isLoading: false });
+            throw error;
+        }
+    },
+
+    loginWithGoogle: async (idToken) => {
+        set({ isLoading: true });
+        try {
+            const result = await authService.googleTokenAuth(idToken);
+            if (result.tokens) {
+                await AsyncStorage.setItem('access_token', result.tokens.access_token);
+                await AsyncStorage.setItem('refresh_token', result.tokens.refresh_token);
+            }
+            set({ isAuthenticated: true, isLoading: false });
+            await get().loadUser();
         } catch (error) {
             set({ isLoading: false });
             throw error;

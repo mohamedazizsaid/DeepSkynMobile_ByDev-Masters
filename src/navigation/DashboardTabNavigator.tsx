@@ -10,6 +10,9 @@ import { useAccessibilityStyles } from '../stores/useAccessibilityStyles';
 // Dashboard screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { AnalysisScreen } from '../screens/dashboard/AnalysisScreen';
+import { CameraScanScreen } from '../screens/dashboard/CameraScanScreen';
+import { AnalysisResultScreen } from '../screens/dashboard/AnalysisResultScreen';
+import { AnalysisHistoryScreen } from '../screens/dashboard/AnalysisHistoryScreen';
 import { EvolutionScreen } from '../screens/dashboard/EvolutionScreen';
 import { RoutineScreen } from '../screens/dashboard/RoutineScreen';
 import { ChatScreen } from '../screens/dashboard/ChatScreen';
@@ -36,8 +39,16 @@ export type HomeStackParamList = {
   Notifications: undefined;
 };
 
+export type AnalysisStackParamList = {
+  AnalysisHub: undefined;
+  CameraScan: undefined;
+  AnalysisResult: { analysisId?: string };
+  AnalysisHistory: undefined;
+};
+
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
 const HomeStack = createStackNavigator<HomeStackParamList>();
+const AnalysisStack = createStackNavigator<AnalysisStackParamList>();
 
 function HomeStackNavigator() {
   return (
@@ -49,6 +60,17 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="Community" component={CommunityScreen} />
       <HomeStack.Screen name="Notifications" component={NotificationScreen} />
     </HomeStack.Navigator>
+  );
+}
+
+function AnalysisStackNavigator() {
+  return (
+    <AnalysisStack.Navigator screenOptions={{ headerShown: false }}>
+      <AnalysisStack.Screen name="AnalysisHub" component={AnalysisScreen} />
+      <AnalysisStack.Screen name="CameraScan" component={CameraScanScreen} />
+      <AnalysisStack.Screen name="AnalysisResult" component={AnalysisResultScreen} />
+      <AnalysisStack.Screen name="AnalysisHistory" component={AnalysisHistoryScreen} />
+    </AnalysisStack.Navigator>
   );
 }
 
@@ -81,7 +103,7 @@ export function DashboardTabNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={HomeStackNavigator} />
-      <Tab.Screen name="Analysis" component={AnalysisScreen} />
+      <Tab.Screen name="Analysis" component={AnalysisStackNavigator} />
       <Tab.Screen name="Routine" component={RoutineScreen} />
       <Tab.Screen name="Chat" component={ChatScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />

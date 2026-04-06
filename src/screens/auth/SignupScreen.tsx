@@ -88,14 +88,6 @@ export function SignupScreen({ navigation }: any) {
     }
   };
 
-  const openGoogleAuth = () => {
-    Alert.alert('Social Auth', 'Google Signup would open here');
-  };
-
-  const openFacebookAuth = () => {
-    Alert.alert('Social Auth', 'Facebook Signup would open here');
-  };
-
   return (
     <SafeAreaView style={dynamicStyles.safeArea}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -185,26 +177,6 @@ export function SignupScreen({ navigation }: any) {
             >
               {t.auth.createAccount}
             </Button>
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={dynamicStyles.dividerLine} />
-              <Text style={dynamicStyles.dividerText}>{t.auth.orContinue}</Text>
-              <View style={dynamicStyles.dividerLine} />
-            </View>
-
-            {/* Social Buttons */}
-            <View style={styles.socialRow}>
-              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openGoogleAuth}>
-                <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <Text style={dynamicStyles.socialText}>Google</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openFacebookAuth}>
-                <Ionicons name="logo-facebook" size={20} color="#4267B2" />
-                <Text style={dynamicStyles.socialText}>Facebook</Text>
-              </TouchableOpacity>
-            </View>
 
             {/* Login link */}
             <View style={styles.loginRow}>

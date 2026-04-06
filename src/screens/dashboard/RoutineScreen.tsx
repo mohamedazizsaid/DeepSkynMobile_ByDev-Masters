@@ -19,16 +19,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
-import { Card, Badge, Button, LoadingSpinner, EmptyState, ShareRoutineModal } from '../../components';
+import { Card, Badge, Button, LoadingSpinner, EmptyState, ShareRoutineModal, PredictiveRoutineModal, PredictiveRoutineCard } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { routineService } from '../../services/routine.service';
+import { predictiveRoutineService } from '../../services/predictive-routine.service';
 import { usersService } from '../../services/users.service';
 import type {
   ProductRecommendation,
   Routine,
   RoutineStep,
   AIAdviceResponse,
+  PredictiveRoutine,
 } from '../../lib/types';
 import { useTranslation } from '../../lib/i18n';
 
@@ -286,6 +288,11 @@ export function RoutineScreen() {
     eveningTime: '21:00',
   });
 
+  // Predictive Routine State
+  const [pendingPredictiveRoutines, setPendingPredictiveRoutines] = useState<PredictiveRoutine[]>([]);
+  const [selectedPredictiveRoutine, setSelectedPredictiveRoutine] = useState<PredictiveRoutine | null>(null);
+  const [showPredictiveModal, setShowPredictiveModal] = useState(false);
+
   const currentRoutine = activeTab === 'am' ? amRoutine : pmRoutine;
   const currentSteps = activeTab === 'am' ? amSteps : pmSteps;
   const setCurrentSteps = activeTab === 'am' ? setAmSteps : setPmSteps;
@@ -339,14 +346,94 @@ export function RoutineScreen() {
     }
   }, []);
 
+  // Load pending predictive routines
+  const loadPendingPredictiveRoutines = useCallback(async () => {
+    try {
+      const pending = await predictiveRoutineService.getPending();
+      setPendingPredictiveRoutines(pending);
+    } catch (error) {
+      console.error('Error loading pending predictive routines:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadRoutines();
     loadReminders();
-  }, [loadRoutines, loadReminders]);
+    loadPendingPredictiveRoutines();
+  }, [loadRoutines, loadReminders, loadPendingPredictiveRoutines]);
 
   const onRefresh = () => {
     setRefreshing(true);
     loadRoutines();
+    loadPendingPredictiveRoutines();
+  };
+
+  // Predictive Routine Handlers
+  const handleViewPredictiveRoutine = async (routine: PredictiveRoutine) => {
+    setSelectedPredictiveRoutine(routine);
+    setShowPredictiveModal(true);
+    
+    // Mark as viewed if pending
+    if (routine.status === 'PENDING') {
+      try {
+        await predictiveRoutineService.markAsViewed(routine.id);
+        // Update local state
+        setPendingPredictiveRoutines(prev => 
+          prev.map(r => r.id === routine.id ? { ...r, status: 'VIEWED' as any } : r)
+        );
+      } catch (error) {
+        console.error('Error marking routine as viewed:', error);
+      }
+    }
+  };
+
+  const handleAcceptPredictiveRoutine = async () => {
+    if (!selectedPredictiveRoutine) return;
+
+    try {
+      await predictiveRoutineService.validateAndActivate(selectedPredictiveRoutine.id);
+      
+      setShowPredictiveModal(false);
+      setSelectedPredictiveRoutine(null);
+      
+      // Remove from pending list
+      setPendingPredictiveRoutines(prev => 
+        prev.filter(r => r.id !== selectedPredictiveRoutine.id)
+      );
+      
+      // Reload routines
+      await loadRoutines();
+      
+      Alert.alert(
+        '✅ Routine activée !',
+        'Votre routine personnalisée IA a été créée et est maintenant active.',
+        [{ text: 'OK' }]
+      );
+    } catch (error: any) {
+      console.error('Error accepting predictive routine:', error);
+      Alert.alert('Erreur', 'Impossible de valider la routine. Veuillez réessayer.');
+    }
+  };
+
+  const handleDismissPredictiveRoutine = async (routine?: PredictiveRoutine) => {
+    const targetRoutine = routine || selectedPredictiveRoutine;
+    if (!targetRoutine) return;
+
+    try {
+      await predictiveRoutineService.dismiss(targetRoutine.id);
+      
+      // Remove from pending list
+      setPendingPredictiveRoutines(prev => 
+        prev.filter(r => r.id !== targetRoutine.id)
+      );
+      
+      if (showPredictiveModal) {
+        setShowPredictiveModal(false);
+        setSelectedPredictiveRoutine(null);
+      }
+    } catch (error) {
+      console.error('Error dismissing predictive routine:', error);
+    }
   };
 
   const persistSteps = async (next: StepItem[]) => {
@@ -606,6 +693,18 @@ export function RoutineScreen() {
           <Text style={dynamicStyles.title}>{t.routine.title || 'Routine'}</Text>
           <Text style={dynamicStyles.subtitle}>{t.routine.subtitle || 'Votre routine complete avec assistance IA'}</Text>
         </View>
+
+        {/* 🆕 Predictive Routine Banner */}
+        {pendingPredictiveRoutines.length > 0 && (
+          <View style={{ paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm }}>
+            <PredictiveRoutineCard
+              routine={pendingPredictiveRoutines[0]}
+              onPress={() => handleViewPredictiveRoutine(pendingPredictiveRoutines[0])}
+              onDismiss={() => handleDismissPredictiveRoutine(pendingPredictiveRoutines[0])}
+              compact={true}
+            />
+          </View>
+        )}
 
         <View style={styles.topActions}>
           <TouchableOpacity
@@ -996,6 +1095,18 @@ export function RoutineScreen() {
           setShareRoutine(null);
         }}
         onShare={handleShareRoutine}
+      />
+
+      {/* 🆕 Predictive Routine Modal */}
+      <PredictiveRoutineModal
+        visible={showPredictiveModal}
+        routine={selectedPredictiveRoutine}
+        onAccept={handleAcceptPredictiveRoutine}
+        onDismiss={() => handleDismissPredictiveRoutine()}
+        onClose={() => {
+          setShowPredictiveModal(false);
+          setSelectedPredictiveRoutine(null);
+        }}
       />
     </SafeAreaView>
   );

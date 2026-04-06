@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
-  ActivityIndicator,
   Platform,
   Alert,
   Modal,
@@ -14,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, Input, Logo, Card } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
@@ -23,41 +21,16 @@ import { useTranslation } from '../../lib/i18n';
 import { FaceIDScanner } from '../../components/auth/FaceIDScanner';
 import { authService } from '../../services/auth.service';
 
-const REMEMBER_ME_KEY = 'remember_me';
-const REMEMBER_ME_EMAIL_KEY = 'remember_me_email';
-
 export function LoginScreen({ navigation }: any) {
-  const { login, faceLogin, isLoading } = useAuthStore();
+  const { login, faceLogin, loginWithGoogle, isLoading } = useAuthStore();
   const { colors, fontSizes, settings } = useAccessibilityStyles();
   const { t } = useTranslation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showFaceID, setShowFaceID] = useState(false);
-  const [preparingFaceID, setPreparingFaceID] = useState(false);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-
-  useEffect(() => {
-    const loadRememberedCredentials = async () => {
-      try {
-        const [rememberFlag, rememberedEmail] = await Promise.all([
-          AsyncStorage.getItem(REMEMBER_ME_KEY),
-          AsyncStorage.getItem(REMEMBER_ME_EMAIL_KEY),
-        ]);
-
-        if (rememberFlag === 'true' && rememberedEmail) {
-          setRememberMe(true);
-          setEmail(rememberedEmail);
-        }
-      } catch (error) {
-        console.warn('Failed to load remember-me settings', error);
-      }
-    };
-
-    loadRememberedCredentials();
-  }, []);
 
   // Dynamic styles based on accessibility
   const dynamicStyles = useMemo(() => ({
@@ -76,7 +49,6 @@ export function LoginScreen({ navigation }: any) {
       borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
     },
     socialText: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.text },
-    rememberText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: FontWeights.medium },
     signupText: { fontSize: fontSizes.sm, color: colors.textSecondary },
     signupLink: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.primary },
     twoFactorTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
@@ -99,38 +71,15 @@ export function LoginScreen({ navigation }: any) {
 
       if (result.requiresTwoFactor) {
         setShowTwoFactor(true);
-        return;
-      }
-
-      if (rememberMe) {
-        await AsyncStorage.multiSet([
-          [REMEMBER_ME_KEY, 'true'],
-          [REMEMBER_ME_EMAIL_KEY, email],
-        ]);
-      } else {
-        await AsyncStorage.multiRemove([REMEMBER_ME_KEY, REMEMBER_ME_EMAIL_KEY]);
       }
     } catch (error: any) {
       Alert.alert(t.common.error, error.response?.data?.message || t.auth.invalidCredentials);
     }
   };
 
-  const toggleRememberMe = async () => {
-    const nextValue = !rememberMe;
-    setRememberMe(nextValue);
-
-    if (!nextValue) {
-      try {
-        await AsyncStorage.multiRemove([REMEMBER_ME_KEY, REMEMBER_ME_EMAIL_KEY]);
-      } catch (error) {
-        console.warn('Failed to clear remember-me settings', error);
-      }
-    }
-  };
-
-  const handleFaceIDSuccess = async (imageBase64: string) => {
+  const handleFaceIDSuccess = async () => {
     try {
-      const success = await faceLogin(email, imageBase64);
+      const success = await faceLogin(email);
       if (success) {
         setShowFaceID(false);
       } else {
@@ -140,41 +89,6 @@ export function LoginScreen({ navigation }: any) {
     } catch (error: any) {
       Alert.alert(t.common.error, error.response?.data?.message || t.auth.faceIdError);
       setShowFaceID(false);
-    }
-  };
-
-  const handleFaceIDPress = async () => {
-    if (!email) {
-      Alert.alert('Info', t.auth.faceIdNoEmail);
-      return;
-    }
-
-    setPreparingFaceID(true);
-    try {
-      const res = await authService.getUserAvatar(email);
-      if (res?.avatar) {
-        setShowFaceID(true);
-      } else {
-        Alert.alert(t.common.error, t.auth.faceIdError || 'This user has no avatar set');
-      }
-    } catch (_error: any) {
-      Alert.alert(t.common.error, t.auth.faceIdError || 'User not found');
-    } finally {
-      setPreparingFaceID(false);
-    }
-  };
-
-  const openGoogleAuth = async () => {
-    try {
-      const url = authService.getGoogleAuthUrl();
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Error', 'Cannot open Google login page');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to open Google login');
     }
   };
 
@@ -247,34 +161,12 @@ export function LoginScreen({ navigation }: any) {
                   {/* FaceID Option */}
                   <TouchableOpacity
                     style={styles.faceIdLink}
-                    onPress={handleFaceIDPress}
-                    disabled={preparingFaceID}
+                    onPress={() => email ? setShowFaceID(true) : Alert.alert('Info', t.auth.faceIdNoEmail)}
                   >
-                    {preparingFaceID ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Ionicons name="scan-outline" size={18} color={colors.primary} />
-                    )}
-                    <Text style={dynamicStyles.faceIdText}>
-                      {preparingFaceID ? 'Checking...' : 'Face ID'}
-                    </Text>
+                    <Ionicons name="scan-outline" size={18} color={colors.primary} />
+                    <Text style={dynamicStyles.faceIdText}>Face ID</Text>
                   </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.rememberRow}
-                  onPress={toggleRememberMe}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: rememberMe }}
-                  accessibilityLabel={t.auth.rememberMe}
-                >
-                  <Ionicons
-                    name={rememberMe ? 'checkbox' : 'square-outline'}
-                    size={20}
-                    color={rememberMe ? colors.primary : colors.textTertiary}
-                  />
-                  <Text style={dynamicStyles.rememberText}>{t.auth.rememberMe}</Text>
-                </TouchableOpacity>
 
                 <Button onPress={handleLogin} loading={isLoading} fullWidth>
                   {t.auth.signIn}
@@ -313,26 +205,6 @@ export function LoginScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={dynamicStyles.dividerLine} />
-              <Text style={dynamicStyles.dividerText}>{t.auth.orContinue}</Text>
-              <View style={dynamicStyles.dividerLine} />
-            </View>
-
-            {/* Social Buttons */}
-            <View style={styles.socialRow}>
-              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openGoogleAuth}>
-                <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <Text style={dynamicStyles.socialText}>Google</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openFacebookAuth}>
-                <Ionicons name="logo-facebook" size={20} color="#4267B2" />
-                <Text style={dynamicStyles.socialText}>Facebook</Text>
-              </TouchableOpacity>
-            </View>
 
             {/* Sign up link */}
             <View style={styles.signupRow}>
@@ -376,7 +248,6 @@ const styles = StyleSheet.create({
   forgotText: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },
   faceIdLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   faceIdText: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.bold },
-  rememberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xl },
   divider: {
     flexDirection: 'row', alignItems: 'center',
     marginVertical: Spacing.xl,

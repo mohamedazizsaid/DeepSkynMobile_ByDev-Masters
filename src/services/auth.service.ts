@@ -76,6 +76,11 @@ export const authService = {
         return res.data;
     },
 
+    async googleTokenAuth(idToken: string): Promise<any> {
+        const res = await apiClient.post('/auth/google/token', { idToken });
+        return res.data;
+    },
+
     getGoogleAuthUrl(): string {
         // In mobile, we might use AuthSession or similar
         return 'http://192.168.1.45:3000/auth/google';
