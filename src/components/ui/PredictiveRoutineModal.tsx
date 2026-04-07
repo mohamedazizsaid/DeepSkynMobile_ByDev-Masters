@@ -47,9 +47,10 @@ export function PredictiveRoutineModal({
 
   if (!routine || !routine.routine) return null;
 
-  const days = routine.routine.days || [];
-  const currentDay = days[selectedDay];
-  const globalAdvice = routine.routine.globalAdvice;
+  // Defensive: ensure days is always an array
+  const days = Array.isArray(routine.routine.days) ? routine.routine.days : [];
+  const currentDay = days[selectedDay] || null;
+  const globalAdvice = routine.routine.globalAdvice || '';
 
   const handleAccept = async () => {
     setAccepting(true);
@@ -115,6 +116,16 @@ export function PredictiveRoutineModal({
               Génération de votre routine...
             </Text>
           </View>
+        ) : days.length === 0 ? (
+          <View style={[styles.content, { justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }]}>
+            <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+            <Text style={[styles.sectionTitle, { color: colors.text, textAlign: 'center', marginTop: Spacing.md }]}>
+              Impossible de charger la routine
+            </Text>
+            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm }}>
+              La structure de la routine est invalide. Veuillez réessayer.
+            </Text>
+          </View>
         ) : (
           <ScrollView
             style={styles.content}
@@ -134,7 +145,9 @@ export function PredictiveRoutineModal({
               >
                 {days.map((day, index) => {
                   const isSelected = selectedDay === index;
-                  const dayName = day.day.split(' ')[0]; // Get just day name
+                  // Defensive check: handle cases where day.day might be undefined or not a string
+                  const dayString = day?.day || `Jour ${index + 1}`;
+                  const dayName = typeof dayString === 'string' ? dayString.split(' ')[0] : `J${index + 1}`;
                   const uvLevel = getUVLevel(index);
 
                   return (
@@ -187,7 +200,7 @@ export function PredictiveRoutineModal({
             {currentDay && (
               <View style={styles.dayRoutineContainer}>
                 <Text style={[styles.dayTitle, { color: colors.text }]}>
-                  {currentDay.day}
+                  {currentDay?.day || `Jour ${selectedDay + 1}`}
                 </Text>
 
                 {/* Morning Routine */}
@@ -200,7 +213,7 @@ export function PredictiveRoutineModal({
                       Routine Matin
                     </Text>
                   </View>
-                  {currentDay.morning.map((step, index) => (
+                  {(currentDay?.morning || []).map((step, index) => (
                     <View key={index} style={styles.stepItem}>
                       <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
                         <Text style={styles.stepNumberText}>{index + 1}</Text>
@@ -220,7 +233,7 @@ export function PredictiveRoutineModal({
                       Routine Soir
                     </Text>
                   </View>
-                  {currentDay.evening.map((step, index) => (
+                  {(currentDay?.evening || []).map((step, index) => (
                     <View key={index} style={styles.stepItem}>
                       <View style={[styles.stepNumber, { backgroundColor: Colors.indigo }]}>
                         <Text style={styles.stepNumberText}>{index + 1}</Text>
@@ -231,7 +244,7 @@ export function PredictiveRoutineModal({
                 </View>
 
                 {/* Daily Tip */}
-                {currentDay.tip && (
+                {currentDay?.tip && (
                   <View style={[styles.tipCard, { backgroundColor: Colors.success + '10' }]}>
                     <Ionicons name="bulb" size={20} color={Colors.success} />
                     <Text style={[styles.tipText, { color: colors.text }]}>
@@ -241,7 +254,7 @@ export function PredictiveRoutineModal({
                 )}
 
                 {/* Warning */}
-                {currentDay.warning && (
+                {currentDay?.warning && (
                   <View style={[styles.warningCard, { backgroundColor: Colors.warning + '10' }]}>
                     <Ionicons name="warning" size={20} color={Colors.warning} />
                     <Text style={[styles.warningText, { color: colors.text }]}>

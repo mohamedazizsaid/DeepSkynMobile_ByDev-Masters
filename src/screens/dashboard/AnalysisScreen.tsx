@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpa
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis } from '../../components';
+import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis, ProductRecommendationsModal } from '../../components';
 import type { FaceTag } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
@@ -36,6 +36,9 @@ export function AnalysisScreen() {
   const [generatingRoutine, setGeneratingRoutine] = useState(false);
   const [predictiveRoutine, setPredictiveRoutine] = useState<PredictiveRoutine | null>(null);
   const [showRoutineModal, setShowRoutineModal] = useState(false);
+
+  // Product Recommendations State
+  const [showProductsModal, setShowProductsModal] = useState(false);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -779,6 +782,62 @@ export function AnalysisScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 🆕 Predicted Products CTA */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            onPress={() => setShowProductsModal(true)}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#EC4899', '#8B5CF6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                borderRadius: BorderRadius.xl,
+                padding: Spacing.lg,
+                ...Shadows.md,
+              }}
+            >
+              <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const }}>
+                <View
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    justifyContent: 'center' as const,
+                    alignItems: 'center' as const,
+                    marginRight: Spacing.md,
+                  }}
+                >
+                  <Ionicons name="bag-outline" size={28} color={Colors.white} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: Colors.white,
+                      fontSize: fontSizes.lg,
+                      fontWeight: FontWeights.bold,
+                    }}
+                  >
+                    Produits Recommandés IA
+                  </Text>
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.85)',
+                      fontSize: fontSizes.sm,
+                      marginTop: 4,
+                    }}
+                  >
+                    Découvrez les produits adaptés à votre peau
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* New Analysis Button */}
         <View style={styles.section}>
           <Button onPress={startNewAnalysis} fullWidth size="lg">
@@ -797,6 +856,16 @@ export function AnalysisScreen() {
         onAccept={handleAcceptRoutine}
         onDismiss={handleDismissRoutine}
         onClose={() => setShowRoutineModal(false)}
+      />
+
+      {/* 🆕 Product Recommendations Modal */}
+      <ProductRecommendationsModal
+        visible={showProductsModal}
+        onClose={() => setShowProductsModal(false)}
+        skinType={results?.skinType || 'normale'}
+        concerns={results?.concerns || []}
+        conditions={latestAnalysis.conditions || []}
+        analysisId={latestAnalysis.id}
       />
     </SafeAreaView>
   );

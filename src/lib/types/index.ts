@@ -4,6 +4,7 @@ export * from './user';
 export * from './analysis';
 export * from './routine';
 export * from './predictive-routine';
+export * from './product-recommendation';
 export * from './chat';
 export * from './subscription';
 export * from './posts';

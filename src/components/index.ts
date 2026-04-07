@@ -17,6 +17,8 @@ export { PredictiveRoutineCard } from './ui/PredictiveRoutineCard';
 export { AnalysisScanAnimation } from './ui/AnalysisScanAnimation';
 export { FaceTagsOverlay, createFaceTagsFromAnalysis } from './ui/FaceTagsOverlay';
 export type { FaceTag } from './ui/FaceTagsOverlay';
+export { ProductRecommendationCard } from './ui/ProductRecommendationCard';
+export { ProductRecommendationsModal } from './ui/ProductRecommendationsModal';
 
 // Accessibility Components
 export { AccessibilityPanel, ToggleSwitch } from './accessibility';
