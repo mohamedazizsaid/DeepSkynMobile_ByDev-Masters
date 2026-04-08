@@ -7,10 +7,11 @@ interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
   containerStyle?: ViewStyle;
 }
 
-export function Input({ label, error, icon, containerStyle, style, ...props }: InputProps) {
+export function Input({ label, error, icon, rightIcon, containerStyle, style, ...props }: InputProps) {
   const { colors, textStyle, fontSizes } = useAccessibilityStyles();
 
   return (
@@ -19,10 +20,11 @@ export function Input({ label, error, icon, containerStyle, style, ...props }: I
       <View style={[styles.inputWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }, error ? styles.inputError : undefined]}>
         {icon && <View style={styles.iconContainer}>{icon}</View>}
         <TextInput
-          style={[styles.input, textStyle, { color: colors.text, fontSize: fontSizes.base }, icon ? { paddingLeft: 0 } : undefined, style]}
+          style={[styles.input, textStyle, { color: colors.text, fontSize: fontSizes.base }, icon ? { paddingLeft: 0 } : undefined, rightIcon ? { paddingRight: 0 } : undefined, style]}
           placeholderTextColor={colors.textTertiary}
           {...props}
         />
+        {rightIcon && <View style={styles.rightIconContainer}>{rightIcon}</View>}
       </View>
       {error && <Text style={[styles.errorText, textStyle, { color: colors.error, fontSize: fontSizes.xs }]}>{error}</Text>}
     </View>
@@ -53,6 +55,9 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginRight: Spacing.sm,
+  },
+  rightIconContainer: {
+    marginLeft: Spacing.sm,
   },
   input: {
     flex: 1,

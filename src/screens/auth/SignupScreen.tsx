@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../the
 import { useAuthStore } from '../../stores/auth.store';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
+import { authService } from '../../services/auth.service';
 
 export function SignupScreen({ navigation }: any) {
   const { register, isLoading } = useAuthStore();
@@ -58,6 +60,34 @@ export function SignupScreen({ navigation }: any) {
   };
 
   const strength = passwordStrength(password);
+
+  const openGoogleAuth = async () => {
+    try {
+      const url = authService.getGoogleAuthUrl();
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open Google signup page');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open Google signup');
+    }
+  };
+
+  const openFacebookAuth = async () => {
+    try {
+      const url = authService.getFacebookAuthUrl();
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open Facebook signup page');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open Facebook signup');
+    }
+  };
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
@@ -177,6 +207,23 @@ export function SignupScreen({ navigation }: any) {
             >
               {t.auth.createAccount}
             </Button>
+
+            <View style={styles.divider}>
+              <View style={dynamicStyles.dividerLine} />
+              <Text style={dynamicStyles.dividerText}>ou</Text>
+              <View style={dynamicStyles.dividerLine} />
+            </View>
+
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openGoogleAuth} activeOpacity={0.85}>
+                <Ionicons name="logo-google" size={16} color={colors.text} />
+                <Text style={dynamicStyles.socialText}>Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={dynamicStyles.socialButton} onPress={openFacebookAuth} activeOpacity={0.85}>
+                <Ionicons name="logo-facebook" size={16} color={colors.text} />
+                <Text style={dynamicStyles.socialText}>Facebook</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Login link */}
             <View style={styles.loginRow}>

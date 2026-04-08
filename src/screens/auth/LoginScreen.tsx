@@ -11,6 +11,7 @@ import {
   Modal,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Logo, Card } from '../../components';
@@ -31,6 +32,29 @@ export function LoginScreen({ navigation }: any) {
   const [showFaceID, setShowFaceID] = useState(false);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const loadRememberedCredentials = async () => {
+      try {
+        const [remember, rememberedEmail] = await Promise.all([
+          AsyncStorage.getItem('remember_me'),
+          AsyncStorage.getItem('remembered_email'),
+        ]);
+
+        const shouldRemember = remember === 'true';
+        setRememberMe(shouldRemember);
+        if (shouldRemember && rememberedEmail) {
+          setEmail(rememberedEmail);
+        }
+      } catch {
+        // Silent fail: login should stay usable even if local storage is unavailable.
+      }
+    };
+
+    loadRememberedCredentials();
+  }, []);
 
   // Dynamic styles based on accessibility
   const dynamicStyles = useMemo(() => ({
@@ -54,7 +78,38 @@ export function LoginScreen({ navigation }: any) {
     twoFactorTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
     twoFactorSubtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center' as const, marginTop: Spacing.xs },
     cancel2faText: { color: colors.textSecondary, fontWeight: FontWeights.medium },
+    rememberRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: Spacing.xs,
+      marginTop: Spacing.sm,
+      marginBottom: Spacing.base,
+      alignSelf: 'flex-start' as const,
+    },
+    rememberText: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      fontWeight: FontWeights.medium,
+    },
   }), [colors, fontSizes]);
+
+  const saveRememberPreference = async (emailValue: string) => {
+    try {
+      if (rememberMe) {
+        await Promise.all([
+          AsyncStorage.setItem('remember_me', 'true'),
+          AsyncStorage.setItem('remembered_email', emailValue),
+        ]);
+      } else {
+        await Promise.all([
+          AsyncStorage.setItem('remember_me', 'false'),
+          AsyncStorage.removeItem('remembered_email'),
+        ]);
+      }
+    } catch {
+      // Silent fail: authentication flow should not break on preference persistence.
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -71,6 +126,8 @@ export function LoginScreen({ navigation }: any) {
 
       if (result.requiresTwoFactor) {
         setShowTwoFactor(true);
+      } else {
+        await saveRememberPreference(email);
       }
     } catch (error: any) {
       Alert.alert(t.common.error, error.response?.data?.message || t.auth.invalidCredentials);
@@ -89,6 +146,20 @@ export function LoginScreen({ navigation }: any) {
     } catch (error: any) {
       Alert.alert(t.common.error, error.response?.data?.message || t.auth.faceIdError);
       setShowFaceID(false);
+    }
+  };
+
+  const openGoogleAuth = async () => {
+    try {
+      const url = authService.getGoogleAuthUrl();
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open Google login page');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open Google login');
     }
   };
 
@@ -149,9 +220,31 @@ export function LoginScreen({ navigation }: any) {
                   placeholder="••••••••"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} />}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} activeOpacity={0.7}>
+                      <Ionicons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={colors.textTertiary}
+                      />
+                    </TouchableOpacity>
+                  }
                 />
+
+                <TouchableOpacity
+                  style={dynamicStyles.rememberRow}
+                  onPress={() => setRememberMe((prev) => !prev)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={rememberMe ? 'checkbox-outline' : 'square-outline'}
+                    size={16}
+                    color={rememberMe ? colors.primary : colors.textTertiary}
+                  />
+                  <Text style={dynamicStyles.rememberText}>{t.auth.rememberMe}</Text>
+                </TouchableOpacity>
 
                 <View style={styles.optionsRow}>
                   <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
@@ -171,6 +264,24 @@ export function LoginScreen({ navigation }: any) {
                 <Button onPress={handleLogin} loading={isLoading} fullWidth>
                   {t.auth.signIn}
                 </Button>
+
+                <View style={styles.divider}>
+                  <View style={dynamicStyles.dividerLine} />
+                  <Text style={dynamicStyles.dividerText}>ou</Text>
+                  <View style={dynamicStyles.dividerLine} />
+                </View>
+
+                <View style={styles.socialRow}>
+                  <TouchableOpacity style={dynamicStyles.socialButton} onPress={openGoogleAuth} activeOpacity={0.85}>
+                    <Ionicons name="logo-google" size={16} color={colors.text} />
+                    <Text style={dynamicStyles.socialText}>Google</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={dynamicStyles.socialButton} onPress={openFacebookAuth} activeOpacity={0.85}>
+                    <Ionicons name="logo-facebook" size={16} color={colors.text} />
+                    <Text style={dynamicStyles.socialText}>Facebook</Text>
+                  </TouchableOpacity>
+                </View>
               </>
             ) : (
               <View style={styles.twoFactorContainer}>
