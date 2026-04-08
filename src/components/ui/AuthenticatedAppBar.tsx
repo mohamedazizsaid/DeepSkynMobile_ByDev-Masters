@@ -86,6 +86,12 @@ export function AuthenticatedAppBar() {
       onPress: () => navigateTo(() => navigation.navigate('Analysis')),
     },
     {
+      key: 'product-scan',
+      label: 'Scan Produit',
+      icon: 'barcode-outline' as const,
+      onPress: () => navigateTo(() => navigation.navigate('Analysis', { screen: 'ProductScan' })),
+    },
+    {
       key: 'chat',
       label: t.nav.coach,
       icon: 'chatbubble-outline' as const,

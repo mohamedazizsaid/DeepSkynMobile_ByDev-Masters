@@ -44,6 +44,8 @@ export type AnalysisStackParamList = {
   CameraScan: undefined;
   AnalysisResult: { analysisId?: string };
   AnalysisHistory: undefined;
+  ProductScan: undefined;
+  ProductAnalysis: { product: any };
 };
 
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
@@ -64,12 +66,18 @@ function HomeStackNavigator() {
 }
 
 function AnalysisStackNavigator() {
+  // Import ProductScan screens
+  const { ProductScanScreen } = require('../screens/dashboard/ProductScanScreen');
+  const { ProductAnalysisScreen } = require('../screens/dashboard/ProductAnalysisScreen');
+
   return (
     <AnalysisStack.Navigator screenOptions={{ headerShown: false }}>
       <AnalysisStack.Screen name="AnalysisHub" component={AnalysisScreen} />
       <AnalysisStack.Screen name="CameraScan" component={CameraScanScreen} />
       <AnalysisStack.Screen name="AnalysisResult" component={AnalysisResultScreen} />
       <AnalysisStack.Screen name="AnalysisHistory" component={AnalysisHistoryScreen} />
+      <AnalysisStack.Screen name="ProductScan" component={ProductScanScreen} />
+      <AnalysisStack.Screen name="ProductAnalysis" component={ProductAnalysisScreen} />
     </AnalysisStack.Navigator>
   );
 }
