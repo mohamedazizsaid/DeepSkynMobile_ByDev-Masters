@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Modal,
   Dimensions,
   Platform,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -173,6 +175,54 @@ export function AccessibilityPanel() {
   const { textStyle, fontSizes } = useAccessibilityStyles();
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // ── Floating Bubble Logic ──────────────────────────────────────────
+  const pan = useRef(new Animated.ValueXY({ 
+    x: SCREEN_WIDTH - 70, 
+    y: SCREEN_HEIGHT - (isAuthenticated ? insets.bottom + 78 : insets.bottom + 20) - 70 
+  })).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
+      },
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: (pan as any).x._value,
+          y: (pan as any).y._value
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (e, gestureState) => {
+        pan.flattenOffset();
+        const isTap = Math.abs(gestureState.dx) < 5 && Math.abs(gestureState.dy) < 5;
+        
+        if (isTap) {
+          togglePanel?.();
+          return;
+        }
+
+        const finalX = (pan as any).x._value;
+        const finalY = (pan as any).y._value;
+        
+        // Snap to nearest side (Messenger style)
+        const targetX = finalX > (SCREEN_WIDTH / 2 - 28) ? SCREEN_WIDTH - 66 : 10;
+        const targetY = Math.min(Math.max(finalY, insets.top + 10), SCREEN_HEIGHT - insets.bottom - 80);
+
+        Animated.spring(pan, {
+          toValue: { x: targetX, y: targetY },
+          useNativeDriver: false,
+          friction: 7,
+          tension: 40
+        }).start();
+      },
+    })
+  ).current;
   
   // Safe access with fallback defaults
   const theme = store?.theme ?? 'light';
@@ -248,20 +298,33 @@ export function AccessibilityPanel() {
   // ── FAB (Floating Action Button) ──────────────────────────────────────
   if (!isPanelOpen) {
     return (
-      <TouchableOpacity
-        onPress={togglePanel}
-        activeOpacity={0.8}
-        accessibilityLabel={t.accessibility.openPanel}
-        accessibilityRole="button"
-        style={[styles.fab, { bottom: fabBottom }]}
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.fab,
+          {
+            transform: pan.getTranslateTransform(),
+            bottom: undefined, // Override static bottom
+            right: undefined,  // Override static right
+            top: 0,
+            left: 0,
+          }
+        ]}
       >
-        <LinearGradient
-          colors={['#0EA5E9', '#06B6D4']}
-          style={styles.fabGradient}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          accessibilityLabel={t.accessibility.openPanel}
+          accessibilityRole="button"
+          onPress={togglePanel}
         >
-          <Ionicons name="accessibility" size={26} color={Colors.white} />
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['#0EA5E9', '#06B6D4']}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="accessibility" size={26} color={Colors.white} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 

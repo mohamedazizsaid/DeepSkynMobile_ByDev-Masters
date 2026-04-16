@@ -1,4 +1,4 @@
-import apiClient from './api-client';
+import apiClient ,{BASE_URL} from './api-client';
 import { Platform } from 'react-native';
 
 export const authService = {
@@ -81,12 +81,11 @@ export const authService = {
         return res.data;
     },
 
-    getGoogleAuthUrl(): string {
-        // In mobile, we might use AuthSession or similar
-        return 'http://192.168.1.45:3000/auth/google';
-    },
+getGoogleAuthUrl(): string {
+    return `${BASE_URL}/auth/google`;
+},
 
-    getFacebookAuthUrl(): string {
-        return 'http://192.168.1.45:3000/auth/facebook';
-    }
+getFacebookAuthUrl(): string {
+    return `${BASE_URL}/auth/facebook`;
+}
 };

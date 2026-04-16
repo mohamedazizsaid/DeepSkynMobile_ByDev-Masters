@@ -43,6 +43,7 @@ export interface Analysis {
   healthScore: number | null;
   skinAge: number | null;
   conditions: string[];
+  preocupent?: string[];
   recommendations: {
     products: string[];
     ingredients: string[];
@@ -87,4 +88,5 @@ export interface RealTimeScanDto {
   mimeType?: 'image/jpeg' | 'image/png' | 'image/webp';
   saveImage?: boolean;
   saveAnalysis?: boolean;
+  preocupent?: string[];
 }

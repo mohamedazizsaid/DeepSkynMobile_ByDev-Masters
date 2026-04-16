@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Card, ImagePicker, AnalysisScanAnimation } from '../../components';
+import { Button, Card, ImagePicker, AnalysisScanAnimation, PreocupentSelectorModal } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
@@ -25,6 +25,7 @@ export function CameraScanScreen() {
   const [scanResult, setScanResult] = useState<GeminiAnalysisResult | null>(null);
   const [usage, setUsage] = useState<any>(null);
   const [loadingUsage, setLoadingUsage] = useState(true);
+  const [showPreocupentModal, setShowPreocupentModal] = useState(false);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load usage data on mount
@@ -58,7 +59,7 @@ export function CameraScanScreen() {
     };
   }, []);
 
-  const performScan = useCallback(async () => {
+  const performScan = useCallback(async (zones: string[] = []) => {
     const analysisLimitReached =
       !!usage &&
       !usage.isPremium &&
@@ -115,6 +116,7 @@ export function CameraScanScreen() {
         mimeType: 'image/jpeg',
         saveImage: true,
         saveAnalysis: true,
+        preocupent: zones,
       });
 
       // Clear interval and complete progress
@@ -247,7 +249,7 @@ export function CameraScanScreen() {
           {/* Action Buttons */}
           {selectedImage && !isScanning && !scanResult && (
             <View style={{ gap: Spacing.md, marginBottom: Spacing.lg }}>
-              <Button onPress={performScan} loading={isScanning}>
+              <Button onPress={() => setShowPreocupentModal(true)} loading={isScanning}>
                 Lancer le Scan
               </Button>
               <Button onPress={clearSelection} variant="outline">
@@ -394,6 +396,15 @@ export function CameraScanScreen() {
             </View>
           )}
         </ScrollView>
+        <PreocupentSelectorModal
+          visible={showPreocupentModal}
+          onClose={() => setShowPreocupentModal(false)}
+          onConfirm={(zones) => {
+            setShowPreocupentModal(false);
+            performScan(zones);
+          }}
+          loading={isScanning}
+        />
       </View>
     </SafeAreaView>
   );
