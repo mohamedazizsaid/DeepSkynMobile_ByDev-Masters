@@ -4,7 +4,7 @@ import type {
   AnalysisStats,
   AnalysisComparison,
   AnalysisListResponse,
-  RealTimeScanResult,
+  GeminiAnalysisResult,
   RealTimeScanDto,
 } from '../lib/types';
 
@@ -19,7 +19,7 @@ export const analysisService = {
     }
     const res = await apiClient.post<Analysis>('/analyses/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 120_000,
+      timeout: 300_000,
     });
     return res.data;
   },
@@ -31,9 +31,9 @@ export const analysisService = {
   },
 
   /** Process a real-time face scan (base64 image → Gemini) */
-  async scan(dto: RealTimeScanDto): Promise<RealTimeScanResult> {
-    const res = await apiClient.post<RealTimeScanResult>('/analyses/scan', dto, {
-      timeout: 120_000,
+  async scan(dto: RealTimeScanDto): Promise<GeminiAnalysisResult> {
+    const res = await apiClient.post<GeminiAnalysisResult>('/analyses/scan', dto, {
+      timeout: 300_000,
     });
     return res.data;
   },

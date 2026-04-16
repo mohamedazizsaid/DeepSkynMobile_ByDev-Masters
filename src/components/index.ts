@@ -19,7 +19,8 @@ export { FaceTagsOverlay, createFaceTagsFromAnalysis } from './ui/FaceTagsOverla
 export type { FaceTag } from './ui/FaceTagsOverlay';
 export { ProductRecommendationCard } from './ui/ProductRecommendationCard';
 export { ProductRecommendationsModal } from './ui/ProductRecommendationsModal';
-export { DigitalTwinCard } from './dashboard/DigitalTwinCard';
+export { PreocupentSelectorModal } from './ui/PreocupentSelectorModal';
+export type { PreocupentZoneKey } from './ui/PreocupentSelectorModal';
 
 // Accessibility Components
 export { AccessibilityPanel, ToggleSwitch } from './accessibility';

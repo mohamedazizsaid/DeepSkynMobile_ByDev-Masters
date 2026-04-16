@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpa
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis, ProductRecommendationsModal } from '../../components';
+import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis, ProductRecommendationsModal, PreocupentSelectorModal } from '../../components';
 import type { FaceTag } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
@@ -39,6 +39,10 @@ export function AnalysisScreen() {
 
   // Product Recommendations State
   const [showProductsModal, setShowProductsModal] = useState(false);
+
+  // Preocupent Selector State
+  const [showPreocupentModal, setShowPreocupentModal] = useState(false);
+  const [preocupentLoading, setPreocupentLoading] = useState(false);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -153,7 +157,15 @@ export function AnalysisScreen() {
     setSelectedImage(null);
   };
 
-  // Generate Predictive Routine
+  const handleStartAnalysisClick = () => {
+    if (!selectedImage?.base64) {
+      Alert.alert(t.common.error, t.analysis.uploadPhotos);
+      return;
+    }
+    setShowPreocupentModal(true);
+  };
+
+  // Predictive Routine State
   const handleGeneratePredictiveRoutine = async () => {
     if (!latestAnalysis?.results) {
       Alert.alert('Erreur', 'Aucune analyse disponible pour générer une routine.');
@@ -162,10 +174,7 @@ export function AnalysisScreen() {
 
     setGeneratingRoutine(true);
     try {
-      // Get user location
       const location = await getLocation();
-      
-      // Build analysis result for API
       const analysisResult = {
         condition: latestAnalysis.results.summary || 'Normal',
         detectedIssues: [
@@ -176,7 +185,6 @@ export function AnalysisScreen() {
         skinType: latestAnalysis.results.skinType || 'Normal',
       };
 
-      // Generate predictive routine
       const routine = await predictiveRoutineService.generate({
         analysisId: latestAnalysis.id,
         analysisResult,
@@ -186,51 +194,30 @@ export function AnalysisScreen() {
 
       setPredictiveRoutine(routine);
       setShowRoutineModal(true);
-
-      // Mark as viewed
       await predictiveRoutineService.markAsViewed(routine.id);
     } catch (error: any) {
       console.error('Error generating predictive routine:', error);
-      const isTimeout =
-        error?.code === 'ECONNABORTED' ||
-        String(error?.message || '').toLowerCase().includes('timeout');
-      Alert.alert(
-        'Erreur',
-        isTimeout
-          ? 'La generation prend plus de temps que prevu. Reessayez dans quelques secondes.'
-          : (error?.response?.data?.message || error?.message || 'Impossible de générer la routine prédictive. Veuillez réessayer.'),
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Erreur', error.message || 'Impossible de générer la routine prédictive. Veuillez réessayer.');
     } finally {
       setGeneratingRoutine(false);
     }
   };
 
-  // Accept and validate routine
   const handleAcceptRoutine = async () => {
     if (!predictiveRoutine) return;
-
     try {
       await predictiveRoutineService.validateAndActivate(predictiveRoutine.id);
-      
       setShowRoutineModal(false);
       setPredictiveRoutine(null);
-      
-      Alert.alert(
-        '✅ Routine activée !',
-        'Votre routine personnalisée a été créée. Rendez-vous dans l\'onglet Routine pour la consulter.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('✅ Routine activée !', 'Votre routine personnalisée a été créée. Rendez-vous dans l\'onglet Routine pour la consulter.');
     } catch (error: any) {
       console.error('Error validating routine:', error);
       Alert.alert('Erreur', 'Impossible de valider la routine. Veuillez réessayer.');
     }
   };
 
-  // Dismiss routine
   const handleDismissRoutine = async () => {
     if (!predictiveRoutine) return;
-
     try {
       await predictiveRoutineService.dismiss(predictiveRoutine.id);
       setShowRoutineModal(false);
@@ -240,13 +227,10 @@ export function AnalysisScreen() {
     }
   };
 
-  const performAnalysis = async () => {
+  const performAnalysis = async (zones: string[]) => {
     const analysisLimitReached = !!usage && !usage.isPremium && usage.quotas.analyses.remaining !== null && usage.quotas.analyses.remaining <= 0;
     if (analysisLimitReached) {
-      Alert.alert(
-        t.common.error,
-        `Limite mensuelle atteinte. Réinitialisation: ${formatResetDate(usage?.quotas.analyses.resetsAt)}`
-      );
+      Alert.alert(t.common.error, `Limite mensuelle atteinte. Réinitialisation: ${formatResetDate(usage?.quotas.analyses.resetsAt)}`);
       return;
     }
 
@@ -255,6 +239,7 @@ export function AnalysisScreen() {
       return;
     }
 
+    setPreocupentLoading(true);
     setUploading(true);
     try {
       const result = await analysisService.scan({
@@ -262,6 +247,7 @@ export function AnalysisScreen() {
         mimeType: 'image/jpeg',
         saveAnalysis: true,
         saveImage: true,
+        preocupent: zones,
       });
 
       if (result) {
@@ -271,12 +257,11 @@ export function AnalysisScreen() {
       }
     } catch (error: any) {
       console.error('Analysis error:', error);
-      Alert.alert(
-        t.common.error,
-        error?.response?.data?.message || t.common.error
-      );
+      Alert.alert(t.common.error, error?.response?.data?.message || t.common.error);
     } finally {
       setUploading(false);
+      setPreocupentLoading(false);
+      setShowPreocupentModal(false);
       setSelectedImage(null);
     }
   };
@@ -302,14 +287,12 @@ export function AnalysisScreen() {
     { label: 'Rougeurs', score: results.detailedAnalysis.redness?.score ?? 0, status: getStatus(results.detailedAnalysis.redness?.score, t), color: '#F97316' },
   ] : [];
 
-  // Generate face tags from analysis results for overlay display
   const faceTags: FaceTag[] = useMemo(() => {
     if (!latestAnalysis || !results?.detailedAnalysis) return [];
     
     const tags: FaceTag[] = [];
     const detailedAnalysis = results.detailedAnalysis;
     
-    // Map detailed analysis scores to face tags with zones
     const analysisToTagMap: Array<{
       key: keyof typeof detailedAnalysis;
       label: string;
@@ -327,24 +310,21 @@ export function AnalysisScreen() {
 
     analysisToTagMap.forEach((item, index) => {
       const metric = detailedAnalysis[item.key];
-      if (metric && metric.score < 70) { // Only show conditions needing attention
+      if (metric && metric.score < 70) {
         const severity = metric.score < 40 ? 'severe' : metric.score < 55 ? 'moderate' : 'mild';
-        // Pick zone based on index to spread markers
         const zone = item.zones[index % item.zones.length];
-        
         tags.push({
           id: `tag-${item.key}`,
           condition: item.condition,
           label: item.label,
           severity,
-          confidence: Math.max(60, 100 - Math.floor(metric.score / 2)), // Higher confidence for lower scores
+          confidence: Math.max(60, 100 - Math.floor(metric.score / 2)),
           zone,
           description: metric.description,
         });
       }
     });
 
-    // Also add conditions from the conditions array if available
     latestAnalysis.conditions?.forEach((condition, idx) => {
       const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
       const existingTag = tags.find(t => t.condition === conditionKey);
@@ -360,7 +340,7 @@ export function AnalysisScreen() {
       }
     });
 
-    return tags.slice(0, 6); // Limit to 6 tags maximum for cleaner display
+    return tags.slice(0, 6);
   }, [latestAnalysis, results?.detailedAnalysis]);
 
   const recommendationSource = latestAnalysis?.recommendations || results?.recommendations;
@@ -381,12 +361,11 @@ export function AnalysisScreen() {
     );
   }
 
-  // Upload mode
+  // Choose the content based on mode and analysis state
+  let content;
   if (mode === 'upload') {
-    return (
-      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
-        <LoadingOverlay visible={uploading} message={t.dashboard.analysisInProgress} />
-        <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
+    content = (
+      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={dynamicStyles.title}>{t.dashboard.newAnalysis}</Text>
             <Text style={dynamicStyles.subtitle}>{t.dashboard.scanFace}</Text>
@@ -423,7 +402,7 @@ export function AnalysisScreen() {
               {t.common.cancel}
             </Button>
             <Button
-              onPress={performAnalysis}
+              onPress={handleStartAnalysisClick}
               disabled={!selectedImage || analysisLimitReached}
               style={{ flex: 1 }}
             >
@@ -440,30 +419,23 @@ export function AnalysisScreen() {
           )}
 
           <View style={{ height: 30 }} />
-        </ScrollView>
-      </SafeAreaView>
+      </ScrollView>
     );
-  }
-
-  // Results mode (or empty state)
-  if (!latestAnalysis || !results) {
-    return (
-      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
-        <View style={dynamicStyles.container}>
-          <EmptyState
-            icon="scan-outline"
-            title={t.dashboard.noActivity}
-            description={t.dashboard.startAnalysis}
-            actionLabel={t.analysis.startAnalysis}
-            onAction={startNewAnalysis}
-          />
-        </View>
-      </SafeAreaView>
+  } else if (!latestAnalysis || (!results && latestAnalysis.status !== 'processing' && latestAnalysis.status !== 'failed')) {
+    content = (
+      <View style={dynamicStyles.container}>
+        <EmptyState
+          icon="scan-outline"
+          title={t.dashboard.noActivity}
+          description={t.dashboard.startAnalysis}
+          actionLabel={t.analysis.startAnalysis}
+          onAction={startNewAnalysis}
+        />
+      </View>
     );
-  }
-
-  return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+  } else {
+    // Results mode
+    content = (
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
@@ -492,7 +464,7 @@ export function AnalysisScreen() {
                   ? `Prochaine réinitialisation: ${formatResetDate(usage?.quotas.analyses.resetsAt)}`
                   : `Analyses utilisées: ${analysisUsed}/${analysisLimit}`}
               </Text>
-              {analysisLimit !== null && analysisLimit > 0 && (
+              {analysisLimit !== null && analysisUsed > 0 && (
                 <View style={styles.quotaProgressWrap}>
                   <ProgressBar progress={Math.round((analysisUsed / analysisLimit) * 100)} color={analysisLimitReached ? Colors.error : Colors.primary} height={8} />
                 </View>
@@ -535,325 +507,241 @@ export function AnalysisScreen() {
           </View>
         )}
 
-        {/* Overall Score */}
-        <Card variant="elevated" style={styles.scoreCard}>
-          <Text style={dynamicStyles.scoreLabel}>{t.dashboard.globalScore}</Text>
-          <View style={[styles.scoreCircle, { borderColor: colors.primary }]}>
-            <Text style={dynamicStyles.scoreNumber}>{overallScore}</Text>
-            <Text style={dynamicStyles.scoreMax}>/100</Text>
-          </View>
-          <Badge 
-            text={getOverallStatus(overallScore, t)} 
-            variant={overallScore >= 70 ? 'success' : overallScore >= 50 ? 'warning' : 'error'} 
-            size="md" 
-          />
-          <View style={styles.scoreMetaRow}>
-            <Badge text={`Analyses: ${stats?.totalAnalyses ?? analysisHistory.length}`} variant="neutral" size="sm" />
-            {previousScore !== null && (
-              <Badge
-                text={`${scoreChange >= 0 ? '+' : ''}${scoreChange} pts`}
-                variant={scoreChange >= 0 ? 'success' : 'error'}
-                size="sm"
+        {results && (
+          <>
+            {/* Overall Score */}
+            <Card variant="elevated" style={styles.scoreCard}>
+              <Text style={dynamicStyles.scoreLabel}>{t.dashboard.globalScore}</Text>
+              <View style={[styles.scoreCircle, { borderColor: colors.primary }]}>
+                <Text style={dynamicStyles.scoreNumber}>{overallScore}</Text>
+                <Text style={dynamicStyles.scoreMax}>/100</Text>
+              </View>
+              <Badge 
+                text={getOverallStatus(overallScore, t)} 
+                variant={overallScore >= 70 ? 'success' : overallScore >= 50 ? 'warning' : 'error'} 
+                size="md" 
               />
-            )}
-          </View>
-          {results.skinType && (
-            <Text style={dynamicStyles.skinType}>Type de peau : {results.skinType}</Text>
-          )}
-          {latestAnalysis.skinAge && (
-            <Text style={dynamicStyles.skinType}>Âge estimé de la peau : {latestAnalysis.skinAge} ans</Text>
-          )}
-        </Card>
-
-        {/* Face Analysis Image with Tags */}
-        {latestAnalysis.images && latestAnalysis.images.length > 0 && faceTags.length > 0 && (
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Zones analysées</Text>
-            <FaceTagsOverlay
-              imageUri={latestAnalysis.images[0]}
-              tags={faceTags}
-              imageWidth={Dimensions.get('window').width - Spacing.lg * 2}
-              imageHeight={(Dimensions.get('window').width - Spacing.lg * 2) * 1.2}
-              showConnectors={true}
-              animateOnMount={true}
-            />
-          </View>
-        )}
-
-        {/* Detailed Breakdown */}
-        {categories.length > 0 && (
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>{t.dashboard.seeDetails}</Text>
-            {categories.map((cat, index) => (
-              <Card key={index} style={styles.categoryCard}>
-                <View style={styles.categoryHeader}>
-                  <View style={styles.categoryLeft}>
-                    <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
-                    <Text style={dynamicStyles.categoryLabel}>{cat.label}</Text>
-                  </View>
-                  <View style={styles.categoryRight}>
-                    <Text style={[dynamicStyles.categoryScore, { color: cat.color }]}>{cat.score}%</Text>
-                    <Badge text={cat.status} variant={cat.score >= 80 ? 'success' : cat.score >= 60 ? 'warning' : 'error'} />
-                  </View>
-                </View>
-                <ProgressBar progress={cat.score} color={cat.color} height={6} />
-              </Card>
-            ))}
-          </View>
-        )}
-
-        {/* Analysis History */}
-        {historyChartData.length > 1 && (
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
-            <Text style={dynamicStyles.sectionSubtitle}>Évolution des 7 dernières analyses complétées</Text>
-            <Card style={styles.historyCard}>
-              <View style={styles.barChart}>
-                {historyChartData.map((point) => (
-                  <View key={point.id} style={styles.barColumn}>
-                    <View style={styles.barWrapper}>
-                      <LinearGradient
-                        colors={Gradients.primary}
-                        style={[styles.bar, { height: `${Math.max(8, (point.score / maxHistoryScore) * 100)}%` }]}
-                      />
-                    </View>
-                    <Text style={styles.barValue}>{Math.round(point.score)}</Text>
-                  </View>
-                ))}
-              </View>
-            </Card>
-
-            {analysisHistory.slice(0, 5).map((item, index) => {
-              const prev = analysisHistory[index + 1];
-              const change = prev ? item.score - prev.score : 0;
-              return (
-                <Card key={item.id} style={styles.timelineCard}>
-                  <View style={styles.timelineRow}>
-                    <View style={styles.timelineLeft}>
-                      <Text style={dynamicStyles.timelineDate}>{formatDate(item.date)}</Text>
-                      <Text style={dynamicStyles.timelineMeta}>{item.skinType || 'Type non disponible'}</Text>
-                    </View>
-                    <View style={styles.timelineRight}>
-                      <Text style={styles.timelineScore}>{item.score}%</Text>
-                      {prev && (
-                        <Badge text={`${change >= 0 ? '+' : ''}${change}`} variant={change >= 0 ? 'success' : 'error'} size="sm" />
-                      )}
-                    </View>
-                  </View>
-                </Card>
-              );
-            })}
-          </View>
-        )}
-
-        {/* AI Insights */}
-        {(lifestyleInsights.length > 0 || adviceLoading || advice || results?.summary) && (
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>{t.dashboard.personalizedAdvice}</Text>
-            <Card style={styles.insightsCard}>
-              <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
-                <Ionicons name="sparkles" size={24} color={Colors.white} />
-              </LinearGradient>
-              {adviceLoading ? (
-                <Text style={dynamicStyles.insightText}>Génération des conseils IA...</Text>
-              ) : advice ? (
-                <Text style={dynamicStyles.insightText}>{advice}</Text>
-              ) : results?.summary ? (
-                <Text style={dynamicStyles.insightText}>{results.summary}</Text>
-              ) : null}
-
-              {lifestyleInsights.map((insight, index) => (
-                <View key={index} style={styles.insightRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                  <Text style={dynamicStyles.insightText}>{insight}</Text>
-                </View>
-              ))}
-            </Card>
-          </View>
-        )}
-
-        {/* Recommendations */}
-        {recommendationSource && (
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Recommandations personnalisées</Text>
-            <View style={styles.recommendationGrid}>
-              <Card style={styles.recommendationCard}>
-                <Text style={dynamicStyles.recommendationTitle}>Produits</Text>
-                {recommendationSource.products?.slice(0, 4).map((item, index) => (
-                  <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
-                ))}
-              </Card>
-
-              <Card style={styles.recommendationCard}>
-                <Text style={dynamicStyles.recommendationTitle}>Ingrédients</Text>
-                {recommendationSource.ingredients?.slice(0, 4).map((item, index) => (
-                  <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
-                ))}
-              </Card>
-
-              <Card style={styles.recommendationCard}>
-                <Text style={dynamicStyles.recommendationTitle}>Habitudes de vie</Text>
-                {recommendationSource.lifestyle?.slice(0, 4).map((item, index) => (
-                  <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
-                ))}
-              </Card>
-            </View>
-
-            {!!recommendationSource.warnings?.length && (
-              <Card style={styles.warningCard}>
-                <Text style={dynamicStyles.warningTitle}>Points de vigilance</Text>
-                {recommendationSource.warnings.slice(0, 4).map((warning, index) => (
-                  <Text key={index} style={dynamicStyles.warningItem}>• {warning}</Text>
-                ))}
-              </Card>
-            )}
-          </View>
-        )}
-
-        {/* Conditions detected */}
-        {latestAnalysis.conditions && latestAnalysis.conditions.length > 0 && (
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>{t.dashboard.detectedConditions}</Text>
-            <Card>
-              <View style={styles.conditionsRow}>
-                {latestAnalysis.conditions.map((condition, index) => (
-                  <Badge key={index} text={condition} variant="warning" />
-                ))}
-              </View>
-            </Card>
-          </View>
-        )}
-
-        {/* 🆕 Predictive Routine CTA */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            onPress={handleGeneratePredictiveRoutine}
-            disabled={generatingRoutine}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={[Colors.primary, Colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: BorderRadius.xl,
-                padding: Spacing.lg,
-                ...Shadows.md,
-              }}
-            >
-              <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const }}>
-                <View
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    justifyContent: 'center' as const,
-                    alignItems: 'center' as const,
-                    marginRight: Spacing.md,
-                  }}
-                >
-                  {generatingRoutine ? (
-                    <ActivityIndicator size="small" color={Colors.white} />
-                  ) : (
-                    <Ionicons name="sparkles" size={28} color={Colors.white} />
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: Colors.white,
-                      fontSize: fontSizes.lg,
-                      fontWeight: FontWeights.bold,
-                    }}
-                  >
-                    {generatingRoutine ? 'Génération en cours...' : 'Générer ma routine IA'}
-                  </Text>
-                  <Text
-                    style={{
-                      color: 'rgba(255,255,255,0.85)',
-                      fontSize: fontSizes.sm,
-                      marginTop: 4,
-                    }}
-                  >
-                    Programme personnalisé 7 jours basé sur votre analyse
-                  </Text>
-                </View>
-                {!generatingRoutine && (
-                  <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+              <View style={styles.scoreMetaRow}>
+                <Badge text={`Analyses: ${stats?.totalAnalyses ?? analysisHistory.length}`} variant="neutral" size="sm" />
+                {previousScore !== null && (
+                  <Badge
+                    text={`${scoreChange >= 0 ? '+' : ''}${scoreChange} pts`}
+                    variant={scoreChange >= 0 ? 'success' : 'error'}
+                    size="sm"
+                  />
                 )}
               </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              {results.skinType && (
+                <Text style={dynamicStyles.skinType}>Type de peau : {results.skinType}</Text>
+              )}
+              {latestAnalysis.skinAge && (
+                <Text style={dynamicStyles.skinType}>Âge estimé de la peau : {latestAnalysis.skinAge} ans</Text>
+              )}
+            </Card>
 
-        {/* 🆕 Predicted Products CTA */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            onPress={() => setShowProductsModal(true)}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={['#EC4899', '#8B5CF6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: BorderRadius.xl,
-                padding: Spacing.lg,
-                ...Shadows.md,
-              }}
-            >
-              <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const }}>
-                <View
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    justifyContent: 'center' as const,
-                    alignItems: 'center' as const,
-                    marginRight: Spacing.md,
-                  }}
-                >
-                  <Ionicons name="bag-outline" size={28} color={Colors.white} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: Colors.white,
-                      fontSize: fontSizes.lg,
-                      fontWeight: FontWeights.bold,
-                    }}
-                  >
-                    Produits Recommandés IA
-                  </Text>
-                  <Text
-                    style={{
-                      color: 'rgba(255,255,255,0.85)',
-                      fontSize: fontSizes.sm,
-                      marginTop: 4,
-                    }}
-                  >
-                    Découvrez les produits adaptés à votre peau
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+            {/* Face Analysis Image with Tags */}
+            {latestAnalysis.images && latestAnalysis.images.length > 0 && faceTags.length > 0 && (
+              <View style={styles.section}>
+                <Text style={dynamicStyles.sectionTitle}>Zones analysées</Text>
+                <FaceTagsOverlay
+                  imageUri={latestAnalysis.images[0]}
+                  tags={faceTags}
+                  imageWidth={Dimensions.get('window').width - Spacing.lg * 2}
+                  imageHeight={(Dimensions.get('window').width - Spacing.lg * 2) * 1.2}
+                  showConnectors={true}
+                  animateOnMount={true}
+                />
               </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+            )}
 
-        {/* New Analysis Button */}
-        <View style={styles.section}>
-          <Button onPress={startNewAnalysis} fullWidth size="lg">
-            {t.dashboard.newAnalysis}
-          </Button>
-        </View>
+            {/* Detailed Breakdown */}
+            {categories.length > 0 && (
+              <View style={styles.section}>
+                <Text style={dynamicStyles.sectionTitle}>{t.dashboard.seeDetails}</Text>
+                {categories.map((cat, index) => (
+                  <Card key={index} style={styles.categoryCard}>
+                    <View style={styles.categoryHeader}>
+                      <View style={styles.categoryLeft}>
+                        <View style={[styles.categoryDot, { backgroundColor: cat.color }]} />
+                        <Text style={dynamicStyles.categoryLabel}>{cat.label}</Text>
+                      </View>
+                      <View style={styles.categoryRight}>
+                        <Text style={[dynamicStyles.categoryScore, { color: cat.color }]}>{cat.score}%</Text>
+                        <Badge text={cat.status} variant={cat.score >= 80 ? 'success' : cat.score >= 60 ? 'warning' : 'error'} />
+                      </View>
+                    </View>
+                    <ProgressBar progress={cat.score} color={cat.color} height={6} />
+                  </Card>
+                ))}
+              </View>
+            )}
 
-        <View style={{ height: 30 }} />
+            {/* History Chart */}
+            {historyChartData.length > 1 && (
+              <View style={styles.section}>
+                <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
+                <Text style={dynamicStyles.sectionSubtitle}>Évolution des 7 dernières analyses complétées</Text>
+                <Card style={styles.historyCard}>
+                  <View style={styles.barChart}>
+                    {historyChartData.map((point) => (
+                      <View key={point.id} style={styles.barColumn}>
+                        <View style={styles.barWrapper}>
+                          <LinearGradient
+                            colors={Gradients.primary}
+                            style={[styles.bar, { height: `${Math.max(8, (point.score / maxHistoryScore) * 100)}%` }]}
+                          />
+                        </View>
+                        <Text style={styles.barValue}>{Math.round(point.score)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </Card>
+              </View>
+            )}
+
+            {/* AI Insights */}
+            {(lifestyleInsights.length > 0 || adviceLoading || advice || results?.summary) && (
+              <View style={styles.section}>
+                <Text style={dynamicStyles.sectionTitle}>{t.dashboard.personalizedAdvice}</Text>
+                <Card style={styles.insightsCard}>
+                  <LinearGradient colors={Gradients.primary} style={styles.insightsIcon}>
+                    <Ionicons name="sparkles" size={24} color={Colors.white} />
+                  </LinearGradient>
+                  {adviceLoading ? (
+                    <Text style={dynamicStyles.insightText}>Génération des conseils IA...</Text>
+                  ) : advice ? (
+                    <Text style={dynamicStyles.insightText}>{advice}</Text>
+                  ) : results?.summary ? (
+                    <Text style={dynamicStyles.insightText}>{results.summary}</Text>
+                  ) : null}
+
+                  {lifestyleInsights.map((insight, index) => (
+                    <View key={index} style={styles.insightRow}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                      <Text style={dynamicStyles.insightText}>{insight}</Text>
+                    </View>
+                  ))}
+                </Card>
+              </View>
+            )}
+
+            {/* Recommendations */}
+            {recommendationSource && (
+              <View style={styles.section}>
+                <Text style={dynamicStyles.sectionTitle}>Recommandations personnalisées</Text>
+                <View style={styles.recommendationGrid}>
+                  <Card style={styles.recommendationCard}>
+                    <Text style={dynamicStyles.recommendationTitle}>Produits</Text>
+                    {recommendationSource.products?.slice(0, 4).map((item, index) => (
+                      <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
+                    ))}
+                  </Card>
+                  <Card style={styles.recommendationCard}>
+                    <Text style={dynamicStyles.recommendationTitle}>Ingrédients</Text>
+                    {recommendationSource.ingredients?.slice(0, 4).map((item, index) => (
+                      <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
+                    ))}
+                  </Card>
+                </View>
+                {recommendationSource.lifestyle && recommendationSource.lifestyle.length > 0 && (
+                  <Card style={styles.recommendationCard}>
+                    <Text style={dynamicStyles.recommendationTitle}>Habitudes de vie</Text>
+                    {recommendationSource.lifestyle.slice(0, 4).map((item, index) => (
+                      <Text key={index} style={dynamicStyles.recommendationItem}>• {item}</Text>
+                    ))}
+                  </Card>
+                )}
+                {!!recommendationSource.warnings?.length && (
+                  <Card style={styles.warningCard}>
+                    <Text style={dynamicStyles.warningTitle}>Points de vigilance</Text>
+                    {recommendationSource.warnings.slice(0, 4).map((warning, index) => (
+                      <Text key={index} style={dynamicStyles.warningItem}>• {warning}</Text>
+                    ))}
+                  </Card>
+                )}
+              </View>
+            )}
+
+            {/* Conditions detected */}
+            {latestAnalysis.conditions && latestAnalysis.conditions.length > 0 && (
+              <View style={styles.section}>
+                <Text style={dynamicStyles.sectionTitle}>{t.dashboard.detectedConditions}</Text>
+                <Card>
+                  <View style={styles.conditionsRow}>
+                    {latestAnalysis.conditions.map((condition, index) => (
+                      <Badge key={index} text={condition} variant="warning" />
+                    ))}
+                  </View>
+                </Card>
+              </View>
+            )}
+
+            {/* CTA Buttons */}
+            <View style={styles.section}>
+              <TouchableOpacity
+                onPress={handleGeneratePredictiveRoutine}
+                disabled={generatingRoutine}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={[Colors.primary, Colors.primaryDark]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: BorderRadius.xl, padding: Spacing.lg, ...Shadows.md }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md }}>
+                      {generatingRoutine ? <ActivityIndicator size="small" color={Colors.white} /> : <Ionicons name="sparkles" size={28} color={Colors.white} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: Colors.white, fontSize: fontSizes.lg, fontWeight: FontWeights.bold }}>{generatingRoutine ? 'Génération en cours...' : 'Générer ma routine IA'}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: fontSizes.sm, marginTop: 4 }}>Programme personnalisé 7 jours basé sur votre analyse</Text>
+                    </View>
+                    {!generatingRoutine && <Ionicons name="chevron-forward" size={24} color={Colors.white} />}
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <TouchableOpacity onPress={() => setShowProductsModal(true)} activeOpacity={0.9}>
+                <LinearGradient
+                  colors={['#EC4899', '#8B5CF6']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: BorderRadius.xl, padding: Spacing.lg, ...Shadows.md }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md }}>
+                      <Ionicons name="bag-outline" size={28} color={Colors.white} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: Colors.white, fontSize: fontSizes.lg, fontWeight: FontWeights.bold }}>Produits Recommandés IA</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: fontSizes.sm, marginTop: 4 }}>Découvrez les produits adaptés à votre peau</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <Button onPress={startNewAnalysis} fullWidth size="lg">
+                {t.dashboard.newAnalysis}
+              </Button>
+            </View>
+
+            <View style={{ height: 30 }} />
+          </>
+        )}
       </ScrollView>
+    );
+  }
 
-      {/* 🆕 Predictive Routine Modal */}
+  return (
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+      <LoadingOverlay visible={uploading && mode === 'results'} message={t.dashboard.analysisInProgress} />
+      
+      {content}
+
       <PredictiveRoutineModal
         visible={showRoutineModal}
         routine={predictiveRoutine}
@@ -863,14 +751,20 @@ export function AnalysisScreen() {
         onClose={() => setShowRoutineModal(false)}
       />
 
-      {/* 🆕 Product Recommendations Modal */}
       <ProductRecommendationsModal
         visible={showProductsModal}
         onClose={() => setShowProductsModal(false)}
         skinType={results?.skinType || 'normale'}
         concerns={results?.concerns || []}
-        conditions={latestAnalysis.conditions || []}
-        analysisId={latestAnalysis.id}
+        conditions={latestAnalysis?.conditions || []}
+        analysisId={latestAnalysis?.id}
+      />
+
+      <PreocupentSelectorModal
+        visible={showPreocupentModal}
+        onClose={() => setShowPreocupentModal(false)}
+        onConfirm={performAnalysis}
+        loading={preocupentLoading}
       />
     </SafeAreaView>
   );
@@ -937,7 +831,6 @@ const styles = StyleSheet.create({
   recommendationGrid: { gap: Spacing.md },
   recommendationCard: { padding: Spacing.base },
   warningCard: { marginTop: Spacing.md, padding: Spacing.base, borderWidth: 1, borderColor: Colors.errorAlpha10 },
-  // Upload mode styles
   uploadSection: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   tipsCard: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
