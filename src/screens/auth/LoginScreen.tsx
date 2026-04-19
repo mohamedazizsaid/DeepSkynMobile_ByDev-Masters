@@ -77,9 +77,9 @@ export function LoginScreen({ navigation }: any) {
     }
   };
 
-  const handleFaceIDSuccess = async () => {
+  const handleFaceIDSuccess = async (imageBase64: string) => {
     try {
-      const success = await faceLogin(email);
+      const success = await faceLogin(email, imageBase64);
       if (success) {
         setShowFaceID(false);
       } else {

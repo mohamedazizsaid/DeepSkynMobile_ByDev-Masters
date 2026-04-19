@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import { Card, Badge, Button, ProgressBar, WeatherWidget, LoadingSpinner } from '../../components';
+import { Card, Badge, Button, ProgressBar, WeatherWidget, LoadingSpinner, DigitalTwinCard } from '../../components';
 import { GuidedTour } from '../../components/tour/GuidedTour';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAuthStore } from '../../stores/auth.store';
@@ -570,6 +570,11 @@ export function DashboardScreen({ navigation }: any) {
           ))}
         </View>
       )}
+
+      <View style={styles.section}>
+        <Text style={dynamicStyles.sectionTitle}>Digital Twin</Text>
+        <DigitalTwinCard />
+      </View>
 
       {/* Quick Actions */}
       <View style={styles.section}>

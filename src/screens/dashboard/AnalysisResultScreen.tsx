@@ -83,9 +83,14 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
       await predictiveRoutineService.markAsViewed(routine.id);
     } catch (error: any) {
       console.error('Error generating predictive routine:', error);
+      const isTimeout =
+        error?.code === 'ECONNABORTED' ||
+        String(error?.message || '').toLowerCase().includes('timeout');
       Alert.alert(
         'Erreur',
-        error.message || 'Impossible de générer la routine prédictive. Veuillez réessayer.',
+        isTimeout
+          ? 'La generation prend plus de temps que prevu. Reessayez dans quelques secondes.'
+          : (error?.response?.data?.message || error?.message || 'Impossible de générer la routine prédictive. Veuillez réessayer.'),
         [{ text: 'OK' }]
       );
     } finally {
