@@ -30,9 +30,47 @@ interface ITunesTrack {
   previewUrl?: string;
 }
 
+interface DeezerTrack {
+  id: number;
+  title: string;
+  preview?: string;
+  artist?: {
+    name?: string;
+  };
+}
+
 export const postsService = {
+  async searchDeezerMusicCatalog(query?: string): Promise<FreeMusicDto[]> {
+    try {
+      const term = encodeURIComponent((query || 'popular').trim());
+      const endpoint = `https://api.deezer.com/search?q=${term}&limit=30`;
+      const res = await fetch(endpoint);
+      if (!res.ok) return [];
+
+      const payload = await res.json();
+      const tracks: DeezerTrack[] = Array.isArray(payload?.data) ? payload.data : [];
+
+      return tracks
+        .filter((t) => !!t.preview)
+        .map((t) => ({
+          id: `deezer-${t.id}`,
+          title: t.title,
+          artist: t.artist?.name,
+          url: t.preview as string,
+          source: 'deezer-preview',
+        }));
+    } catch {
+      return [];
+    }
+  },
+
   async searchPublicMusicCatalog(query?: string): Promise<FreeMusicDto[]> {
     try {
+      const deezerTracks = await this.searchDeezerMusicCatalog(query);
+      if (deezerTracks.length > 0) {
+        return deezerTracks;
+      }
+
       const term = encodeURIComponent((query || 'popular hits').trim());
       const endpoint = `https://itunes.apple.com/search?term=${term}&entity=song&limit=25`;
       const res = await fetch(endpoint);
@@ -153,6 +191,11 @@ export const postsService = {
 
   async getFreeMusicForStories(query?: string): Promise<FreeMusicDto[]> {
     try {
+      const publicCatalog = await this.searchPublicMusicCatalog(query || 'trending songs');
+      if (publicCatalog.length > 0) {
+        return publicCatalog;
+      }
+
       if (!query) {
         const res = await apiClient.get<FreeMusicDto[]>('/stories/music/free');
         const backend = Array.isArray(res.data) ? res.data : [];

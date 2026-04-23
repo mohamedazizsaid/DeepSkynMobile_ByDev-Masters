@@ -23,6 +23,7 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { authService } from '../../services/auth.service';
 import { usersService } from '../../services/users.service';
+import { useFaceReferenceGate } from '../../lib/hooks/useFaceReferenceGate';
 
 type SettingsView =
   | 'main'
@@ -40,6 +41,7 @@ export function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuthStore();
   const { colors, fontSizes, settings } = useAccessibilityStyles();
   const { t, language, setLanguage, isRTL } = useTranslation();
+  const { faceReferenceStatus, loadingFaceReferenceStatus, refreshFaceReferenceStatus } = useFaceReferenceGate();
   const { 
     theme,
     reduceMotion, 
@@ -63,6 +65,8 @@ export function SettingsScreen({ navigation }: any) {
     app_community: true,
   });
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [isPublicProfile, setIsPublicProfile] = useState(Boolean(user?.settings?.isPublic ?? user?.settings?.publicProfile));
+  const [savingPublicProfile, setSavingPublicProfile] = useState(false);
 
   const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
   const [loadingTwoFactor, setLoadingTwoFactor] = useState(false);
@@ -116,6 +120,13 @@ export function SettingsScreen({ navigation }: any) {
       backgroundColor: Colors.primaryAlpha10,
     },
     footerText: { fontSize: fontSizes.xs, color: colors.textTertiary },
+    faceStatusBadge: {
+      alignSelf: 'flex-start' as const,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 6,
+      borderRadius: BorderRadius.full,
+      marginTop: Spacing.sm,
+    },
   }), [colors, fontSizes, isRTL]);
 
   useEffect(() => {
@@ -126,6 +137,10 @@ export function SettingsScreen({ navigation }: any) {
   }, [user]);
 
   useEffect(() => {
+    setIsPublicProfile(Boolean(user?.settings?.isPublic ?? user?.settings?.publicProfile));
+  }, [user?.settings?.isPublic, user?.settings?.publicProfile]);
+
+  useEffect(() => {
     if (currentView === '2fa') {
       loadTwoFactorStatus();
     }
@@ -134,6 +149,7 @@ export function SettingsScreen({ navigation }: any) {
   const userName = user?.name || t.common.user;
   const userEmail = user?.email || 'email@example.com';
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const userAvatar = user?.avatar || user?.avatar3D || null;
 
   const highContrast = contrastMode === 'high';
   const setHighContrast = (value: boolean) => setContrastMode(value ? 'high' : 'off');
@@ -225,6 +241,26 @@ export function SettingsScreen({ navigation }: any) {
       setSavingNotifications(false);
     }
   }, [notifications, user, t]);
+
+  const handleTogglePublicProfile = useCallback(async (nextValue: boolean) => {
+    setIsPublicProfile(nextValue);
+    setSavingPublicProfile(true);
+
+    try {
+      await usersService.updateMe({
+        settings: {
+          ...(user?.settings || {}),
+          isPublic: nextValue,
+          publicProfile: nextValue,
+        },
+      });
+    } catch {
+      setIsPublicProfile(!nextValue);
+      Alert.alert(t.common.error, t.settings.personal.updateError);
+    } finally {
+      setSavingPublicProfile(false);
+    }
+  }, [user, t]);
 
   const openUrl = useCallback(async (url: string) => {
     try {
@@ -340,9 +376,13 @@ export function SettingsScreen({ navigation }: any) {
       >
         <Card variant="elevated" style={dynamicStyles.userCard}>
           <View style={[styles.userRow, isRTL && styles.userRowRtl]}>
-            <LinearGradient colors={Gradients.primary} style={styles.userAvatar}>
-              <Text style={styles.userAvatarText}>{userInitials}</Text>
-            </LinearGradient>
+            {userAvatar ? (
+              <Image source={{ uri: userAvatar }} style={styles.userAvatarImage} />
+            ) : (
+              <LinearGradient colors={Gradients.primary} style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>{userInitials}</Text>
+              </LinearGradient>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={[dynamicStyles.userName, isRTL && { textAlign: 'right' }]}>{userName}</Text>
               <Text style={[dynamicStyles.userEmail, isRTL && { textAlign: 'right' }]}>{userEmail}</Text>
@@ -351,6 +391,31 @@ export function SettingsScreen({ navigation }: any) {
           </View>
         </Card>
       </TouchableOpacity>
+
+      <View style={styles.section}>
+        <Text style={[dynamicStyles.sectionTitle, isRTL && { textAlign: 'right' }]}>{t.settings.personal.privacy}</Text>
+        <Card variant="elevated" style={dynamicStyles.menuCard}>
+          <View style={[styles.settingRow, styles.settingRowNoBorder, isRTL && styles.settingRowRtl]}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl]}>
+              <View style={[styles.publicBadge, isPublicProfile ? styles.publicBadgeOn : styles.publicBadgeOff]}>
+                <Ionicons name={isPublicProfile ? 'people' : 'lock-closed'} size={16} color={isPublicProfile ? colors.primary : colors.textSecondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[dynamicStyles.settingLabel, isRTL && { textAlign: 'right' }]}>{t.settings.personal.isPublic}</Text>
+                <Text style={[dynamicStyles.description, isRTL && { textAlign: 'right' }]}>{t.settings.personal.isPublicDesc}</Text>
+              </View>
+            </View>
+            <View style={styles.publicSwitchContainer}>
+              <Switch
+                value={isPublicProfile}
+                onValueChange={(value) => void handleTogglePublicProfile(value)}
+                disabled={savingPublicProfile}
+              />
+              {savingPublicProfile ? <Text style={dynamicStyles.footerText}>{t.common.loading}</Text> : null}
+            </View>
+          </View>
+        </Card>
+      </View>
 
       {sectionMenu.map((section) => (
         <View key={section.title} style={styles.section}>
@@ -429,6 +494,79 @@ export function SettingsScreen({ navigation }: any) {
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textTertiary} />
           </TouchableOpacity>
+        </Card>
+      </View>
+
+      <View style={styles.section}>
+        <Card style={dynamicStyles.settingsCard}>
+          <View style={{ padding: Spacing.base }}>
+            <View style={[styles.settingLeft, isRTL && styles.settingLeftRtl, { marginBottom: Spacing.xs }]}> 
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textSecondary} />
+              <Text style={dynamicStyles.settingLabel}>Référence faciale</Text>
+            </View>
+            <Text style={dynamicStyles.description}>
+              L’analyse reste bloquée tant que la référence faciale du propriétaire n’est pas activée.
+            </Text>
+
+            {loadingFaceReferenceStatus ? (
+              <View style={{ marginTop: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={dynamicStyles.description}>Vérification du statut...</Text>
+              </View>
+            ) : (
+              <View
+                style={[
+                  dynamicStyles.faceStatusBadge,
+                  {
+                    backgroundColor: faceReferenceStatus?.hasFaceReference ? `${colors.success}18` : `${colors.warning}18`,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: fontSizes.xs,
+                    fontWeight: FontWeights.bold,
+                    color: faceReferenceStatus?.hasFaceReference ? colors.success : colors.warning,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {faceReferenceStatus?.hasFaceReference ? 'Activée' : 'Inactive'}
+                </Text>
+              </View>
+            )}
+
+            <Text style={[dynamicStyles.description, { marginTop: Spacing.sm }]}>
+              {faceReferenceStatus?.hasFaceReference
+                ? 'Votre compte est prêt pour les analyses sécurisées.'
+                : 'Activez-la depuis votre profil, puis revenez ici pour rafraîchir le statut.'}
+            </Text>
+
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: Spacing.sm, marginTop: Spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant="outline"
+                  onPress={async () => {
+                    try {
+                      await authService.syncFaceReference();
+                    } catch {
+                      // If sync fails (no profile photo or no detectable face), keep status refresh to show latest state.
+                    } finally {
+                      await refreshFaceReferenceStatus();
+                    }
+                  }}
+                >
+                  Actualiser
+                </Button>
+              </View>
+              {!faceReferenceStatus?.hasFaceReference ? (
+                <View style={{ flex: 1 }}>
+                  <Button onPress={() => navigation?.navigate?.('Profile')}>
+                    Ouvrir le profil
+                  </Button>
+                </View>
+              ) : null}
+            </View>
+          </View>
         </Card>
       </View>
     </>
@@ -825,10 +963,15 @@ export function SettingsScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>{currentView === 'main' ? t.settings.title : t.settings.managePreferences}</Text>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="settings-outline" size={20} color={colors.primary} />
+            </View>
+            <Text style={dynamicStyles.title}>{currentView === 'main' ? t.settings.title : t.settings.managePreferences}</Text>
+          </View>
           {currentView === 'main' ? (
             <Text style={dynamicStyles.subtitle}>{t.settings.managePreferences}</Text>
           ) : null}
@@ -849,12 +992,27 @@ export function SettingsScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha10,
+  },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   userRowRtl: { flexDirection: 'row-reverse' },
   userAvatar: {
     width: 52, height: 52, borderRadius: 26,
     alignItems: 'center', justifyContent: 'center',
   },
+    userAvatarImage: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: Colors.gray100,
+    },
   userAvatarText: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.white },
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
@@ -863,9 +1021,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.base, paddingVertical: Spacing.md,
   },
+  settingRowNoBorder: { borderBottomWidth: 0 },
   settingRowRtl: { flexDirection: 'row-reverse' },
-  settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1, minWidth: 0 },
   settingLeftRtl: { flexDirection: 'row-reverse' },
+  publicBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  publicBadgeOn: { backgroundColor: Colors.primaryAlpha10 },
+  publicBadgeOff: { backgroundColor: Colors.gray100 },
+  publicSwitchContainer: { alignItems: 'flex-end', marginLeft: Spacing.sm, minWidth: 56 },
   languageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   languageRowRtl: { flexDirection: 'row-reverse' },
   qrCode: {

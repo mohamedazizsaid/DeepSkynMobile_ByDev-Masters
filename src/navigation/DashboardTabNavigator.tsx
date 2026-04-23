@@ -42,6 +42,8 @@ export type HomeStackParamList = {
 export type AnalysisStackParamList = {
   AnalysisHub: undefined;
   CameraScan: undefined;
+  MultiPhotoScan: undefined;
+  MultiPhotoCamera: undefined;
   AnalysisResult: { analysisId?: string };
   AnalysisHistory: undefined;
   ProductScan: undefined;
@@ -66,6 +68,9 @@ function HomeStackNavigator() {
 }
 
 function AnalysisStackNavigator() {
+  const { MultiPhotoScanScreen } = require('../screens/dashboard/MultiPhotoScanScreen');
+  const { MultiPhotoCameraScreen } = require('../screens/dashboard/MultiPhotoCameraScreen');
+
   // Import ProductScan screens
   const { ProductScanScreen } = require('../screens/dashboard/ProductScanScreen');
   const { ProductAnalysisScreen } = require('../screens/dashboard/ProductAnalysisScreen');
@@ -74,6 +79,8 @@ function AnalysisStackNavigator() {
     <AnalysisStack.Navigator screenOptions={{ headerShown: false }}>
       <AnalysisStack.Screen name="AnalysisHub" component={AnalysisScreen} />
       <AnalysisStack.Screen name="CameraScan" component={CameraScanScreen} />
+      <AnalysisStack.Screen name="MultiPhotoScan" component={MultiPhotoScanScreen} />
+      <AnalysisStack.Screen name="MultiPhotoCamera" component={MultiPhotoCameraScreen} />
       <AnalysisStack.Screen name="AnalysisResult" component={AnalysisResultScreen} />
       <AnalysisStack.Screen name="AnalysisHistory" component={AnalysisHistoryScreen} />
       <AnalysisStack.Screen name="ProductScan" component={ProductScanScreen} />
@@ -124,9 +131,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: Colors.gray200,
-    paddingTop: Spacing.xs,
+    paddingTop: 0,
     paddingBottom: Spacing.sm,
-    height: 64,
+    height: 60,
   },
   tabLabel: {
     fontSize: FontSizes.xs,

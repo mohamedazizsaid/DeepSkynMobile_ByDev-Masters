@@ -74,7 +74,7 @@ function StoryBar({ t, stories, onStoryPress }: { t: any; stories: any[]; onStor
   );
 }
 
-function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, sentiment, onSentimentChange, location, onLocationChange, userAvatar, resetToken }: { 
+function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, sentiment, onSentimentChange, location, onLocationChange, userAvatar, resetToken, mentionCandidates = [] }: { 
   text: string; 
   setText: (t: string) => void; 
   onPublish: () => void;
@@ -87,10 +87,12 @@ function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, 
   onLocationChange?: (location: string) => void;
   userAvatar?: string | null;
   resetToken?: number;
+  mentionCandidates?: Array<{ id: string; name?: string; username?: string; avatar?: string }>;
 }) {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [showSentiments, setShowSentiments] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
+  const [cursorPos, setCursorPos] = useState(0);
 
   useEffect(() => {
     setSelectedMedia(null);
@@ -103,6 +105,42 @@ function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, 
     { emoji: '🤔', label: 'Curieuse' },
     { emoji: '😴', label: 'Fatiguee' },
   ];
+
+  const mentionContext = useMemo(() => {
+    const safeCursor = Math.max(0, Math.min(cursorPos, text.length));
+    const beforeCursor = text.slice(0, safeCursor);
+    const match = beforeCursor.match(/(?:^|\s)@([^\s@]*)$/);
+    if (!match) return null;
+    return {
+      query: (match[1] || '').toLowerCase(),
+      atIndex: beforeCursor.lastIndexOf('@'),
+      cursor: safeCursor,
+    };
+  }, [text, cursorPos]);
+
+  const mentionResults = useMemo(() => {
+    if (!mentionContext) return [];
+    return mentionCandidates
+      .map((candidate) => {
+        const rawName = (candidate.name || candidate.username || '').trim();
+        return {
+          id: candidate.id,
+          name: rawName,
+          avatar: candidate.avatar,
+          token: rawName.replace(/\s+/g, '_'),
+        };
+      })
+      .filter((candidate) => !!candidate.name)
+      .filter((candidate) => candidate.name.toLowerCase().includes(mentionContext.query))
+      .slice(0, 6);
+  }, [mentionContext, mentionCandidates]);
+
+  const applyMention = useCallback((candidate: { token: string }) => {
+    if (!mentionContext) return;
+    const nextValue = `${text.slice(0, mentionContext.atIndex)}@${candidate.token} ${text.slice(mentionContext.cursor)}`;
+    setText(nextValue);
+    setCursorPos(mentionContext.atIndex + candidate.token.length + 2);
+  }, [mentionContext, setText, text]);
 
   const fillCurrentLocation = async () => {
     try {
@@ -169,10 +207,35 @@ function PostComposer({ text, setText, onPublish, publishing, t, onMediaSelect, 
           placeholderTextColor={Colors.gray400}
           value={text}
           onChangeText={setText}
+          onSelectionChange={(event) => setCursorPos(event.nativeEvent.selection.start)}
           multiline
           accessibilityHint="Composez votre publication"
         />
       </View>
+
+      {!!mentionContext && mentionResults.length > 0 && (
+        <View style={s.mentionsDropdown}>
+          {mentionResults.map((candidate: any) => (
+            <TouchableOpacity
+              key={candidate.id}
+              style={s.mentionItem}
+              onPress={() => applyMention(candidate)}
+            >
+              {candidate.avatar ? (
+                <Image source={{ uri: candidate.avatar }} style={s.mentionAvatarImage} />
+              ) : (
+                <LinearGradient colors={Gradients.primary as any} style={s.mentionAvatar}>
+                  <Text style={s.mentionAvatarText}>{candidate.name.charAt(0).toUpperCase()}</Text>
+                </LinearGradient>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={s.mentionName}>{candidate.name}</Text>
+                <Text style={s.mentionHandle}>@{candidate.token}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {selectedMedia && (
         <View style={s.mediaPreview}>
@@ -357,66 +420,71 @@ function CommentsModal({
 
   return (
     <Modal visible={isOpen} animationType="slide" transparent>
-      <SafeAreaView style={s.modalContainer} edges={['top', 'left', 'right', 'bottom']}>
-        <View style={s.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="chevron-down" size={24} color={Colors.gray900} />
-          </TouchableOpacity>
-          <Text style={s.modalTitle}>{t.community.comments || 'Commentaires'}</Text>
-          <View style={{ width: 24 }} />
-        </View>
+      <View style={s.modalBackdrop}>
+        <SafeAreaView style={s.modalContainer} edges={['left', 'right', 'bottom']}>
+          <View style={s.modalHandle} />
+          <View style={s.modalHeader}>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="chevron-down" size={24} color={Colors.gray900} />
+            </TouchableOpacity>
+            <Text style={s.modalTitle}>{t.community.comments || 'Commentaires'}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={20} color={Colors.gray900} />
+            </TouchableOpacity>
+          </View>
 
-        <FlatList
-          data={comments}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={s.commentItem}>
-              <LinearGradient colors={Gradients.primary} style={s.commentAvatar}>
-                <Text style={s.commentAvatarText}>{item.user?.name?.charAt(0).toUpperCase() || 'U'}</Text>
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={s.commentAuthor}>{item.user?.name || t.common.user}</Text>
-                <Text style={s.commentText}>{item.comment || item.message}</Text>
-                <Text style={s.commentTime}>{getRelativeTime(item.createdAt)}</Text>
+          <FlatList
+            data={comments}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={s.commentItem}>
+                <LinearGradient colors={Gradients.primary} style={s.commentAvatar}>
+                  <Text style={s.commentAvatarText}>{item.user?.name?.charAt(0).toUpperCase() || 'U'}</Text>
+                </LinearGradient>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.commentAuthor}>{item.user?.name || t.common.user}</Text>
+                  <Text style={s.commentText}>{item.comment || item.message}</Text>
+                  <Text style={s.commentTime}>{getRelativeTime(item.createdAt)}</Text>
+                </View>
+                <View style={s.commentActions}>
+                  <TouchableOpacity onPress={() => onLikeComment(item.id)}>
+                    <Ionicons name={item.isLiked ? 'heart' : 'heart-outline'} size={16} color={item.isLiked ? Colors.error : Colors.gray400} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => onDeleteComment(item.id)}>
+                    <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={s.commentActions}>
-                <TouchableOpacity onPress={() => onLikeComment(item.id)}>
-                  <Ionicons name={item.isLiked ? 'heart' : 'heart-outline'} size={16} color={item.isLiked ? Colors.error : Colors.gray400} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onDeleteComment(item.id)}>
-                  <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-          ListEmptyComponent={
-            loading ? (
-              <View style={s.emptyComments}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-              </View>
-            ) : (
-              <View style={s.emptyComments}>
-                <Ionicons name="chatbubble-outline" size={32} color={Colors.gray300} />
-                <Text style={s.emptyText}>{t.community.noComments || 'Pas de commentaires'}</Text>
-              </View>
-            )
-          }
-          contentContainerStyle={{ paddingBottom: 100 }}
-        />
-
-        <View style={s.commentInputContainer}>
-          <TextInput
-            style={s.commentInput}
-            placeholder={t.community.addComment || 'Ajouter un commentaire...'}
-            value={newComment}
-            onChangeText={setNewComment}
-            multiline
+            )}
+            ListEmptyComponent={
+              loading ? (
+                <View style={s.emptyComments}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                </View>
+              ) : (
+                <View style={s.emptyComments}>
+                  <Ionicons name="chatbubble-outline" size={32} color={Colors.gray300} />
+                  <Text style={s.emptyText}>{t.community.noComments || 'Pas de commentaires'}</Text>
+                </View>
+              )
+            }
+            contentContainerStyle={{ paddingBottom: 90 }}
           />
-          <TouchableOpacity onPress={handleSendComment} disabled={!newComment.trim() || sendingComment}>
-            <Ionicons name="send" size={20} color={newComment.trim() ? Colors.primary : Colors.gray300} />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+
+          <View style={s.commentInputContainer}>
+            <TextInput
+              style={s.commentInput}
+              placeholder={t.community.addComment || 'Ajouter un commentaire...'}
+              value={newComment}
+              onChangeText={setNewComment}
+              multiline
+            />
+            <TouchableOpacity onPress={handleSendComment} disabled={!newComment.trim() || sendingComment}>
+              <Ionicons name="send" size={20} color={newComment.trim() ? Colors.primary : Colors.gray300} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -855,8 +923,25 @@ export function CommunityScreen() {
   };
 
   const currentUserId = user?.id || user?.sub;
-  const ownStory = stories.find((st: any) => st.id === currentUserId);
-  const otherStories = stories.filter((st: any) => st.id !== currentUserId);
+  const ownStory = stories.find((st: any) => {
+    return (
+      st.id === currentUserId ||
+      st.userId === currentUserId ||
+      (user?.name && st.name === user.name) ||
+      (user?.avatar && st.avatar === user.avatar)
+    );
+  });
+  const otherStories = stories.filter((st: any) => st !== ownStory && st.id !== currentUserId && st.userId !== currentUserId);
+
+  const handleOwnStoryPress = () => {
+    if (!ownStory) {
+      Alert.alert(t.community.yourStory || 'Votre story', 'Aucune story publiée pour le moment');
+      return;
+    }
+
+    const idx = stories.findIndex((st: any) => st === ownStory || st.id === ownStory.id || st.userId === ownStory.userId);
+    setSelectedStoryIndex(idx >= 0 ? idx : 0);
+  };
 
   const TABS: { key: CommunityTab; label: string; icon: string }[] = [
     { key: 'feed', label: t.community.feed, icon: 'newspaper-outline' },
@@ -865,11 +950,14 @@ export function CommunityScreen() {
   ];
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <View style={dynamicStyles.container}>
         {/* Header */}
         <View style={s.header}>
           <View style={s.headerRow}>
+            <View style={s.headerTitleIconWrap}>
+              <Ionicons name="people-outline" size={20} color={Colors.primary} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={dynamicStyles.title}>{t.nav.community || 'Communauté'}</Text>
               <Text style={dynamicStyles.subtitle}>{t.dashboard.shareDiscover || 'Partagez votre parcours skincare'}</Text>
@@ -937,14 +1025,7 @@ export function CommunityScreen() {
                 <View style={s.storyOwnWrap}>
                   <TouchableOpacity
                     style={s.storyItemOwn}
-                    onPress={() => {
-                      if (ownStory) {
-                        const idx = stories.findIndex((st: any) => st.id === currentUserId);
-                        setSelectedStoryIndex(idx >= 0 ? idx : 0);
-                      } else {
-                        setStoryUploadOpen(true);
-                      }
-                    }}
+                    onPress={handleOwnStoryPress}
                   >
                     <View style={s.storyRingOwn}>
                       {user?.avatar ? (
@@ -957,7 +1038,7 @@ export function CommunityScreen() {
                     </View>
                     <Text style={s.storyName} numberOfLines={1}>{t.community.yourStory || 'Votre story'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={s.addStoryMiniBtnAttached} onPress={() => setStoryUploadOpen(true)}>
+                  <TouchableOpacity style={s.addStoryMiniBtnAttached} onPress={() => setStoryUploadOpen(true)} accessibilityLabel="Ajouter une story">
                     <Ionicons name="add" size={11} color={Colors.white} />
                   </TouchableOpacity>
                 </View>
@@ -981,6 +1062,7 @@ export function CommunityScreen() {
                 onLocationChange={setPostLocation}
                 userAvatar={user?.avatar}
                 resetToken={composerResetToken}
+                mentionCandidates={suggestions}
               />
             </>
           }
@@ -1071,6 +1153,7 @@ export function CommunityScreen() {
             onLocationChange={setPostLocation}
             userAvatar={user?.avatar}
             resetToken={composerResetToken}
+            mentionCandidates={suggestions}
           />
           {myPosts.map((post) => (
             <PostItem
@@ -1308,6 +1391,14 @@ export function CommunityScreen() {
 const s = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: 0, paddingBottom: Spacing.xs },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerTitleIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha10,
+  },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   headerActionBtn: {
     width: 34,
@@ -1371,6 +1462,34 @@ const s = StyleSheet.create({
   composerAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   composerAvatarImage: { width: 38, height: 38, borderRadius: 19 },
   newPostInput: { flex: 1, fontSize: FontSizes.base, color: Colors.gray700, minHeight: 50, textAlignVertical: 'top' },
+  mentionsDropdown: {
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.white,
+    overflow: 'hidden',
+  },
+  mentionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  mentionAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mentionAvatarImage: { width: 30, height: 30, borderRadius: 15 },
+  mentionAvatarText: { fontSize: 12, fontWeight: FontWeights.bold, color: Colors.white },
+  mentionName: { fontSize: 13, fontWeight: FontWeights.semibold, color: Colors.gray900 },
+  mentionHandle: { fontSize: 11, color: Colors.primary, marginTop: 1 },
   newPostActions: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.gray100,
@@ -1488,7 +1607,27 @@ const s = StyleSheet.create({
   profileStatDivider: { width: 1, height: 30, backgroundColor: Colors.gray200 },
 
   // Comments Modal
-  modalContainer: { flex: 1, backgroundColor: Colors.white },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    height: '74%',
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+  modalHandle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 4,
+    backgroundColor: Colors.gray200,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   modalTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.gray900 },
   commentItem: { flexDirection: 'row', paddingHorizontal: Spacing.base, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.gray100, gap: Spacing.md },

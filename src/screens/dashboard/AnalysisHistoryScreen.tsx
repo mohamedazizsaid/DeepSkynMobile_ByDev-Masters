@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState } from '../../components';
-import { Spacing, FontSizes, FontWeights, BorderRadius } from '../../theme';
+import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis } from '../../lib/types';
@@ -96,6 +96,44 @@ export function AnalysisHistoryScreen({ navigation }: Props) {
         }}
       >
         <View style={{ flex: 1 }}>
+          {Array.isArray(item.images) && item.images.length > 0 && (
+            <View style={{ marginBottom: Spacing.sm }}>
+              <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const, gap: Spacing.sm }}>
+                {item.images.slice(0, 3).map((uri, index) => (
+                  <Image
+                    key={`${item.id}-image-${index}`}
+                    source={{ uri }}
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: BorderRadius.base,
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  />
+                ))}
+                {item.images.length > 3 && (
+                  <View
+                    style={{
+                      minWidth: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      paddingHorizontal: Spacing.xs,
+                      justifyContent: 'center' as const,
+                      alignItems: 'center' as const,
+                      backgroundColor: colors.primary + '20',
+                    }}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: fontSizes.xs, fontWeight: FontWeights.semibold }}>
+                      +{item.images.length - 3}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
           <Text
             style={{
               fontSize: fontSizes.sm,
@@ -180,7 +218,7 @@ export function AnalysisHistoryScreen({ navigation }: Props) {
 
   if (loading && analyses.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
         <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const }}>
           <Text style={{ color: colors.text }}>Chargement...</Text>
         </View>
@@ -189,18 +227,32 @@ export function AnalysisHistoryScreen({ navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+      <View style={{ flex: 1, backgroundColor: colors.backgroundSecondary }}>
         <View style={{ paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md }}>
-          <Text
-            style={{
-              fontSize: fontSizes['2xl'],
-              fontWeight: FontWeights.bold,
-              color: colors.text,
-            }}
-          >
-            Historique d'Analyses
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: BorderRadius.base,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: Colors.primaryAlpha10,
+              }}
+            >
+              <Ionicons name="time-outline" size={20} color={colors.primary} />
+            </View>
+            <Text
+              style={{
+                fontSize: fontSizes['2xl'],
+                fontWeight: FontWeights.bold,
+                color: colors.text,
+              }}
+            >
+              Historique d'Analyses
+            </Text>
+          </View>
         </View>
 
         {analyses.length === 0 ? (

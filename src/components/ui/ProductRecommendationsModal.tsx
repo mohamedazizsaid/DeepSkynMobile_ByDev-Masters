@@ -110,13 +110,13 @@ export function ProductRecommendationsModal({
               <Ionicons 
                 name={categoryMeta.icon as any} 
                 size={16} 
-                color={isActive ? categoryMeta.color : Colors.gray400} 
+                color={isActive ? categoryMeta.color : '#5F7FA5'} 
               />
             ) : (
               <Ionicons 
                 name="apps-outline" 
                 size={16} 
-                color={isActive ? Colors.primary : Colors.gray400} 
+                color={isActive ? Colors.primary : '#5F7FA5'} 
               />
             )}
             <Text style={[
@@ -145,7 +145,7 @@ export function ProductRecommendationsModal({
         exiting={FadeOut.duration(200)}
         style={styles.overlay}
       >
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={22} tint="light" style={StyleSheet.absoluteFill} />
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
         
         <Animated.View
@@ -164,7 +164,7 @@ export function ProductRecommendationsModal({
                 </Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={Colors.gray400} />
+                <Ionicons name="close" size={24} color="#0F4C81" />
               </TouchableOpacity>
             </View>
 
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   container: {
-    backgroundColor: Colors.gray900,
+    backgroundColor: '#F4FAFF',
     borderTopLeftRadius: BorderRadius['2xl'],
     borderTopRightRadius: BorderRadius['2xl'],
     maxHeight: screenHeight * 0.9,
@@ -307,12 +307,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.gray800,
+    borderBottomColor: '#D6EAFB',
   },
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: Colors.gray600,
+    backgroundColor: '#9CCAE8',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: Spacing.md,
@@ -326,18 +326,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
-    color: Colors.white,
+    color: '#0B3D66',
   },
   subtitle: {
     fontSize: FontSizes.sm,
-    color: Colors.gray400,
+    color: '#3D6A8E',
     marginTop: 4,
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.gray800,
+    backgroundColor: '#E3F2FD',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -348,18 +348,18 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   concernPill: {
-    backgroundColor: Colors.gray800,
+    backgroundColor: '#E3F2FD',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
   },
   concernText: {
     fontSize: FontSizes.xs,
-    color: Colors.gray300,
+    color: '#1D5D8F',
   },
   categoryFilter: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.gray800,
+    borderBottomColor: '#D6EAFB',
   },
   categoryFilterContent: {
     paddingHorizontal: Spacing.lg,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.gray800,
+    backgroundColor: '#EAF6FF',
     gap: 6,
   },
   categoryChipActive: {
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     fontSize: FontSizes.sm,
-    color: Colors.gray400,
+    color: '#5F7FA5',
   },
   categoryChipTextActive: {
     color: Colors.primary,
@@ -411,12 +411,12 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: FontSizes.lg,
     fontWeight: FontWeights.semibold,
-    color: Colors.white,
+    color: '#0B3D66',
     marginTop: Spacing.lg,
   },
   loadingSubtext: {
     fontSize: FontSizes.sm,
-    color: Colors.gray400,
+    color: '#3D6A8E',
     marginTop: Spacing.xs,
   },
   errorContainer: {
@@ -430,12 +430,12 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
-    color: Colors.white,
+    color: '#0B3D66',
     marginBottom: Spacing.sm,
   },
   errorText: {
     fontSize: FontSizes.sm,
-    color: Colors.gray400,
+    color: '#3D6A8E',
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: FontSizes.base,
-    color: Colors.gray400,
+    color: '#3D6A8E',
     marginTop: Spacing.md,
     textAlign: 'center',
   },
@@ -491,11 +491,11 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: FontSizes.base,
     fontWeight: FontWeights.semibold,
-    color: Colors.white,
+    color: '#0B3D66',
   },
   summarySubtitle: {
     fontSize: FontSizes.xs,
-    color: Colors.gray400,
+    color: '#3D6A8E',
     marginTop: 2,
   },
   disclaimer: {
@@ -504,13 +504,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.lg,
     padding: Spacing.md,
-    backgroundColor: Colors.gray800,
+    backgroundColor: '#EAF6FF',
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#D2E9FA',
   },
   disclaimerText: {
     flex: 1,
     fontSize: FontSizes.xs,
-    color: Colors.gray500,
+    color: '#4D7392',
     lineHeight: 18,
   },
 });

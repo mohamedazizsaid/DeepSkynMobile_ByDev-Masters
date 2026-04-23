@@ -507,8 +507,21 @@ const s = StyleSheet.create({
   storyAuthor: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: Colors.white },
   storyTime: { fontSize: 11, color: Colors.gray300, marginTop: 2 },
 
-  storyContent: { flex: 1, position: 'relative', justifyContent: 'center', alignItems: 'center', paddingTop: 90, paddingBottom: 80 },
-  storyImage: { width: '100%', height: '100%', resizeMode: 'contain' },
+  storyContent: {
+    flex: 1,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  storyImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
   musicIndicator: { position: 'absolute', bottom: Spacing.xl, left: Spacing.lg, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: BorderRadius.lg },
   musicText: { fontSize: 12, color: Colors.white, fontWeight: FontWeights.semibold },
 

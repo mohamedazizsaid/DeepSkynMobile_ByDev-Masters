@@ -205,14 +205,14 @@ export function ChatScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.loadingContainer} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={dynamicStyles.loadingContainer} edges={['left', 'right']}>
         <LoadingSpinner message={t.common.loading} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

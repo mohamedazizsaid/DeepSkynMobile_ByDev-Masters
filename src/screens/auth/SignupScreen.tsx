@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   Linking,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ import { useTranslation } from '../../lib/i18n';
 import { authService } from '../../services/auth.service';
 
 export function SignupScreen({ navigation }: any) {
-  const { register, isLoading } = useAuthStore();
+  const { completeSignupWithCode, isLoading } = useAuthStore();
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
 
@@ -29,6 +30,21 @@ export function SignupScreen({ navigation }: any) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [codeStep, setCodeStep] = useState(false);
+  const [codeExpiresIn, setCodeExpiresIn] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (!codeStep) return;
+
+    const timer = setInterval(() => {
+      setCodeExpiresIn((prev) => (prev > 0 ? prev - 1 : 0));
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [codeStep]);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -50,6 +66,31 @@ export function SignupScreen({ navigation }: any) {
     socialText: { fontSize: fontSizes.base, fontWeight: FontWeights.medium, color: colors.text },
     loginText: { fontSize: fontSizes.sm, color: colors.textSecondary },
     loginLink: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.bold },
+    verificationCard: {
+      marginTop: Spacing.base,
+      padding: Spacing.lg,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.backgroundSecondary,
+    },
+    verificationTitle: { fontSize: fontSizes.base, color: colors.text, fontWeight: FontWeights.bold },
+    verificationHint: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: Spacing.xs, lineHeight: 20 },
+    codeInput: {
+      marginTop: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.base,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontSize: fontSizes.xl,
+      fontWeight: FontWeights.bold,
+      letterSpacing: 6,
+      textAlign: 'center' as const,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.base,
+    },
+    timerText: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: Spacing.sm },
   }), [colors, fontSizes]);
 
   const passwordStrength = (pwd: string) => {
@@ -89,7 +130,7 @@ export function SignupScreen({ navigation }: any) {
     }
   };
 
-  const handleSignup = async () => {
+  const handleRequestSignupCode = async () => {
     if (!name || !email || !password) {
       Alert.alert(t.common.error, t.auth.fieldRequired);
       return;
@@ -106,15 +147,50 @@ export function SignupScreen({ navigation }: any) {
     }
 
     try {
-      await register({
+      const response = await authService.requestSignupCode({
         email,
         password,
         name,
       });
+      setCodeStep(true);
+      setVerificationCode('');
+      setCodeExpiresIn(response?.expiresInSeconds || 600);
+      setResendCooldown(60);
+      Alert.alert(t.common.success, response?.message || 'Code de verification envoye par email.');
+    } catch (error: any) {
+      Alert.alert(t.common.error, error.response?.data?.message || t.auth.registerError);
+    }
+  };
+
+  const handleVerifyCodeAndCreateAccount = async () => {
+    if (verificationCode.trim().length !== 6) {
+      Alert.alert(t.common.error, 'Veuillez saisir le code a 6 chiffres.');
+      return;
+    }
+
+    try {
+      await completeSignupWithCode(email, verificationCode.trim());
       Alert.alert(t.common.success, t.auth.signupSuccess);
       navigation.navigate('Onboarding');
     } catch (error: any) {
-      Alert.alert(t.common.error, error.response?.data?.message || t.auth.registerError);
+      Alert.alert(t.common.error, error?.response?.data?.message || t.auth.registerError);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+
+    try {
+      const response = await authService.requestSignupCode({
+        email,
+        password,
+        name,
+      });
+      setCodeExpiresIn(response?.expiresInSeconds || 600);
+      setResendCooldown(60);
+      Alert.alert(t.common.success, response?.message || 'Code renvoye.');
+    } catch (error: any) {
+      Alert.alert(t.common.error, error?.response?.data?.message || t.auth.registerError);
     }
   };
 
@@ -199,14 +275,58 @@ export function SignupScreen({ navigation }: any) {
               </Text>
             </TouchableOpacity>
 
-            <Button
-              onPress={handleSignup}
-              loading={isLoading}
-              disabled={!agreedToTerms || (confirmPassword.length > 0 && password !== confirmPassword)}
-              fullWidth
-            >
-              {t.auth.createAccount}
-            </Button>
+            {!codeStep ? (
+              <Button
+                onPress={handleRequestSignupCode}
+                loading={isLoading}
+                disabled={!agreedToTerms || (confirmPassword.length > 0 && password !== confirmPassword)}
+                fullWidth
+              >
+                {t.auth.createAccount}
+              </Button>
+            ) : (
+              <View style={dynamicStyles.verificationCard}>
+                <Text style={dynamicStyles.verificationTitle}>Verification email</Text>
+                <Text style={dynamicStyles.verificationHint}>
+                  Un code a 6 chiffres a ete envoye a {email}. Entrez-le pour finaliser la creation du compte.
+                </Text>
+
+                <TextInput
+                  value={verificationCode}
+                  onChangeText={(value) => setVerificationCode(value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  style={dynamicStyles.codeInput}
+                />
+
+                <Text style={dynamicStyles.timerText}>
+                  Expire dans {Math.floor(codeExpiresIn / 60)}:{String(codeExpiresIn % 60).padStart(2, '0')}
+                </Text>
+
+                <View style={{ marginTop: Spacing.md, gap: Spacing.sm }}>
+                  <Button onPress={handleVerifyCodeAndCreateAccount} loading={isLoading} fullWidth>
+                    Verifier et creer le compte
+                  </Button>
+                  <Button variant="outline" onPress={handleResendCode} disabled={resendCooldown > 0} fullWidth>
+                    {resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : 'Renvoyer le code'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onPress={() => {
+                      setCodeStep(false);
+                      setVerificationCode('');
+                      setCodeExpiresIn(0);
+                      setResendCooldown(0);
+                    }}
+                    fullWidth
+                  >
+                    Modifier mes informations
+                  </Button>
+                </View>
+              </View>
+            )}
 
             <View style={styles.divider}>
               <View style={dynamicStyles.dividerLine} />

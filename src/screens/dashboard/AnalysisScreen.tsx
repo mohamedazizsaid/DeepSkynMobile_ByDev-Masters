@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpacity, ActivityIndicator, Dimensions, Image, Modal, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,18 +16,33 @@ import { predictiveRoutineService } from '../../services/predictive-routine.serv
 import { getLocation } from '../../services/weather.service';
 import type { Analysis, AnalysisStats, SubscriptionUsageSummary, PredictiveRoutine } from '../../lib/types';
 import { formatDate } from '../../lib/utils';
+import type { AnalysisStackParamList } from '../../navigation/DashboardTabNavigator';
+import { useFaceReferenceGate } from '../../lib/hooks/useFaceReferenceGate';
 
 type ScreenMode = 'results' | 'upload';
+type AnalysisTimelineItem = {
+  id: string;
+  date: string;
+  score: number;
+  status: Analysis['status'];
+  skinType?: string | null;
+  imageUri?: string;
+  concerns: string[];
+  summary?: string;
+};
 
 export function AnalysisScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
+  const navigation = useNavigation<StackNavigationProp<AnalysisStackParamList>>();
+  const { ensureFaceReference } = useFaceReferenceGate();
   const [mode, setMode] = useState<ScreenMode>('results');
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
   const [stats, setStats] = useState<AnalysisStats | null>(null);
   const [advice, setAdvice] = useState<string | null>(null);
   const [usage, setUsage] = useState<SubscriptionUsageSummary | null>(null);
-  const [analysisHistory, setAnalysisHistory] = useState<Array<{ id: string; date: string; score: number; status: Analysis['status']; skinType?: string | null }>>([]);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisTimelineItem[]>([]);
+  const [selectedTimelineAnalysisId, setSelectedTimelineAnalysisId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [adviceLoading, setAdviceLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -43,6 +60,11 @@ export function AnalysisScreen() {
   // Preocupent Selector State
   const [showPreocupentModal, setShowPreocupentModal] = useState(false);
   const [preocupentLoading, setPreocupentLoading] = useState(false);
+  const [compareBeforeId, setCompareBeforeId] = useState<string | null>(null);
+  const [compareAfterId, setCompareAfterId] = useState<string | null>(null);
+  const [comparePickerTarget, setComparePickerTarget] = useState<'before' | 'after' | null>(null);
+  const [compareContainerWidth, setCompareContainerWidth] = useState(0);
+  const [compareSliderPercent, setCompareSliderPercent] = useState(0.5);
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -102,6 +124,12 @@ export function AnalysisScreen() {
             score: item.healthScore ?? item.results?.healthScore ?? 0,
             status: item.status,
             skinType: item.results?.skinType,
+            imageUri: item.images?.[0],
+            concerns: [
+              ...(item.results?.concerns || []),
+              ...(item.conditions || []),
+            ].slice(0, 3),
+            summary: item.results?.summary,
           }));
         setAnalysisHistory(normalized);
       } else {
@@ -147,7 +175,17 @@ export function AnalysisScreen() {
     setSelectedImage({ uri, base64 });
   };
 
-  const startNewAnalysis = () => {
+  const redirectToSettings = useCallback(() => {
+    const parentNavigation = navigation.getParent() as any;
+    parentNavigation?.navigate('Home', { screen: 'Settings' });
+  }, [navigation]);
+
+  const startNewAnalysis = async () => {
+    const allowed = await ensureFaceReference(redirectToSettings);
+    if (!allowed) {
+      return;
+    }
+
     setMode('upload');
     setSelectedImage(null);
   };
@@ -157,7 +195,12 @@ export function AnalysisScreen() {
     setSelectedImage(null);
   };
 
-  const handleStartAnalysisClick = () => {
+  const handleStartAnalysisClick = async () => {
+    const allowed = await ensureFaceReference(redirectToSettings);
+    if (!allowed) {
+      return;
+    }
+
     if (!selectedImage?.base64) {
       Alert.alert(t.common.error, t.analysis.uploadPhotos);
       return;
@@ -237,6 +280,11 @@ export function AnalysisScreen() {
   };
 
   const performAnalysis = async (zones: string[]) => {
+    const allowed = await ensureFaceReference(redirectToSettings);
+    if (!allowed) {
+      return;
+    }
+
     const analysisLimitReached = !!usage && !usage.isPremium && usage.quotas.analyses.remaining !== null && usage.quotas.analyses.remaining <= 0;
     if (analysisLimitReached) {
       Alert.alert(t.common.error, `Limite mensuelle atteinte. Réinitialisation: ${formatResetDate(usage?.quotas.analyses.resetsAt)}`);
@@ -354,15 +402,105 @@ export function AnalysisScreen() {
 
   const recommendationSource = latestAnalysis?.recommendations || results?.recommendations;
   const lifestyleInsights = recommendationSource?.lifestyle?.slice(0, 3) || [];
-  const historyChartData = analysisHistory
+  const timelineData = analysisHistory
     .filter((item) => item.status === 'completed')
     .slice(0, 7)
     .reverse();
-  const maxHistoryScore = Math.max(...historyChartData.map((point) => point.score), 100);
+  const comparisonCandidates = useMemo(
+    () => analysisHistory.filter((item) => item.status === 'completed' && !!item.imageUri),
+    [analysisHistory]
+  );
+  const compareBeforeAnalysis = useMemo(
+    () => comparisonCandidates.find((item) => item.id === compareBeforeId) || null,
+    [comparisonCandidates, compareBeforeId]
+  );
+  const compareAfterAnalysis = useMemo(
+    () => comparisonCandidates.find((item) => item.id === compareAfterId) || null,
+    [comparisonCandidates, compareAfterId]
+  );
+  const selectedTimelineAnalysis = useMemo(() => {
+    if (!timelineData.length) return null;
+    if (!selectedTimelineAnalysisId) return timelineData[timelineData.length - 1];
+    return timelineData.find((item) => item.id === selectedTimelineAnalysisId) || timelineData[timelineData.length - 1];
+  }, [timelineData, selectedTimelineAnalysisId]);
+  const minorTicks = useMemo(() => Array.from({ length: 42 }, (_, idx) => idx), []);
+
+  useEffect(() => {
+    if (!timelineData.length) {
+      setSelectedTimelineAnalysisId(null);
+      return;
+    }
+    setSelectedTimelineAnalysisId((prev) => {
+      if (prev && timelineData.some((item) => item.id === prev)) return prev;
+      return timelineData[timelineData.length - 1].id;
+    });
+  }, [timelineData]);
+
+  useEffect(() => {
+    if (comparisonCandidates.length < 2) {
+      setCompareBeforeId(null);
+      setCompareAfterId(null);
+      return;
+    }
+
+    const ordered = [...comparisonCandidates].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    const oldest = ordered[0]?.id ?? null;
+    const newest = ordered[ordered.length - 1]?.id ?? null;
+
+    setCompareBeforeId((prev) => {
+      if (prev && ordered.some((item) => item.id === prev)) return prev;
+      return oldest;
+    });
+
+    setCompareAfterId((prev) => {
+      if (prev && ordered.some((item) => item.id === prev)) return prev;
+      return newest;
+    });
+  }, [comparisonCandidates]);
+
+  const updateCompareSlider = useCallback(
+    (locationX: number) => {
+      if (!compareContainerWidth) return;
+      const minX = compareContainerWidth * 0.06;
+      const maxX = compareContainerWidth * 0.94;
+      const clamped = Math.min(maxX, Math.max(minX, locationX));
+      setCompareSliderPercent(clamped / compareContainerWidth);
+    },
+    [compareContainerWidth]
+  );
+
+  const handleSelectCompareAnalysis = useCallback(
+    (analysisId: string) => {
+      if (comparePickerTarget === 'before') {
+        if (analysisId === compareAfterId && compareBeforeId) {
+          setCompareAfterId(compareBeforeId);
+        }
+        setCompareBeforeId(analysisId);
+      }
+
+      if (comparePickerTarget === 'after') {
+        if (analysisId === compareBeforeId && compareAfterId) {
+          setCompareBeforeId(compareAfterId);
+        }
+        setCompareAfterId(analysisId);
+      }
+
+      setComparePickerTarget(null);
+    },
+    [comparePickerTarget, compareBeforeId, compareAfterId]
+  );
+
+  const comparePickerData = useMemo(
+    () => [...comparisonCandidates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [comparisonCandidates]
+  );
+  const compareSliderRatio = Math.max(0.06, Math.min(0.94, compareSliderPercent));
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
         <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message={t.common.loading} />
         </View>
@@ -376,7 +514,12 @@ export function AnalysisScreen() {
     content = (
       <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={dynamicStyles.title}>{t.dashboard.newAnalysis}</Text>
+            <View style={styles.headerTitleRow}>
+              <View style={styles.headerIconWrap}>
+                <Ionicons name="camera-outline" size={20} color={colors.primary} />
+              </View>
+              <Text style={dynamicStyles.title}>{t.dashboard.newAnalysis}</Text>
+            </View>
             <Text style={dynamicStyles.subtitle}>{t.dashboard.scanFace}</Text>
           </View>
 
@@ -453,7 +596,12 @@ export function AnalysisScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>{t.nav.analysis}</Text>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="scan-outline" size={20} color={colors.primary} />
+            </View>
+            <Text style={dynamicStyles.title}>{t.nav.analysis}</Text>
+          </View>
           <Text style={dynamicStyles.subtitle}>
             Dernière analyse : {latestAnalysis.createdAt ? formatDate(latestAnalysis.createdAt) : 'Aujourd\'hui'}
           </Text>
@@ -585,30 +733,217 @@ export function AnalysisScreen() {
               </View>
             )}
 
-            {/* History Chart */}
-            {historyChartData.length > 1 && (
+            {/* History Timeline */}
+            {timelineData.length > 1 && (
               <View style={styles.section}>
-                <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
-                <Text style={dynamicStyles.sectionSubtitle}>Évolution des 7 dernières analyses complétées</Text>
+                <View style={styles.timelineHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={dynamicStyles.sectionTitle}>Historique des analyses</Text>
+                    <Text style={dynamicStyles.sectionSubtitle}>Timeline photo des 7 dernières analyses complétées</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('AnalysisHistory')}
+                    style={[styles.historyButton, { borderColor: colors.border }]}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="time-outline" size={16} color={colors.primary} />
+                    <Text style={[styles.historyButtonText, { color: colors.primary }]}>Voir tout</Text>
+                  </TouchableOpacity>
+                </View>
                 <Card style={styles.historyCard}>
-                  <View style={styles.barChart}>
-                    {historyChartData.map((point) => (
-                      <View key={point.id} style={styles.barColumn}>
-                        <View style={styles.barWrapper}>
-                          <LinearGradient
-                            colors={Gradients.primary}
-                            style={[styles.bar, { height: `${Math.max(8, (point.score / maxHistoryScore) * 100)}%` }]}
-                          />
-                        </View>
-                        <Text style={styles.barValue}>{Math.round(point.score)}</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.timelineScrollContent}
+                  >
+                    <View style={styles.timelineRailWrap}>
+                      <View style={styles.timelineImagesRow}>
+                        {timelineData.map((point) => {
+                          const isSelected = selectedTimelineAnalysis?.id === point.id;
+                          return (
+                            <View key={point.id} style={styles.timelineNodeCol}>
+                              <TouchableOpacity
+                                activeOpacity={0.9}
+                                onPress={() => setSelectedTimelineAnalysisId(point.id)}
+                              >
+                                <View style={[
+                                  styles.timelineImageWrap,
+                                  {
+                                    borderColor: isSelected ? colors.primary : colors.border,
+                                    backgroundColor: colors.surface,
+                                  },
+                                  isSelected && styles.timelineImageWrapActive,
+                                ]}>
+                                  {point.imageUri ? (
+                                    <Image source={{ uri: point.imageUri }} style={styles.timelineImage} />
+                                  ) : (
+                                    <View style={styles.timelineImageFallback}>
+                                      <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
+                                    </View>
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+                              <View style={[styles.timelineConnector, { backgroundColor: isSelected ? colors.primary : colors.border }]} />
+                              <View style={[styles.timelineDot, { backgroundColor: isSelected ? colors.primary : Colors.gray300 }]} />
+                            </View>
+                          );
+                        })}
                       </View>
-                    ))}
+
+                      <View style={[styles.timelineAxis, { backgroundColor: colors.border }]}>
+                        <View style={styles.timelineTicksRow}>
+                          {minorTicks.map((tick) => (
+                            <View key={`tick-${tick}`} style={[styles.timelineTick, { backgroundColor: colors.border }]} />
+                          ))}
+                        </View>
+                      </View>
+
+                      <View style={styles.timelineMonthsRow}>
+                        {timelineData.map((point) => (
+                          <View key={`month-${point.id}`} style={styles.timelineMonthCol}>
+                            <Text style={[styles.timelineMonthLabel, { color: colors.textTertiary }]}>
+                              {formatMonth(point.date)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  </ScrollView>
+
+                  {selectedTimelineAnalysis && (
+                    <View style={[styles.timelineDetailsCard, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}> 
+                      <View style={styles.timelineDetailsHeader}>
+                        <Text style={dynamicStyles.timelineDate}>{formatDate(selectedTimelineAnalysis.date)}</Text>
+                        <Badge
+                          text={`Score ${selectedTimelineAnalysis.score}/100`}
+                          variant={selectedTimelineAnalysis.score >= 70 ? 'success' : selectedTimelineAnalysis.score >= 50 ? 'warning' : 'error'}
+                          size="sm"
+                        />
+                      </View>
+                      <Text style={dynamicStyles.timelineMeta}>
+                        Type de peau: {selectedTimelineAnalysis.skinType || 'Non renseigné'}
+                      </Text>
+                      {!!selectedTimelineAnalysis.concerns.length && (
+                        <Text style={dynamicStyles.timelineMeta}>
+                          Points observés: {selectedTimelineAnalysis.concerns.join(', ')}
+                        </Text>
+                      )}
+                      {!!selectedTimelineAnalysis.summary && (
+                        <Text style={[dynamicStyles.mutedText, { marginTop: Spacing.sm }]} numberOfLines={2}>
+                          {selectedTimelineAnalysis.summary}
+                        </Text>
+                      )}
+                      <View style={{ marginTop: Spacing.md }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onPress={() => navigation.navigate('AnalysisResult', { analysisId: selectedTimelineAnalysis.id })}
+                        >
+                          Voir les détails
+                        </Button>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={{ marginTop: Spacing.md }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => navigation.navigate('AnalysisHistory')}
+                    >
+                      Ouvrir l'historique complet
+                    </Button>
                   </View>
                 </Card>
               </View>
             )}
 
             {/* AI Insights */}
+            {comparisonCandidates.length >= 2 && (
+              <View style={styles.section}>
+                <View style={styles.timelineHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={dynamicStyles.sectionTitle}>Comparer deux analyses</Text>
+                    <Text style={dynamicStyles.sectionSubtitle}>Choisissez un avant et un après, puis glissez pour voir l’évolution.</Text>
+                  </View>
+                </View>
+
+                <Card style={styles.compareCard}>
+                  <View style={styles.compareSelectorRow}>
+                    <TouchableOpacity
+                      style={[styles.compareSelector, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
+                      activeOpacity={0.85}
+                      onPress={() => setComparePickerTarget('before')}
+                    >
+                      <Text style={[styles.compareSelectorLabel, { color: colors.textSecondary }]}>Avant</Text>
+                      <Text style={[styles.compareSelectorValue, { color: colors.text }]} numberOfLines={1}>
+                        {compareBeforeAnalysis ? `${formatDate(compareBeforeAnalysis.date)} • ${compareBeforeAnalysis.score}/100` : 'Choisir une analyse'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.compareSelector, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
+                      activeOpacity={0.85}
+                      onPress={() => setComparePickerTarget('after')}
+                    >
+                      <Text style={[styles.compareSelectorLabel, { color: colors.textSecondary }]}>Après</Text>
+                      <Text style={[styles.compareSelectorValue, { color: colors.text }]} numberOfLines={1}>
+                        {compareAfterAnalysis ? `${formatDate(compareAfterAnalysis.date)} • ${compareAfterAnalysis.score}/100` : 'Choisir une analyse'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {compareBeforeAnalysis?.imageUri && compareAfterAnalysis?.imageUri ? (
+                    <>
+                      <View
+                        style={styles.compareStage}
+                        onLayout={(event) => setCompareContainerWidth(event.nativeEvent.layout.width)}
+                        onStartShouldSetResponder={() => true}
+                        onMoveShouldSetResponder={() => true}
+                        onResponderGrant={(event) => updateCompareSlider(event.nativeEvent.locationX)}
+                        onResponderMove={(event) => updateCompareSlider(event.nativeEvent.locationX)}
+                      >
+                        <Image source={{ uri: compareBeforeAnalysis.imageUri }} style={styles.compareImage} />
+                        <View style={[styles.compareAfterLayer, { width: `${compareSliderRatio * 100}%` }]}>
+                          <Image
+                            source={{ uri: compareAfterAnalysis.imageUri }}
+                            style={[
+                              styles.compareAfterImage,
+                              { width: compareContainerWidth || undefined },
+                            ]}
+                          />
+                        </View>
+
+                        <View style={[styles.compareDivider, { left: `${compareSliderRatio * 100}%` }]}>
+                          <View style={styles.compareKnob}>
+                            <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                          </View>
+                        </View>
+
+                        <View style={[styles.compareTag, styles.compareTagLeft]}>
+                          <Text style={styles.compareTagText}>AVANT</Text>
+                        </View>
+                        <View style={[styles.compareTag, styles.compareTagRight]}>
+                          <Text style={styles.compareTagText}>APRÈS</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.compareMetaRow}>
+                        <Text style={[styles.compareMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          Avant: {formatDate(compareBeforeAnalysis.date)} ({compareBeforeAnalysis.score}/100)
+                        </Text>
+                        <Text style={[styles.compareMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          Après: {formatDate(compareAfterAnalysis.date)} ({compareAfterAnalysis.score}/100)
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={[dynamicStyles.helperText, { marginTop: Spacing.md }]}>Les deux analyses doivent contenir une photo pour activer la comparaison.</Text>
+                  )}
+                </Card>
+              </View>
+            )}
+
             {(lifestyleInsights.length > 0 || adviceLoading || advice || results?.summary) && (
               <View style={styles.section}>
                 <Text style={dynamicStyles.sectionTitle}>{t.dashboard.personalizedAdvice}</Text>
@@ -733,6 +1068,36 @@ export function AnalysisScreen() {
             </View>
 
             <View style={styles.section}>
+              <TouchableOpacity
+                onPress={async () => {
+                  const allowed = await ensureFaceReference(redirectToSettings);
+                  if (!allowed) {
+                    return;
+                  }
+                  navigation.navigate('MultiPhotoCamera');
+                }}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={['#06B6D4', '#0284C7']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: BorderRadius.xl, padding: Spacing.lg, ...Shadows.md }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md }}>
+                      <Ionicons name="camera-outline" size={28} color={Colors.white} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: Colors.white, fontSize: fontSizes.lg, fontWeight: FontWeights.bold }}>Scan MultiPhoto</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: fontSizes.sm, marginTop: 4 }}>Capturez 3 photos pour une analyse plus précise</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
               <Button onPress={startNewAnalysis} fullWidth size="lg">
                 {t.dashboard.newAnalysis}
               </Button>
@@ -746,7 +1111,7 @@ export function AnalysisScreen() {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <LoadingOverlay visible={uploading && mode === 'results'} message={t.dashboard.analysisInProgress} />
       
       {content}
@@ -775,6 +1140,59 @@ export function AnalysisScreen() {
         onConfirm={performAnalysis}
         loading={preocupentLoading}
       />
+
+      <Modal
+        visible={comparePickerTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setComparePickerTarget(null)}
+      >
+        <Pressable style={styles.compareModalBackdrop} onPress={() => setComparePickerTarget(null)}>
+          <Pressable style={[styles.compareModalSheet, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <View style={styles.compareModalHeader}>
+              <Text style={[styles.compareModalTitle, { color: colors.text }]}>Choisir une analyse {comparePickerTarget === 'before' ? 'avant' : 'après'}</Text>
+              <TouchableOpacity onPress={() => setComparePickerTarget(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.compareModalList} showsVerticalScrollIndicator={false}>
+              {comparePickerData.map((item) => {
+                const selected = (comparePickerTarget === 'before' ? compareBeforeId : compareAfterId) === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.85}
+                    onPress={() => handleSelectCompareAnalysis(item.id)}
+                    style={[
+                      styles.compareOption,
+                      {
+                        borderColor: selected ? colors.primary : colors.border,
+                        backgroundColor: selected ? `${colors.primary}12` : colors.backgroundSecondary,
+                      },
+                    ]}
+                  >
+                    {item.imageUri ? (
+                      <Image source={{ uri: item.imageUri }} style={styles.compareOptionImage} />
+                    ) : (
+                      <View style={[styles.compareOptionImage, styles.compareOptionFallback]}>
+                        <Ionicons name="image-outline" size={16} color={colors.textSecondary} />
+                      </View>
+                    )}
+                    <View style={styles.compareOptionInfo}>
+                      <Text style={[styles.compareOptionDate, { color: colors.text }]}>{formatDate(item.date)}</Text>
+                      <Text style={[styles.compareOptionMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                        Score: {item.score}/100 {item.skinType ? `• ${item.skinType}` : ''}
+                      </Text>
+                    </View>
+                    {selected && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -798,6 +1216,15 @@ function getOverallStatus(score: number, t?: any): string {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha10,
+  },
   quotaCard: { padding: Spacing.lg },
   quotaHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   quotaProgressWrap: { marginTop: Spacing.md },
@@ -827,11 +1254,131 @@ const styles = StyleSheet.create({
   insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.md },
   conditionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.md },
   historyCard: { padding: Spacing.xl },
-  barChart: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 140 },
-  barColumn: { alignItems: 'center', flex: 1 },
-  barWrapper: { width: 20, height: 110, justifyContent: 'flex-end' },
-  bar: { width: 20, borderRadius: BorderRadius.sm, minHeight: 8 },
-  barValue: { marginTop: Spacing.xs, fontSize: 11, color: Colors.gray500 },
+  compareCard: { padding: Spacing.lg },
+  compareSelectorRow: { flexDirection: 'row', gap: Spacing.sm },
+  compareSelector: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  compareSelectorLabel: { fontSize: 12, fontWeight: FontWeights.medium, marginBottom: 2 },
+  compareSelectorValue: { fontSize: 13, fontWeight: FontWeights.semibold },
+  compareStage: {
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    aspectRatio: 0.78,
+    backgroundColor: Colors.gray100,
+    position: 'relative',
+  },
+  compareImage: { width: '100%', height: '100%' },
+  compareAfterLayer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  compareAfterImage: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    height: '100%',
+  },
+  compareDivider: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: Colors.white,
+    marginLeft: -1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compareKnob: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primaryAlpha10,
+  },
+  compareTag: {
+    position: 'absolute',
+    top: Spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.52)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  compareTagLeft: { left: Spacing.sm },
+  compareTagRight: { right: Spacing.sm },
+  compareTagText: {
+    color: Colors.white,
+    fontSize: 11,
+    fontWeight: FontWeights.bold,
+    letterSpacing: 0.4,
+  },
+  compareMetaRow: {
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
+  compareMetaText: { fontSize: 12 },
+  timelineHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    marginLeft: Spacing.md,
+  },
+  historyButtonText: { fontSize: 12, fontWeight: FontWeights.semibold },
+  timelineScrollContent: { paddingBottom: Spacing.sm },
+  timelineRailWrap: { minWidth: 560 },
+  timelineImagesRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  timelineNodeCol: { width: 78, alignItems: 'center' },
+  timelineImageWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  timelineImageWrapActive: {
+    transform: [{ scale: 1.06 }],
+  },
+  timelineImage: { width: '100%', height: '100%' },
+  timelineImageFallback: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  timelineConnector: { width: 2, height: 28, marginTop: Spacing.xs },
+  timelineDot: { width: 9, height: 9, borderRadius: 4.5, marginTop: 2 },
+  timelineAxis: { height: 2, marginTop: Spacing.sm, marginBottom: Spacing.xs },
+  timelineTicksRow: {
+    position: 'absolute',
+    top: -6,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  timelineTick: { width: 1, height: 8, opacity: 0.7 },
+  timelineMonthsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  timelineMonthCol: { width: 78, alignItems: 'center' },
+  timelineMonthLabel: { fontSize: 12, textTransform: 'capitalize' as const },
+  timelineDetailsCard: {
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  timelineDetailsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   timelineCard: { marginTop: Spacing.sm, padding: Spacing.base },
   timelineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timelineLeft: { flex: 1, paddingRight: Spacing.md },
@@ -845,6 +1392,46 @@ const styles = StyleSheet.create({
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   buttonRow: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
   limitInfo: { paddingHorizontal: Spacing.xl, marginTop: Spacing.sm },
+  compareModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    justifyContent: 'flex-end',
+  },
+  compareModalSheet: {
+    borderTopLeftRadius: BorderRadius['2xl'],
+    borderTopRightRadius: BorderRadius['2xl'],
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    maxHeight: '72%',
+  },
+  compareModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  compareModalTitle: { fontSize: 16, fontWeight: FontWeights.bold },
+  compareModalList: { marginTop: Spacing.xs },
+  compareOption: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  compareOptionImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: Colors.gray100,
+  },
+  compareOptionFallback: { alignItems: 'center', justifyContent: 'center' },
+  compareOptionInfo: { flex: 1 },
+  compareOptionDate: { fontSize: 14, fontWeight: FontWeights.semibold },
+  compareOptionMeta: { fontSize: 12, marginTop: 2 },
 });
 
 function formatResetDate(value?: string | null): string {
@@ -857,4 +1444,11 @@ function formatResetDate(value?: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatMonth(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '...';
+  const label = date.toLocaleDateString('fr-FR', { month: 'short' });
+  return label.replace('.', '');
 }

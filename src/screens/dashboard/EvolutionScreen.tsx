@@ -130,7 +130,7 @@ export function EvolutionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]} edges={['left', 'right']}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={dynamicStyles.loadingText}>{t.common.loading}</Text>
       </SafeAreaView>
@@ -138,14 +138,19 @@ export function EvolutionScreen() {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>{t.evolution.title}</Text>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="trending-up-outline" size={20} color={colors.primary} />
+            </View>
+            <Text style={dynamicStyles.title}>{t.evolution.title}</Text>
+          </View>
           <Text style={dynamicStyles.subtitle}>{t.evolution.subtitle}</Text>
         </View>
 
@@ -286,6 +291,15 @@ export function EvolutionScreen() {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha10,
+  },
   periodSelector: {
     flexDirection: 'row', gap: Spacing.sm,
     paddingHorizontal: Spacing.xl, marginTop: Spacing.xl,

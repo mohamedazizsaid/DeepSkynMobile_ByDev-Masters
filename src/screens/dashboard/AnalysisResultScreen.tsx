@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Alert, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -22,6 +22,7 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
   const { colors, fontSizes } = useAccessibilityStyles();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   
   // Predictive Routine State
   const [generatingRoutine, setGeneratingRoutine] = useState(false);
@@ -48,6 +49,10 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
 
     loadAnalysis();
   }, [route.params]);
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [analysis?.id]);
 
   // Generate Predictive Routine
   const handleGeneratePredictiveRoutine = async () => {
@@ -139,7 +144,7 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
         <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -149,7 +154,7 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
 
   if (!analysis?.results) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
         <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const }}>
           <Text style={{ color: colors.text }}>Aucune analyse trouvée</Text>
         </View>
@@ -160,22 +165,42 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
   const results = analysis.results;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
       <ScrollView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: colors.backgroundSecondary }}
         contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        <Text
+        <View
           style={{
-            fontSize: fontSizes['2xl'],
-            fontWeight: FontWeights.bold,
-            color: colors.text,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: Spacing.sm,
             marginBottom: Spacing.lg,
           }}
         >
-          Résultats Détaillés
-        </Text>
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: BorderRadius.base,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: Colors.primaryAlpha10,
+            }}
+          >
+            <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+          </View>
+          <Text
+            style={{
+              fontSize: fontSizes['2xl'],
+              fontWeight: FontWeights.bold,
+              color: colors.text,
+            }}
+          >
+            Résultats Détaillés
+          </Text>
+        </View>
 
         {/* Score Principal */}
         <Card style={{ marginBottom: Spacing.lg }}>
@@ -204,6 +229,82 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
             </Text>
           </View>
         </Card>
+
+        {/* Photos de l'analyse */}
+        {Array.isArray(analysis.images) && analysis.images.length > 0 && (
+          <Card style={{ marginBottom: Spacing.lg }}>
+            <Text
+              style={{
+                fontSize: fontSizes.lg,
+                fontWeight: FontWeights.bold,
+                color: colors.text,
+                marginBottom: Spacing.md,
+              }}
+            >
+              Photos de l'analyse
+            </Text>
+
+            <View
+              style={{
+                borderRadius: BorderRadius.lg,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+              }}
+            >
+              <Image
+                source={{ uri: analysis.images[selectedImageIndex] }}
+                style={{ width: '100%', height: 260 }}
+                resizeMode="cover"
+              />
+              <View
+                style={{
+                  position: 'absolute' as const,
+                  top: Spacing.sm,
+                  right: Spacing.sm,
+                  backgroundColor: 'rgba(0,0,0,0.55)',
+                  borderRadius: BorderRadius.full,
+                  paddingHorizontal: Spacing.sm,
+                  paddingVertical: 4,
+                }}
+              >
+                <Text style={{ color: Colors.white, fontSize: fontSizes.xs, fontWeight: FontWeights.semibold }}>
+                  {selectedImageIndex + 1}/{analysis.images.length}
+                </Text>
+              </View>
+            </View>
+
+            {analysis.images.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: Spacing.sm, paddingTop: Spacing.md }}
+              >
+                {analysis.images.map((uri, index) => {
+                  const isSelected = index === selectedImageIndex;
+                  return (
+                    <TouchableOpacity
+                      key={`${analysis.id}-thumb-${index}`}
+                      onPress={() => setSelectedImageIndex(index)}
+                      activeOpacity={0.9}
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: BorderRadius.base,
+                        overflow: 'hidden',
+                        borderWidth: isSelected ? 2 : 1,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      }}
+                    >
+                      <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </Card>
+        )}
 
         {/* 🆕 Predictive Routine CTA */}
         <TouchableOpacity

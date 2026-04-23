@@ -396,7 +396,7 @@ export function AuthenticatedAppBar() {
               <View style={[styles.drawerFooter, { borderTopColor: colors.borderLight || colors.border }]}> 
                 <TouchableOpacity
                   style={[styles.drawerSettingsButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
-                  onPress={() => closeDrawer(() => navigation.navigate('Settings'))}
+                  onPress={() => closeDrawer(() => navigation.navigate('Home' as never, { screen: 'Settings' } as never))}
                   activeOpacity={0.85}
                   accessibilityRole="button"
                   accessibilityLabel={t.nav.settings}

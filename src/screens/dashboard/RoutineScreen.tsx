@@ -156,6 +156,69 @@ function formatDuration(seconds: number): string {
   return `${seconds} sec`;
 }
 
+function stripCodeFences(value: string): string {
+  return value
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+}
+
+function extractAdviceText(raw: unknown): string {
+  if (typeof raw === 'string') {
+    const cleaned = stripCodeFences(raw).trim();
+
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (parsed && typeof parsed.advice === 'string') {
+        return parsed.advice.trim();
+      }
+    } catch {
+      try {
+        const jsonLike = cleaned
+          .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g, '$1"$2"$3')
+          .replace(/'/g, '"');
+        const parsed = JSON.parse(jsonLike);
+        if (parsed && typeof parsed.advice === 'string') {
+          return parsed.advice.trim();
+        }
+      } catch {
+        const adviceMatch = cleaned.match(/advice\s*:\s*["']?([\s\S]*?)(?:["']\s*,\s*\w+\s*:|["']\s*}|\s*})/i);
+        if (adviceMatch?.[1]) {
+          return adviceMatch[1].trim();
+        }
+      }
+    }
+
+    return cleaned;
+  }
+
+  if (raw && typeof raw === 'object') {
+    const maybeAdvice = (raw as any).advice;
+    if (typeof maybeAdvice === 'string') {
+      return extractAdviceText(maybeAdvice);
+    }
+  }
+
+  return 'Routine ajustee. Continue avec des couches fines et un ordre stable.';
+}
+
+function normalizeAdviceResponse(raw: any, fallbackAdvice: string): AIAdviceResponse {
+  if (!raw) {
+    return { advice: fallbackAdvice, rating: 'neutral', emoji: '✨' };
+  }
+
+  const extractedAdvice = extractAdviceText(raw);
+  const ratingRaw = typeof raw?.rating === 'string' ? raw.rating.toLowerCase() : 'neutral';
+  const rating = ['positive', 'neutral', 'negative'].includes(ratingRaw) ? ratingRaw : 'neutral';
+  const emoji = typeof raw?.emoji === 'string' && raw.emoji.trim().length > 0 ? raw.emoji : '✨';
+
+  return {
+    advice: extractedAdvice || fallbackAdvice,
+    rating: rating as AIAdviceResponse['rating'],
+    emoji,
+  };
+}
+
 function RoutineReminderCard({
   reminders,
   setReminders,
@@ -466,6 +529,8 @@ export function RoutineScreen() {
       setShowAdvice(true);
       setAdviceLoading(true);
       setAdvice(null);
+      const fallbackAdvice =
+        t.routine.adviceFallback || 'Routine ajustee. Continue avec des couches fines et un ordre stable.';
 
       try {
         const result = await routineService.adviseOnChange(currentRoutine.id, {
@@ -474,13 +539,9 @@ export function RoutineScreen() {
           changeDescription,
           addedStepName,
         });
-        setAdvice(result);
+        setAdvice(normalizeAdviceResponse(result, fallbackAdvice));
       } catch {
-        setAdvice({
-          advice: t.routine.adviceFallback || 'Routine ajustee. Continue avec des couches fines et un ordre stable.',
-          rating: 'neutral',
-          emoji: '✨',
-        });
+        setAdvice(normalizeAdviceResponse(null, fallbackAdvice));
       } finally {
         setAdviceLoading(false);
       }
@@ -683,14 +744,19 @@ export function RoutineScreen() {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <ScrollView
         style={dynamicStyles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={dynamicStyles.title}>{t.routine.title || 'Routine'}</Text>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+            </View>
+            <Text style={dynamicStyles.title}>{t.routine.title || 'Routine'}</Text>
+          </View>
           <Text style={dynamicStyles.subtitle}>{t.routine.subtitle || 'Votre routine complete avec assistance IA'}</Text>
         </View>
 
@@ -867,7 +933,7 @@ export function RoutineScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <LinearGradient
-              colors={['#0EA5E9', '#8B5CF6', '#EC4899']}
+              colors={['#0EA5E9', '#38BDF8', '#60A5FA']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.modalAccentBar}
@@ -918,7 +984,7 @@ export function RoutineScreen() {
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={['#0EA5E9', '#8B5CF6']}
+                      colors={['#0EA5E9', '#0284C7']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.ctaGradient}
@@ -949,7 +1015,7 @@ export function RoutineScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <LinearGradient
-              colors={['#0EA5E9', '#8B5CF6', '#EC4899']}
+              colors={['#0EA5E9', '#38BDF8', '#60A5FA']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.modalAccentBar}
@@ -1022,7 +1088,7 @@ export function RoutineScreen() {
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={['#0EA5E9', '#8B5CF6']}
+                      colors={['#0EA5E9', '#0284C7']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.ctaGradient}
@@ -1116,6 +1182,15 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
+  },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha10,
   },
   topActions: {
     flexDirection: 'row',
@@ -1555,7 +1630,7 @@ const styles = StyleSheet.create({
   productBrand: {
     fontSize: FontSizes.xs,
     fontWeight: FontWeights.bold,
-    color: '#8B5CF6',
+    color: '#0369A1',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -1587,14 +1662,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
-    backgroundColor: 'rgba(139,92,246,0.08)',
+    backgroundColor: 'rgba(14,165,233,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.15)',
+    borderColor: 'rgba(14,165,233,0.2)',
   },
   ingredientText: {
     fontSize: FontSizes.xs,
     fontWeight: FontWeights.medium,
-    color: '#7c3aed',
+    color: '#0C4A6E',
   },
   whyCard: {
     backgroundColor: Colors.white,

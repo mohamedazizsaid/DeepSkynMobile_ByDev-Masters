@@ -111,7 +111,7 @@ export function NotificationScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
         <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message={t.notificationsScreen.loading} />
         </View>
@@ -120,7 +120,7 @@ export function NotificationScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <ScrollView 
         style={dynamicStyles.container} 
         showsVerticalScrollIndicator={false}
@@ -133,7 +133,12 @@ export function NotificationScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={dynamicStyles.title}>{t.notificationsScreen.title}</Text>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+            </View>
+            <Text style={dynamicStyles.title}>{t.notificationsScreen.title}</Text>
+          </View>
           <TouchableOpacity onPress={handleMarkAllRead} disabled={unreadCount === 0}>
             <Text style={[dynamicStyles.markRead, unreadCount === 0 && dynamicStyles.markReadDisabled]}>
               {t.notificationsScreen.markAllRead}
@@ -189,6 +194,15 @@ export function NotificationScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: Spacing.base },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1, justifyContent: 'center' },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha10,
+  },
   unreadBanner: { marginTop: Spacing.md },
   notifIcon: {
     width: 44, height: 44, borderRadius: BorderRadius.base,

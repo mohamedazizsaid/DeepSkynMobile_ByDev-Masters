@@ -2,7 +2,7 @@ import 'react-native-gesture-handler'; // Required for JS Stack
 import React, { useEffect, useState } from 'react';
 import { I18nManager } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation';
@@ -10,6 +10,16 @@ import { AccessibilityPanel } from './src/components';
 import { AccessibilityProvider } from './src/components/accessibility';
 import { LaunchSplashScreen } from './src/components/splash/LaunchSplashScreen';
 import { useAccessibilityStore } from './src/stores/accessibility.store';
+import { Colors } from './src/theme';
+
+const appNavigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: Colors.gray50,
+    card: Colors.gray50,
+  },
+};
 
 function AppContent() {
   const language = useAccessibilityStore(state => state.language);
@@ -23,9 +33,9 @@ function AppContent() {
   }, [isRTL]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, direction: isRTL ? 'rtl' : 'ltr' }}>
+    <GestureHandlerRootView style={{ flex: 1, direction: isRTL ? 'rtl' : 'ltr', backgroundColor: Colors.gray50 }}>
       <SafeAreaProvider>
-        <NavigationContainer direction={isRTL ? 'rtl' : 'ltr'}>
+        <NavigationContainer direction={isRTL ? 'rtl' : 'ltr'} theme={appNavigationTheme}>
           <StatusBar style="auto" />
           <RootNavigator />
           <AccessibilityPanel />

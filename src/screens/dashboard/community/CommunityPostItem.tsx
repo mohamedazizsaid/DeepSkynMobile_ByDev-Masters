@@ -87,6 +87,20 @@ export function CommunityPostItem({
     return fallback;
   }, [post.reactionSummary, reaction]);
 
+  const renderPostMessage = useMemo(() => {
+    const parts = (post.message || '').split(/(@[a-zA-Z0-9._-]+)/g);
+    return (
+      <Text style={s.postText}>
+        {parts.map((part, index) => {
+          if (/^@[a-zA-Z0-9._-]+$/.test(part)) {
+            return <Text key={`${part}-${index}`} style={s.mentionText}>{part}</Text>;
+          }
+          return <Text key={`${part}-${index}`}>{part}</Text>;
+        })}
+      </Text>
+    );
+  }, [post.message]);
+
   return (
     <Card style={s.postCard}>
       <View style={s.postHeader}>
@@ -133,7 +147,7 @@ export function CommunityPostItem({
         </View>
       )}
 
-      <Text style={s.postText}>{post.message}</Text>
+      {renderPostMessage}
 
       {post.media && (
         <Image source={{ uri: post.media }} style={s.postMedia} />
@@ -205,6 +219,7 @@ const s = StyleSheet.create({
   postAuthor: { fontSize: FontSizes.base, fontWeight: FontWeights.semibold, color: Colors.gray900 },
   postTime: { fontSize: FontSizes.xs, color: Colors.gray400 },
   postText: { fontSize: FontSizes.base, color: Colors.gray700, lineHeight: 22, marginBottom: Spacing.md },
+  mentionText: { color: Colors.primary, fontWeight: FontWeights.semibold },
   postMedia: { width: '100%', height: 200, borderRadius: BorderRadius.lg, marginBottom: Spacing.md },
 
   reactionSummaryRow: {

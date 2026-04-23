@@ -12,6 +12,23 @@ export const authService = {
         return res.data;
     },
 
+    async requestSignupCode(data: {
+        email: string;
+        password: string;
+        name: string;
+        firstName?: string;
+        lastName?: string;
+        captchaToken?: string;
+    }) {
+        const res = await apiClient.post('/auth/register/request-code', data);
+        return res.data as { message: string; expiresInSeconds: number };
+    },
+
+    async verifySignupCode(data: { email: string; code: string }) {
+        const res = await apiClient.post('/auth/register/verify-code', data);
+        return res.data;
+    },
+
     async logout(refreshToken: string) {
         return apiClient.post('/auth/logout', { refresh_token: refreshToken });
     },
@@ -67,6 +84,11 @@ export const authService = {
 
     async updateAvatar(avatarBase64: string) {
         const res = await apiClient.patch('/auth/profile/avatar', { avatarUrl: avatarBase64 });
+        return res.data;
+    },
+
+    async syncFaceReference() {
+        const res = await apiClient.post('/auth/face-reference/sync');
         return res.data;
     },
 

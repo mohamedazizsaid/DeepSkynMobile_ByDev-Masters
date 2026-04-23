@@ -14,12 +14,14 @@ import { authService } from '../../services/auth.service';
 import { subscriptionService } from '../../services/subscription.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { GeminiAnalysisResult } from '../../lib/types';
+import { useFaceReferenceGate } from '../../lib/hooks/useFaceReferenceGate';
 
 export function CameraScanScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
   const navigation = useNavigation<StackNavigationProp<any>>();
   const { user } = useAuthStore();
+  const { ensureFaceReference } = useFaceReferenceGate();
 
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
   const [frontCapture, setFrontCapture] = useState<{ uri: string; base64?: string } | null>(null);
@@ -40,6 +42,10 @@ export function CameraScanScreen() {
   const [loadingUsage, setLoadingUsage] = useState(true);
   const [showPreocupentModal, setShowPreocupentModal] = useState(false);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const redirectToSettings = useCallback(() => {
+    navigation.navigate('Home' as never, { screen: 'Settings' } as never);
+  }, [navigation]);
 
   // Load usage data on mount
   React.useEffect(() => {
@@ -85,6 +91,11 @@ export function CameraScanScreen() {
   }, []);
 
   const performScan = useCallback(async (zones: string[] = []) => {
+    const allowed = await ensureFaceReference(redirectToSettings);
+    if (!allowed) {
+      return;
+    }
+
     if (!faceVerified) {
       setShowFaceVerification(true);
       return;
@@ -204,7 +215,7 @@ export function CameraScanScreen() {
         );
       }, 1000);
     }
-  }, [frontCapture, leftCapture, rightCapture, usage, t]);
+  }, [ensureFaceReference, faceVerified, frontCapture, leftCapture, rightCapture, redirectToSettings, usage, t]);
 
   const handleFaceVerificationSuccess = useCallback(async (imageBase64: string) => {
     if (!user?.email) {

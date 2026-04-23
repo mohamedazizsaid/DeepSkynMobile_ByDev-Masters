@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { Card, Button, Input, Badge, LoadingSpinner } from '../../components';
 import { Colors, Gradients, Spacing, FontSizes, FontWeights } from '../../theme';
@@ -43,6 +44,15 @@ export function ProfileScreen({ navigation }: any) {
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isSavingPersonal, setIsSavingPersonal] = useState(false);
+  const [isEditingSkinProfile, setIsEditingSkinProfile] = useState(false);
+  const [isSavingSkinProfile, setIsSavingSkinProfile] = useState(false);
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+  const [skinProfileForm, setSkinProfileForm] = useState({
+    skinType: '',
+    fitzpatrickType: '',
+    concerns: [] as string[],
+    sensitivities: [] as string[],
+  });
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: 36.8065,
     longitude: 10.1815,
@@ -130,6 +140,13 @@ export function ProfileScreen({ navigation }: any) {
       setSkinProfile(skinProf);
       setStats(analysisStats);
 
+      setSkinProfileForm({
+        skinType: skinProf?.skinType || '',
+        fitzpatrickType: skinProf?.fitzpatrickType ? String(skinProf.fitzpatrickType) : '',
+        concerns: skinProf?.concerns || [],
+        sensitivities: skinProf?.sensitivities || [],
+      });
+
       const mergedUser = userProfile || authUser;
       const ageFromDob = mergedUser?.dateOfBirth
         ? String(new Date().getFullYear() - new Date(mergedUser.dateOfBirth).getFullYear())
@@ -199,6 +216,82 @@ export function ProfileScreen({ navigation }: any) {
     setRefreshing(true);
     loadProfileData();
   };
+
+  const resetSkinProfileForm = useCallback(() => {
+    setSkinProfileForm({
+      skinType: skinProfile?.skinType || '',
+      fitzpatrickType: skinProfile?.fitzpatrickType ? String(skinProfile.fitzpatrickType) : '',
+      concerns: skinProfile?.concerns || [],
+      sensitivities: skinProfile?.sensitivities || [],
+    });
+  }, [skinProfile]);
+
+  const toggleArrayValue = useCallback((field: 'concerns' | 'sensitivities', value: string) => {
+    setSkinProfileForm((prev) => {
+      const hasValue = prev[field].includes(value);
+      return {
+        ...prev,
+        [field]: hasValue ? prev[field].filter((item) => item !== value) : [...prev[field], value],
+      };
+    });
+  }, []);
+
+  const handleSaveSkinProfile = useCallback(async () => {
+    setIsSavingSkinProfile(true);
+    try {
+      const fitzpatrickTypeNumber = Number(skinProfileForm.fitzpatrickType);
+      const payload = {
+        skinType: (skinProfileForm.skinType || undefined) as any,
+        fitzpatrickType:
+          Number.isFinite(fitzpatrickTypeNumber) && fitzpatrickTypeNumber >= 1 && fitzpatrickTypeNumber <= 6
+            ? fitzpatrickTypeNumber
+            : undefined,
+        concerns: skinProfileForm.concerns,
+        sensitivities: skinProfileForm.sensitivities,
+      };
+
+      const updatedProfile = await skinProfileService.upsert(payload);
+      setSkinProfile(updatedProfile);
+      setIsEditingSkinProfile(false);
+      Alert.alert(t.common.success, t.settings.personal.updateSuccess);
+    } catch (error: any) {
+      Alert.alert(t.common.error, error?.response?.data?.message || t.settings.personal.updateError);
+    } finally {
+      setIsSavingSkinProfile(false);
+    }
+  }, [skinProfileForm, t]);
+
+  const handleUpdateAvatar = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(t.common.error, 'Autorisation photo requise.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.base64) {
+      return;
+    }
+
+    setIsUpdatingAvatar(true);
+    try {
+      const base64 = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      await authService.updateAvatar(base64);
+      setProfile((prev) => (prev ? { ...prev, avatar: base64 } : prev));
+      Alert.alert(t.common.success, t.settings.personal.updateSuccess);
+    } catch (error: any) {
+      Alert.alert(t.common.error, error?.response?.data?.message || t.settings.personal.updateError);
+    } finally {
+      setIsUpdatingAvatar(false);
+    }
+  }, [t]);
 
   const handleLogout = () => {
     Alert.alert(t.nav.logout, t.settings.closeSession, [
@@ -343,6 +436,14 @@ export function ProfileScreen({ navigation }: any) {
   const skinLabels = (onboarding.skinTypesLabels || {}) as Record<string, string>;
   const concernLabels = (onboarding.concernsLabels || onboarding.concerns?.labels || {}) as Record<string, string>;
   const sensitivityLabels = (onboarding.sensitivitiesLabels || onboarding.sensitivities?.labels || {}) as Record<string, string>;
+  const fitzpatrickPalette: Record<number, string> = {
+    1: '#F6D7C3',
+    2: '#EEC4A5',
+    3: '#DDA87C',
+    4: '#BC8255',
+    5: '#8D5C3B',
+    6: '#5A3A28',
+  };
 
   const statsData = [
     {
@@ -395,32 +496,37 @@ export function ProfileScreen({ navigation }: any) {
     },
   ];
 
-  const skinProfileData = skinProfile
-    ? [
-        {
-          label: onboarding.skinTitle || t.nav.profile,
-          value: skinLabels[skinProfile.skinType || ''] || skinProfile.skinType || t.onboarding.notProvided,
-        },
-        {
-          label: onboarding.fitzTitle || 'Fitzpatrick',
-          value: skinProfile.fitzpatrickType ? `Type ${skinProfile.fitzpatrickType}` : t.onboarding.notProvided,
-        },
-        {
-          label: t.dashboard.skinHealth,
-          value: skinProfile.healthScore ? `${skinProfile.healthScore}/100` : '-',
-        },
-        {
-          label: t.dashboard.skinAge,
-          value: skinProfile.skinAge ? `${skinProfile.skinAge} ${t.common.years}` : '-',
-        },
-      ]
-    : [];
+  const skinProfileData = [
+    {
+      key: 'skinType',
+      label: onboarding.skinTitle || t.nav.profile,
+      value: skinLabels[skinProfile?.skinType || ''] || skinProfile?.skinType || t.onboarding.notProvided,
+    },
+    {
+      key: 'fitzpatrick',
+      label: onboarding.fitzTitle || 'Fitzpatrick',
+      value: skinProfile?.fitzpatrickType ? `Type ${skinProfile.fitzpatrickType}` : t.onboarding.notProvided,
+    },
+    {
+      key: 'healthScore',
+      label: t.dashboard.skinHealth,
+      value: skinProfile?.healthScore ? `${skinProfile.healthScore}/100` : '-',
+    },
+    {
+      key: 'skinAge',
+      label: t.dashboard.skinAge,
+      value: skinProfile?.skinAge ? `${skinProfile.skinAge} ${t.common.years}` : '-',
+    },
+  ];
 
   const concerns = skinProfile?.concerns || [];
   const sensitivities = skinProfile?.sensitivities || [];
+  const skinTypeOptions = Object.keys(skinLabels || {}).filter(Boolean);
+  const concernOptions = Object.keys(concernLabels || {}).filter(Boolean);
+  const sensitivityOptions = Object.keys(sensitivityLabels || {}).filter(Boolean);
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
       <ScrollView
         style={dynamicStyles.container}
         showsVerticalScrollIndicator={false}
@@ -429,7 +535,7 @@ export function ProfileScreen({ navigation }: any) {
         <View style={styles.contentWrap}>
           <LinearGradient colors={Gradients.primary} style={styles.heroCard}>
             <View style={styles.heroGlow} />
-            <View style={styles.heroTopRow}>
+            <TouchableOpacity style={styles.heroTopRow} onPress={handleUpdateAvatar} activeOpacity={0.86} accessibilityRole="button" accessibilityLabel="Modifier la photo de profil">
               {user?.avatar ? (
                 <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
               ) : (
@@ -437,10 +543,10 @@ export function ProfileScreen({ navigation }: any) {
                   <Text style={styles.avatarText}>{userInitials}</Text>
                 </LinearGradient>
               )}
-              <TouchableOpacity style={styles.cameraButton} accessibilityLabel="camera">
-                <Ionicons name="camera" size={16} color={Colors.white} />
-              </TouchableOpacity>
-            </View>
+              <View style={[styles.cameraButton, isUpdatingAvatar && styles.cameraButtonBusy]}>
+                <Ionicons name={isUpdatingAvatar ? 'hourglass' : 'camera'} size={16} color={Colors.white} />
+              </View>
+            </TouchableOpacity>
 
             <Text style={styles.heroName}>{userName}</Text>
             {!!userEmail && <Text style={styles.heroEmail}>{userEmail}</Text>}
@@ -464,7 +570,7 @@ export function ProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.aiGrid}>
-            <LinearGradient colors={Gradients.primary} style={styles.aiCard}>
+            <LinearGradient colors={Gradients.primary} style={[styles.aiCard, styles.aiCardPrimary]}>
               <View style={styles.aiHeaderRow}>
                 <Ionicons name="chatbubble-ellipses-outline" size={22} color={Colors.white} />
                 <Text style={styles.aiTitle}>{t.dashboard.aiCoach}</Text>
@@ -472,12 +578,12 @@ export function ProfileScreen({ navigation }: any) {
               <Text style={styles.aiMessage}>
                 {isGeneratingAi ? t.common.loading : `"${aiCoachMsg || t.dashboard.personalizedAdvice}"`}
               </Text>
-              <Button onPress={() => navigation.navigate('Chat')} style={styles.aiButton}>
+              <Button variant="ghost" onPress={() => navigation.navigate('Chat')} style={styles.aiActionButton} textStyle={styles.aiActionText}>
                 {t.dashboard.aiCoach}
               </Button>
             </LinearGradient>
 
-            <LinearGradient colors={Gradients.purple} style={styles.aiCard}>
+            <LinearGradient colors={Gradients.purple} style={[styles.aiCard, styles.aiCardSecondary]}>
               <View style={styles.aiHeaderRow}>
                 <Ionicons name="sparkles-outline" size={22} color={Colors.white} />
                 <Text style={styles.aiTitle}>{t.dashboard.personalizedAdvice}</Text>
@@ -485,7 +591,7 @@ export function ProfileScreen({ navigation }: any) {
               <Text style={styles.aiMessage}>
                 {isGeneratingAi ? t.common.loading : `"${dailyTipMsg || t.dashboard.personalizedAdvice}"`}
               </Text>
-              <Button onPress={() => navigation.navigate('Routine')} style={styles.aiButton}>
+              <Button variant="ghost" onPress={() => navigation.navigate('Routine')} style={styles.aiActionButton} textStyle={styles.aiActionText}>
                 {t.nav.routine}
               </Button>
             </LinearGradient>
@@ -512,44 +618,192 @@ export function ProfileScreen({ navigation }: any) {
             </Card>
           </View>
 
-          {skinProfileData.length > 0 && (
-            <View style={styles.section}>
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
               <Text style={dynamicStyles.sectionTitle}>{onboarding.sumTitle || onboarding.summary?.title || t.nav.profile}</Text>
-              <Card style={{ ...styles.profileCard, ...dynamicStyles.cardBorder }}>
-                {skinProfileData.map((item, index) => (
-                  <View
-                    key={index}
-                    style={[styles.profileRow, index < skinProfileData.length - 1 ? dynamicStyles.profileRowBorder : undefined]}
-                  >
-                    <Text style={dynamicStyles.profileLabel}>{item.label}</Text>
-                    <Text style={dynamicStyles.profileValue as any}>{item.value}</Text>
-                  </View>
-                ))}
+              {!isEditingSkinProfile ? (
+                <Button variant="outline" onPress={() => setIsEditingSkinProfile(true)}>
+                  {t.common.edit}
+                </Button>
+              ) : null}
+            </View>
 
-                <View style={[styles.tagSection, { borderTopColor: colors.border }]}>
-                  <Text style={[styles.tagTitle, { color: colors.textSecondary }]}>{onboarding.concernTitle || onboarding.concerns?.title || t.dashboard.detectedConditions}</Text>
-                  <View style={styles.tagsWrap}>
-                    {concerns.length > 0 ? (
-                      concerns.map((item) => <Badge key={item} text={concernLabels[item] || item} variant="primary" />)
-                    ) : (
-                      <Text style={dynamicStyles.emptyHint}>{t.onboarding.none}</Text>
-                    )}
+            <Card style={{ ...styles.profileCard, ...dynamicStyles.cardBorder }}>
+              {isEditingSkinProfile ? (
+                <View style={styles.skinEditorWrap}>
+                  <Text style={[styles.tagTitle, { color: colors.textSecondary }]}>Type de peau</Text>
+                  <View style={styles.editorChipsWrap}>
+                    {skinTypeOptions.map((option) => {
+                      const selected = skinProfileForm.skinType === option;
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => setSkinProfileForm((prev) => ({ ...prev, skinType: option }))}
+                          style={[
+                            styles.editorChip,
+                            {
+                              borderColor: selected ? colors.primary : colors.border,
+                              backgroundColor: selected ? `${colors.primary}18` : colors.surface,
+                            },
+                          ]}
+                        >
+                          <Text style={{ color: selected ? colors.primary : colors.textSecondary, fontSize: fontSizes.xs, fontWeight: FontWeights.medium }}>
+                            {skinLabels[option] || option}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.tagTitle, { color: colors.textSecondary, marginTop: Spacing.md }]}>Fitzpatrick</Text>
+                  <View style={styles.editorChipsWrap}>
+                    {[1, 2, 3, 4, 5, 6].map((typeNumber) => {
+                      const typeValue = String(typeNumber);
+                      const selected = skinProfileForm.fitzpatrickType === typeValue;
+                      return (
+                        <TouchableOpacity
+                          key={typeValue}
+                          onPress={() => setSkinProfileForm((prev) => ({ ...prev, fitzpatrickType: typeValue }))}
+                          style={[
+                            styles.editorChip,
+                            {
+                              borderColor: selected ? colors.primary : fitzpatrickPalette[typeNumber],
+                              backgroundColor: selected ? `${colors.primary}18` : `${fitzpatrickPalette[typeNumber]}33`,
+                            },
+                          ]}
+                        >
+                          <View style={styles.fitzChipContent}>
+                            <View style={[styles.fitzSwatch, { backgroundColor: fitzpatrickPalette[typeNumber] }]} />
+                            <Text style={{ color: selected ? colors.primary : colors.textSecondary, fontSize: fontSizes.xs, fontWeight: FontWeights.medium }}>
+                              Type {typeValue}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.tagTitle, { color: colors.textSecondary, marginTop: Spacing.md }]}>{onboarding.concernTitle || onboarding.concerns?.title || t.dashboard.detectedConditions}</Text>
+                  <View style={styles.editorChipsWrap}>
+                    {concernOptions.map((option) => {
+                      const selected = skinProfileForm.concerns.includes(option);
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => toggleArrayValue('concerns', option)}
+                          style={[
+                            styles.editorChip,
+                            {
+                              borderColor: selected ? colors.primary : colors.border,
+                              backgroundColor: selected ? `${colors.primary}18` : colors.surface,
+                            },
+                          ]}
+                        >
+                          <Text style={{ color: selected ? colors.primary : colors.textSecondary, fontSize: fontSizes.xs, fontWeight: FontWeights.medium }}>
+                            {concernLabels[option] || option}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
 
                   <Text style={[styles.tagTitle, { color: colors.textSecondary, marginTop: Spacing.md }]}>{onboarding.sensTitle || onboarding.sensitivities?.title || t.settings.personal.title}</Text>
-                  <View style={styles.tagsWrap}>
-                    {sensitivities.length > 0 ? (
-                      sensitivities.map((item) => (
-                        <Badge key={item} text={sensitivityLabels[item] || item} variant="warning" />
-                      ))
-                    ) : (
-                      <Text style={dynamicStyles.emptyHint}>{t.onboarding.none}</Text>
-                    )}
+                  <View style={styles.editorChipsWrap}>
+                    {sensitivityOptions.map((option) => {
+                      const selected = skinProfileForm.sensitivities.includes(option);
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => toggleArrayValue('sensitivities', option)}
+                          style={[
+                            styles.editorChip,
+                            {
+                              borderColor: selected ? colors.warning : colors.border,
+                              backgroundColor: selected ? `${colors.warning}18` : colors.surface,
+                            },
+                          ]}
+                        >
+                          <Text style={{ color: selected ? colors.warning : colors.textSecondary, fontSize: fontSizes.xs, fontWeight: FontWeights.medium }}>
+                            {sensitivityLabels[option] || option}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View style={styles.editActionsRow}>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        variant="outline"
+                        onPress={() => {
+                          resetSkinProfileForm();
+                          setIsEditingSkinProfile(false);
+                        }}
+                        disabled={isSavingSkinProfile}
+                      >
+                        {t.common.cancel}
+                      </Button>
+                    </View>
+                    <View style={{ width: Spacing.sm }} />
+                    <View style={{ flex: 1 }}>
+                      <Button onPress={handleSaveSkinProfile} disabled={isSavingSkinProfile}>
+                        {isSavingSkinProfile ? t.common.loading : t.common.save}
+                      </Button>
+                    </View>
                   </View>
                 </View>
-              </Card>
-            </View>
-          )}
+              ) : (
+                <>
+                  {skinProfileData.map((item, index) => (
+                    <View
+                      key={index}
+                      style={[styles.profileRow, index < skinProfileData.length - 1 ? dynamicStyles.profileRowBorder : undefined]}
+                    >
+                      <Text style={dynamicStyles.profileLabel}>{item.label}</Text>
+                      {item.key === 'fitzpatrick' && skinProfile?.fitzpatrickType ? (
+                        <View
+                          style={[
+                            styles.fitzReadPill,
+                            {
+                              borderColor: fitzpatrickPalette[skinProfile.fitzpatrickType],
+                              backgroundColor: `${fitzpatrickPalette[skinProfile.fitzpatrickType]}22`,
+                            },
+                          ]}
+                        >
+                          <View style={[styles.fitzSwatch, { backgroundColor: fitzpatrickPalette[skinProfile.fitzpatrickType] }]} />
+                          <Text style={[dynamicStyles.profileValue as any, styles.fitzReadText]}>{item.value}</Text>
+                        </View>
+                      ) : (
+                        <Text style={dynamicStyles.profileValue as any}>{item.value}</Text>
+                      )}
+                    </View>
+                  ))}
+
+                  <View style={[styles.tagSection, { borderTopColor: colors.border }]}> 
+                    <Text style={[styles.tagTitle, { color: colors.textSecondary }]}>{onboarding.concernTitle || onboarding.concerns?.title || t.dashboard.detectedConditions}</Text>
+                    <View style={styles.tagsWrap}>
+                      {concerns.length > 0 ? (
+                        concerns.map((item) => <Badge key={item} text={concernLabels[item] || item} variant="primary" />)
+                      ) : (
+                        <Text style={dynamicStyles.emptyHint}>{t.onboarding.none}</Text>
+                      )}
+                    </View>
+
+                    <Text style={[styles.tagTitle, { color: colors.textSecondary, marginTop: Spacing.md }]}>{onboarding.sensTitle || onboarding.sensitivities?.title || t.settings.personal.title}</Text>
+                    <View style={styles.tagsWrap}>
+                      {sensitivities.length > 0 ? (
+                        sensitivities.map((item) => (
+                          <Badge key={item} text={sensitivityLabels[item] || item} variant="warning" />
+                        ))
+                      ) : (
+                        <Text style={dynamicStyles.emptyHint}>{t.onboarding.none}</Text>
+                      )}
+                    </View>
+                  </View>
+                </>
+              )}
+            </Card>
+          </View>
 
           <View style={styles.section}>
             <Text style={dynamicStyles.sectionTitle}>{t.settings.personal.title}</Text>
@@ -757,7 +1011,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: Spacing.xl,
     overflow: 'hidden',
-    marginBottom: Spacing.xl,
   },
   heroGlow: {
     position: 'absolute',
@@ -795,6 +1048,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: Colors.white,
   },
+  cameraButtonBusy: { opacity: 0.85 },
   heroName: {
     marginTop: Spacing.md,
     color: Colors.white,
@@ -848,10 +1102,17 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
   },
   aiCard: {
-    borderRadius: 24,
+    borderRadius: 26,
     padding: Spacing.lg,
     overflow: 'hidden',
+    shadowColor: Colors.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
+  aiCardPrimary: { transform: [{ scale: 1 }] },
+  aiCardSecondary: { transform: [{ scale: 1 }] },
   aiHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -870,12 +1131,31 @@ const styles = StyleSheet.create({
     minHeight: 70,
     marginBottom: Spacing.md,
   },
-  aiButton: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.white,
+  aiActionButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  aiActionText: {
+    color: Colors.white,
+    fontWeight: FontWeights.semibold,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.base,
   },
   section: { marginTop: Spacing.xl },
   profileCard: { padding: 0, borderWidth: 1 },
+  skinEditorWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
   profileRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -914,6 +1194,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
+  },
+  editorChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  editorChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  fitzChipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  fitzSwatch: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  fitzReadPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+  },
+  fitzReadText: {
+    maxWidth: '100%',
   },
   conditionsRow: {
     flexDirection: 'row',

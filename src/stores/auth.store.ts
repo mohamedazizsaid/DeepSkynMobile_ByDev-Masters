@@ -26,6 +26,7 @@ interface AuthState {
 
     login: (data: any) => Promise<{ requiresTwoFactor: boolean; success: boolean }>;
     register: (data: any) => Promise<void>;
+    completeSignupWithCode: (email: string, code: string) => Promise<void>;
     faceLogin: (email: string, imageBase64?: string) => Promise<boolean>;
     loginWithGoogle: (idToken: string) => Promise<void>;
     loadUser: () => Promise<void>;
@@ -83,6 +84,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true });
         try {
             const result = await authService.register(data);
+            if (result.tokens) {
+                await AsyncStorage.setItem('access_token', result.tokens.access_token);
+                await AsyncStorage.setItem('refresh_token', result.tokens.refresh_token);
+            }
+            set({ isAuthenticated: true, isLoading: false });
+            await get().loadUser();
+        } catch (error) {
+            set({ isLoading: false });
+            throw error;
+        }
+    },
+
+    completeSignupWithCode: async (email, code) => {
+        set({ isLoading: true });
+        try {
+            const result = await authService.verifySignupCode({ email, code });
             if (result.tokens) {
                 await AsyncStorage.setItem('access_token', result.tokens.access_token);
                 await AsyncStorage.setItem('refresh_token', result.tokens.refresh_token);

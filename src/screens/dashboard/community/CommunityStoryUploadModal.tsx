@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -29,8 +30,64 @@ export function CommunityStoryUploadModal({ isOpen, onClose, onUpload, t }: Comm
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [selectedMediaBase64, setSelectedMediaBase64] = useState<string | null>(null);
   const [selectedMusic, setSelectedMusic] = useState<{ url: string; title: string; source?: 'catalog' | 'local' } | null>(null);
+  const [playingMusicUrl, setPlayingMusicUrl] = useState<string | null>(null);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [musicOptions, setMusicOptions] = useState<Array<{ id: string; title: string; url: string }>>([]);
+  const soundRef = React.useRef<Audio.Sound | null>(null);
+
+  const unloadSound = async () => {
+    if (soundRef.current) {
+      try {
+        await soundRef.current.unloadAsync();
+      } catch {
+        // noop
+      } finally {
+        soundRef.current = null;
+      }
+    }
+  };
+
+  const stopMusicPreview = async () => {
+    await unloadSound();
+    setPlayingMusicUrl(null);
+    setIsMusicPlaying(false);
+  };
+
+  const playMusicPreview = async (url: string) => {
+    try {
+      if (playingMusicUrl === url && soundRef.current) {
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded && status.isPlaying) {
+          await soundRef.current.pauseAsync();
+          setIsMusicPlaying(false);
+          return;
+        }
+        if (status.isLoaded) {
+          await soundRef.current.playAsync();
+          setIsMusicPlaying(true);
+          return;
+        }
+      }
+
+      await unloadSound();
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { shouldPlay: true, isLooping: true, volume: 0.8 }
+      );
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) return;
+        setIsMusicPlaying(status.isPlaying);
+      });
+
+      soundRef.current = sound;
+      setPlayingMusicUrl(url);
+      setIsMusicPlaying(true);
+    } catch {
+      Alert.alert(t.common.error || 'Erreur', t.community.uploadError || 'Impossible de lire cet extrait audio');
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -40,7 +97,16 @@ export function CommunityStoryUploadModal({ isOpen, onClose, onUpload, t }: Comm
         setMusicOptions((items || []).slice(0, 5).map((m) => ({ id: m.id, title: m.title, url: m.url })));
       })
       .catch(() => setMusicOptions([]));
+    return () => {
+      stopMusicPreview();
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      unloadSound();
+    };
+  }, []);
 
   const handlePickStoryMedia = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -87,6 +153,7 @@ export function CommunityStoryUploadModal({ isOpen, onClose, onUpload, t }: Comm
         title: asset.name || (t.community.addMusic || 'Audio local'),
         source: 'local',
       });
+      await stopMusicPreview();
     } catch {
       Alert.alert(t.common.error || 'Erreur', t.community.uploadError || 'Impossible de charger la musique');
     }
@@ -100,6 +167,7 @@ export function CommunityStoryUploadModal({ isOpen, onClose, onUpload, t }: Comm
       setSelectedMedia(null);
       setSelectedMediaBase64(null);
       setSelectedMusic(null);
+      await stopMusicPreview();
       onClose();
     } finally {
       setUploading(false);
@@ -136,20 +204,30 @@ export function CommunityStoryUploadModal({ isOpen, onClose, onUpload, t }: Comm
               {musicOptions.map((m) => (
                 <TouchableOpacity
                   key={m.id}
-                  onPress={() => setSelectedMusic({ url: m.url, title: m.title, source: 'catalog' })}
+                  onPress={async () => {
+                    setSelectedMusic({ url: m.url, title: m.title, source: 'catalog' });
+                    await playMusicPreview(m.url);
+                  }}
                   style={[
                     s.musicChip,
                     selectedMusic?.url === m.url && { backgroundColor: Colors.primary },
                   ]}
                 >
-                  <Text
-                    style={[
-                      s.musicChipText,
-                      selectedMusic?.url === m.url && { color: Colors.white },
-                    ]}
-                  >
-                    {m.title}
-                  </Text>
+                  <View style={s.musicChipContent}>
+                    <Ionicons
+                      name={playingMusicUrl === m.url && isMusicPlaying ? 'pause' : 'play'}
+                      size={12}
+                      color={selectedMusic?.url === m.url ? Colors.white : Colors.primary}
+                    />
+                    <Text
+                      style={[
+                        s.musicChipText,
+                        selectedMusic?.url === m.url && { color: Colors.white },
+                      ]}
+                    >
+                      {m.title}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -162,6 +240,9 @@ export function CommunityStoryUploadModal({ isOpen, onClose, onUpload, t }: Comm
                 <View style={s.musicTag}>
                   <Ionicons name="musical-note" size={12} color={Colors.white} />
                   <Text style={s.musicTagText}>{selectedMusic.title || t.community.musicAdded || 'Musique ajoutee'}</Text>
+                  {playingMusicUrl === selectedMusic.url && (
+                    <Ionicons name={isMusicPlaying ? 'volume-high' : 'volume-mute'} size={12} color={Colors.white} />
+                  )}
                 </View>
               )}
             </View>
@@ -196,5 +277,6 @@ const s = StyleSheet.create({
     backgroundColor: Colors.gray100,
     marginRight: Spacing.xs,
   },
+  musicChipContent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   musicChipText: { color: Colors.gray700, fontSize: 11, fontWeight: '700' as any },
 });

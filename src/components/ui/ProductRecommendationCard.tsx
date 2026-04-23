@@ -129,7 +129,7 @@ export function ProductRecommendationCard({
       >
         <Animated.View style={[styles.cardContainer, animatedStyle]}>
           <LinearGradient
-            colors={[Colors.gray800, Colors.gray900]}
+            colors={['#F7FCFF', '#EAF6FF']}
             style={styles.card}
           >
             {/* Header */}
@@ -198,7 +198,7 @@ export function ProductRecommendationCard({
 
               <View style={styles.actions}>
                 <TouchableOpacity onPress={handleShare} style={styles.actionButton}>
-                  <Ionicons name="share-outline" size={20} color={Colors.gray400} />
+                  <Ionicons name="share-outline" size={20} color="#2E6A95" />
                 </TouchableOpacity>
                 
                 {showQRCode && product.qrCodeDataUrl && (
@@ -206,7 +206,7 @@ export function ProductRecommendationCard({
                     onPress={() => setQrExpanded(!qrExpanded)} 
                     style={styles.actionButton}
                   >
-                    <Ionicons name="qr-code-outline" size={20} color={Colors.gray400} />
+                    <Ionicons name="qr-code-outline" size={20} color="#2E6A95" />
                   </TouchableOpacity>
                 )}
 
@@ -251,7 +251,7 @@ export function ProductRecommendationCard({
                     onPress={() => Linking.openURL(article.url)}
                     style={styles.sourceLink}
                   >
-                    <Ionicons name="document-text-outline" size={12} color={Colors.gray500} />
+                    <Ionicons name="document-text-outline" size={12} color="#4F7697" />
                     <Text style={styles.sourceLinkText} numberOfLines={1}>
                       {article.title}
                     </Text>
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.gray700,
+    borderColor: '#CEE6F8',
   },
   header: {
     flexDirection: 'row',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontSize: FontSizes.xs,
-    color: Colors.gray400,
+    color: '#4F7697',
     fontWeight: FontWeights.medium,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
-    color: Colors.white,
+    color: '#0B3D66',
     marginBottom: Spacing.xs,
   },
   description: {
     fontSize: FontSizes.sm,
-    color: Colors.gray400,
+    color: '#3E6688',
     lineHeight: 20,
   },
   ingredientsSection: {
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: FontSizes.xs,
-    color: Colors.gray400,
+    color: '#4F7697',
     fontWeight: FontWeights.medium,
     marginBottom: Spacing.sm,
   },
@@ -345,14 +345,14 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   ingredientChip: {
-    backgroundColor: Colors.gray700,
+    backgroundColor: '#E2F2FD',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
   },
   ingredientText: {
     fontSize: FontSizes.xs,
-    color: Colors.gray300,
+    color: '#245A84',
   },
   whySection: {
     marginBottom: Spacing.md,
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   whyText: {
     flex: 1,
     fontSize: FontSizes.sm,
-    color: Colors.gray200,
+    color: '#1C4F78',
     lineHeight: 20,
   },
   footer: {
@@ -376,17 +376,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.gray700,
+    borderTopColor: '#D5EAF9',
   },
   priceContainer: {},
   priceLabel: {
     fontSize: FontSizes.xs,
-    color: Colors.gray500,
+    color: '#4F7697',
   },
   price: {
     fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
-    color: Colors.white,
+    color: '#0B3D66',
   },
   actions: {
     flexDirection: 'row',
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.gray700,
+    backgroundColor: '#E2F2FD',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -444,17 +444,17 @@ const styles = StyleSheet.create({
   qrHint: {
     marginTop: Spacing.sm,
     fontSize: FontSizes.xs,
-    color: Colors.gray500,
+    color: '#4F7697',
   },
   sourcesSection: {
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.gray700,
+    borderTopColor: '#D5EAF9',
   },
   sourcesTitle: {
     fontSize: FontSizes.xs,
-    color: Colors.gray500,
+    color: '#4F7697',
     marginBottom: Spacing.sm,
   },
   sourceLink: {
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   sourceLinkText: {
     fontSize: FontSizes.xs,
-    color: Colors.gray400,
+    color: '#3E6688',
     flex: 1,
   },
   // Compact styles
@@ -489,14 +489,14 @@ const styles = StyleSheet.create({
   },
   compactBrand: {
     fontSize: FontSizes.xs,
-    color: Colors.gray400,
+    color: '#4F7697',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   compactName: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
-    color: Colors.white,
+    color: '#0B3D66',
   },
   compactRight: {
     alignItems: 'flex-end',
