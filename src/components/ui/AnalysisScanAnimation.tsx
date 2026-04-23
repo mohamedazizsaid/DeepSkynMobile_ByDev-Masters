@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,12 +22,14 @@ interface AnalysisScanAnimationProps {
   progress: number; // 0-100
   status: 'scanning' | 'processing' | 'complete' | 'error';
   message?: string;
+  capturedPreviewImages?: Partial<Record<'front' | 'left' | 'right', string>>;
 }
 
 export function AnalysisScanAnimation({ 
   progress, 
   status, 
-  message = 'Analyse en cours...' 
+  message = 'Analyse en cours...',
+  capturedPreviewImages = {},
 }: AnalysisScanAnimationProps) {
   // Animation values
   const scanLineY = useSharedValue(0);
@@ -199,6 +201,13 @@ export function AnalysisScanAnimation({
 
         {/* Center content */}
         <View style={styles.centerContent}>
+          {(capturedPreviewImages.front || capturedPreviewImages.left || capturedPreviewImages.right) && (
+            <View style={styles.previewRow}>
+              <PreviewThumb label="G" uri={capturedPreviewImages.left} />
+              <PreviewThumb label="F" uri={capturedPreviewImages.front} large />
+              <PreviewThumb label="D" uri={capturedPreviewImages.right} />
+            </View>
+          )}
           <View style={[styles.iconContainer, { backgroundColor: `${getStatusColor()}20` }]}>
             <Ionicons 
               name={getStatusIcon()} 
@@ -302,6 +311,31 @@ function AnalysisStep({ label, complete, active }: AnalysisStepProps) {
   );
 }
 
+interface PreviewThumbProps {
+  label: string;
+  uri?: string;
+  large?: boolean;
+}
+
+function PreviewThumb({ label, uri, large = false }: PreviewThumbProps) {
+  const size = large ? 72 : 52;
+
+  return (
+    <View style={[styles.previewThumbContainer, { width: size, height: size + 16 }]}>
+      <View style={[styles.previewThumb, { width: size, height: size, borderRadius: size / 2 }]}>
+        {uri ? (
+          <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+        ) : (
+          <View style={[styles.previewPlaceholder, { width: size, height: size, borderRadius: size / 2 }]}>
+            <Ionicons name="camera-outline" size={large ? 24 : 18} color={Colors.gray400} />
+          </View>
+        )}
+      </View>
+      <Text style={styles.previewLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
@@ -375,6 +409,34 @@ const styles = StyleSheet.create({
   centerContent: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: Spacing.md,
+  },
+  previewThumbContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  previewThumb: {
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: Colors.white,
+    backgroundColor: Colors.gray800,
+  },
+  previewPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.gray800,
+  },
+  previewLabel: {
+    marginTop: 2,
+    fontSize: FontSizes.xs,
+    color: Colors.gray300,
+    fontWeight: FontWeights.medium,
   },
   iconContainer: {
     width: 80,

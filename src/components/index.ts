@@ -21,6 +21,7 @@ export { ProductRecommendationCard } from './ui/ProductRecommendationCard';
 export { ProductRecommendationsModal } from './ui/ProductRecommendationsModal';
 export { PreocupentSelectorModal } from './ui/PreocupentSelectorModal';
 export type { PreocupentZoneKey } from './ui/PreocupentSelectorModal';
+export { DigitalTwinCard } from './dashboard/DigitalTwinCard';
 
 // Accessibility Components
 export { AccessibilityPanel, ToggleSwitch } from './accessibility';

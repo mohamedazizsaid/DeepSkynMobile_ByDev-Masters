@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -241,6 +241,11 @@ export function EvolutionScreen() {
             const change = prevScore ? currentScore - prevScore : 0;
             const skinType = analysis.results?.skinType;
             
+            const previewImage =
+              Array.isArray(analysis.images) && analysis.images.length > 0
+                ? analysis.images[0]
+                : null;
+
             return (
               <Card key={analysis.id} style={styles.timelineCard}>
                 <View style={styles.timelineRow}>
@@ -256,6 +261,9 @@ export function EvolutionScreen() {
                       <Text style={dynamicStyles.timelineMeta}>{skinType}</Text>
                     )}
                   </View>
+                  {previewImage && (
+                    <Image source={{ uri: previewImage }} style={styles.timelinePreview} />
+                  )}
                   {prevScore && (
                     <Badge
                       text={change >= 0 ? `+${change}` : `${change}`}
@@ -293,6 +301,12 @@ const styles = StyleSheet.create({
   timelineDot: { width: 32, height: 32 },
   dotGradient: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   timelineContent: { flex: 1 },
+  timelinePreview: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    marginRight: Spacing.xs,
+  },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
   chartContainer: { paddingTop: Spacing.md },
   barChart: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 150, paddingBottom: Spacing.sm },

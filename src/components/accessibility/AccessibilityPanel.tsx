@@ -177,9 +177,9 @@ export function AccessibilityPanel() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // ── Floating Bubble Logic ──────────────────────────────────────────
-  const pan = useRef(new Animated.ValueXY({ 
-    x: SCREEN_WIDTH - 70, 
-    y: SCREEN_HEIGHT - (isAuthenticated ? insets.bottom + 78 : insets.bottom + 20) - 70 
+  const pan = useRef(new Animated.ValueXY({
+    x: SCREEN_WIDTH - 70,
+    y: SCREEN_HEIGHT - (isAuthenticated ? insets.bottom + 78 : insets.bottom + 20) - 70
   })).current;
 
   const panResponder = useRef(
@@ -201,7 +201,7 @@ export function AccessibilityPanel() {
       onPanResponderRelease: (e, gestureState) => {
         pan.flattenOffset();
         const isTap = Math.abs(gestureState.dx) < 5 && Math.abs(gestureState.dy) < 5;
-        
+
         if (isTap) {
           togglePanel?.();
           return;
@@ -209,7 +209,7 @@ export function AccessibilityPanel() {
 
         const finalX = (pan as any).x._value;
         const finalY = (pan as any).y._value;
-        
+
         // Snap to nearest side (Messenger style)
         const targetX = finalX > (SCREEN_WIDTH / 2 - 28) ? SCREEN_WIDTH - 66 : 10;
         const targetY = Math.min(Math.max(finalY, insets.top + 10), SCREEN_HEIGHT - insets.bottom - 80);
@@ -223,7 +223,7 @@ export function AccessibilityPanel() {
       },
     })
   ).current;
-  
+
   // Safe access with fallback defaults
   const theme = store?.theme ?? 'light';
   const contrastMode = store?.contrastMode ?? 'off';
@@ -239,7 +239,7 @@ export function AccessibilityPanel() {
   const language = store?.language ?? 'fr';
 
   const { t } = useTranslation();
-  
+
   const toggleTheme = store?.toggleTheme;
   const setContrastMode = store?.setContrastMode;
   const resetContrastMode = store?.resetContrastMode;
@@ -345,7 +345,7 @@ export function AccessibilityPanel() {
           accessible={false}
           importantForAccessibility="no-hide-descendants"
         />
-        
+
         <View style={styles.panelContainer}>
           {Platform.OS === 'ios' ? (
             <BlurView intensity={90} tint={theme} style={styles.panel}>
@@ -504,21 +504,21 @@ function PanelContent({
   const isDark = theme === 'dark';
   const panelThemeStyles = isDark
     ? {
-        panelBackground: { backgroundColor: Colors.gray900 },
-        sectionText: { color: Colors.gray300 },
-        cardBackground: { backgroundColor: Colors.gray800, borderColor: Colors.gray700 },
-        badgeBackground: { backgroundColor: Colors.primaryAlpha20 },
-        buttonBackground: { backgroundColor: Colors.gray700 },
-        trackBackground: { backgroundColor: Colors.gray700 },
-      }
+      panelBackground: { backgroundColor: Colors.gray900 },
+      sectionText: { color: Colors.gray300 },
+      cardBackground: { backgroundColor: Colors.gray800, borderColor: Colors.gray700 },
+      badgeBackground: { backgroundColor: Colors.primaryAlpha20 },
+      buttonBackground: { backgroundColor: Colors.gray700 },
+      trackBackground: { backgroundColor: Colors.gray700 },
+    }
     : {
-        panelBackground: { backgroundColor: Colors.white },
-        sectionText: { color: Colors.gray400 },
-        cardBackground: { backgroundColor: Colors.white, borderColor: Colors.gray200 },
-        badgeBackground: { backgroundColor: Colors.primaryAlpha10 },
-        buttonBackground: { backgroundColor: Colors.gray100 },
-        trackBackground: { backgroundColor: Colors.gray200 },
-      };
+      panelBackground: { backgroundColor: Colors.white },
+      sectionText: { color: Colors.gray400 },
+      cardBackground: { backgroundColor: Colors.white, borderColor: Colors.gray200 },
+      badgeBackground: { backgroundColor: Colors.primaryAlpha10 },
+      buttonBackground: { backgroundColor: Colors.gray100 },
+      trackBackground: { backgroundColor: Colors.gray200 },
+    };
 
   return (
     <>
@@ -617,7 +617,7 @@ function PanelContent({
                   </View>
                 </View>
 
-                  <View style={styles.contrastButtons}>
+                <View style={styles.contrastButtons}>
                   <ContrastButton
                     label={t.accessibility.contrastNormal}
                     isActive={contrastMode === 'off'}

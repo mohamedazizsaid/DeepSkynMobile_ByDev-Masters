@@ -14,10 +14,27 @@ export const predictiveRoutineService = {
    * This creates a 7-day personalized routine using AI + weather data
    */
   async generate(dto: GeneratePredictiveRoutineDto): Promise<PredictiveRoutine> {
-    const res = await apiClient.post<PredictiveRoutine>('/predictive-routine/generate', dto, {
-      timeout: 120_000, // AI generation can take time
-    });
-    return res.data;
+    try {
+      const res = await apiClient.post<PredictiveRoutine>('/predictive-routine/generate', dto, {
+        timeout: 300_000, // AI generation can take longer on mobile networks
+      });
+      return res.data;
+    } catch (error: any) {
+      const isTimeout =
+        error?.code === 'ECONNABORTED' ||
+        String(error?.message || '').toLowerCase().includes('timeout');
+
+      if (isTimeout) {
+        // Fallback: the backend may have finished generation after client timeout.
+        const pending = await this.getPending().catch(() => []);
+        const matched = pending.find((routine) => routine.analysisId === dto.analysisId);
+        if (matched) {
+          return matched;
+        }
+      }
+
+      throw error;
+    }
   },
 
   /**

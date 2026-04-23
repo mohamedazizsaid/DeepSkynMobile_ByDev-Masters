@@ -26,8 +26,12 @@ export const authService = {
         return res.data;
     },
 
-    async faceLogin(email: string, imageBase64: string) {
-        const res = await apiClient.post('/auth/face-login', { email, imageBase64 });
+    async faceLogin(email: string, imageBase64?: string) {
+        const payload: { email: string; imageBase64?: string } = { email };
+        if (imageBase64) {
+            payload.imageBase64 = imageBase64;
+        }
+        const res = await apiClient.post('/auth/face-login', payload);
         return res.data;
     },
 
