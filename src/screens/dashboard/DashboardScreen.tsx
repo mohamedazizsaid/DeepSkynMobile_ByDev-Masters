@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Animated, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Animated, Pressable, Image, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import type { Analysis, AnalysisStats } from '../../lib/types';
+import type { SkinPrediction } from '../../lib/types/product-recommendation';
 
 interface DashboardData {
   latestAnalysis: Analysis | null;
@@ -40,6 +41,7 @@ export function DashboardScreen({ navigation }: any) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(true);
+  const [selectedPrediction, setSelectedPrediction] = useState<SkinPrediction | null>(null);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
   const swipeHintAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const swipeOpacityAnim = useRef(new Animated.Value(1)).current;
@@ -573,7 +575,7 @@ export function DashboardScreen({ navigation }: any) {
 
       <View style={styles.section}>
         <Text style={dynamicStyles.sectionTitle}>Digital Twin</Text>
-        <DigitalTwinCard />
+        <DigitalTwinCard onPress={setSelectedPrediction} />
       </View>
 
       {/* Quick Actions */}
@@ -658,6 +660,137 @@ export function DashboardScreen({ navigation }: any) {
           onComplete={handleTourComplete}
         />
       )}
+
+      {/* Digital Twin Details Modal */}
+      <Modal
+        visible={!!selectedPrediction}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setSelectedPrediction(null)}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setSelectedPrediction(null)}>
+              <Ionicons name="chevron-back" size={28} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontSizes.xl }]}>
+              Prédiction Digital Twin
+            </Text>
+            <View style={{ width: 28 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {selectedPrediction && (
+              <>
+                {/* Image Simulation Avant/Après */}
+                {data.latestAnalysis?.images?.[0] && (
+                  <View style={[styles.simulationContainer, { borderColor: colors.border }]}>
+                    <View style={styles.simulationRow}>
+                      {/* Avant */}
+                      <View style={styles.simulationSide}>
+                        <Image
+                          source={{ uri: data.latestAnalysis.images[0] }}
+                          style={styles.simulationImage}
+                        />
+                        <View style={[styles.simulationOverlay, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+                        <Text style={[styles.simulationLabel, { color: Colors.white }]}>Actuellement</Text>
+                      </View>
+
+                      {/* Après */}
+                      <View style={styles.simulationSide}>
+                        <Image
+                          source={{ uri: data.latestAnalysis.images[0] }}
+                          style={[styles.simulationImage, { opacity: 0.9 }]}
+                        />
+                        <View style={[styles.simulationOverlay, { backgroundColor: 'rgba(0, 165, 233, 0.15)' }]} />
+                        <Text style={[styles.simulationLabel, { color: Colors.white }]}>Dans {selectedPrediction.basedOnDays} jours</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.simulationDivider, { backgroundColor: Colors.white }]} />
+                  </View>
+                )}
+
+                <View style={[styles.predictionCard, { backgroundColor: colors.surface }]}>
+                  <View style={styles.predictionRow}>
+                    <Text style={[styles.predictionLabel, { color: colors.textSecondary }]}>
+                      Score de santé prédit
+                    </Text>
+                    <Text style={[styles.predictionValue, { color: colors.primary }]}>
+                      {Math.round(selectedPrediction.predictedState.healthScore)}/100
+                    </Text>
+                  </View>
+
+                  <View style={styles.predictionRow}>
+                    <Text style={[styles.predictionLabel, { color: colors.textSecondary }]}>
+                      Confiance IA
+                    </Text>
+                    <Text style={[styles.predictionValue, { color: colors.success }]}>
+                      {Math.round(selectedPrediction.confidence * 100)}%
+                    </Text>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <Text style={[styles.metricsTitle, { color: colors.text }]}>Métriques de peau</Text>
+                  <View style={styles.metricsGrid}>
+                    <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Hydratation</Text>
+                      <Text style={[styles.metricValue, { color: colors.primary }]}>
+                        {Math.round(selectedPrediction.predictedState.hydration)}%
+                      </Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Texture</Text>
+                      <Text style={[styles.metricValue, { color: colors.primary }]}>
+                        {Math.round(selectedPrediction.predictedState.texture)}%
+                      </Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Sensibilité</Text>
+                      <Text style={[styles.metricValue, { color: colors.primary }]}>
+                        {Math.round(selectedPrediction.predictedState.sensitivity)}%
+                      </Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Acné</Text>
+                      <Text style={[styles.metricValue, { color: colors.primary }]}>
+                        {Math.round(selectedPrediction.predictedState.acne)}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  {selectedPrediction.preventiveTips && selectedPrediction.preventiveTips.length > 0 && (
+                    <>
+                      <View style={[styles.divider, { marginTop: Spacing.lg }]} />
+                      <Text style={[styles.metricsTitle, { color: colors.text }]}>Conseils préventifs</Text>
+                      {selectedPrediction.preventiveTips.map((tip, index) => (
+                        <View key={index} style={styles.tipRow}>
+                          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                          <Text style={[styles.tipText, { color: colors.text }]}>{tip}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+
+                  {selectedPrediction.warnings && selectedPrediction.warnings.length > 0 && (
+                    <>
+                      <View style={[styles.divider, { marginTop: Spacing.lg }]} />
+                      <Text style={[styles.metricsTitle, { color: colors.text }]}>Avertissements</Text>
+                      {selectedPrediction.warnings.map((warning, index) => (
+                        <View key={index} style={styles.warningRow}>
+                          <Ionicons name="alert-circle" size={16} color={colors.warning} />
+                          <Text style={[styles.warningText, { color: colors.text }]}>{warning}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </View>
+              </>
+            )}
+            <View style={{ height: 30 }} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
       </SafeAreaView>
     </PanGestureHandler>
   );
@@ -858,5 +991,154 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  modalTitle: {
+    fontSize: FontSizes.xl,
+    fontWeight: FontWeights.bold,
+    color: Colors.gray900,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+  },
+  simulationContainer: {
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
+    borderWidth: 2,
+    borderColor: Colors.gray200,
+    height: 300,
+  },
+  simulationRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  simulationSide: {
+    flex: 1,
+    position: 'relative',
+  },
+  simulationImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  simulationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  simulationLabel: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    color: Colors.white,
+  },
+  simulationDivider: {
+    position: 'absolute',
+    width: 2,
+    height: '100%',
+    left: '50%',
+    top: 0,
+    backgroundColor: Colors.white,
+  },
+  predictionCard: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    ...Shadows.md,
+  },
+  predictionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  predictionLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.gray600,
+  },
+  predictionValue: {
+    fontSize: FontSizes.lg,
+    fontWeight: FontWeights.bold,
+    color: Colors.primary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.gray100,
+    marginVertical: Spacing.lg,
+  },
+  metricsTitle: {
+    fontSize: FontSizes.base,
+    fontWeight: FontWeights.semibold,
+    color: Colors.gray900,
+    marginBottom: Spacing.md,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+  },
+  metricCard: {
+    width: '48%',
+    backgroundColor: Colors.gray50,
+    borderRadius: BorderRadius.base,
+    padding: Spacing.md,
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors.gray500,
+    marginBottom: Spacing.xs,
+  },
+  metricValue: {
+    fontSize: FontSizes.lg,
+    fontWeight: FontWeights.bold,
+    color: Colors.primary,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: Colors.gray700,
+    lineHeight: 20,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: Colors.gray700,
+    lineHeight: 20,
   },
 });

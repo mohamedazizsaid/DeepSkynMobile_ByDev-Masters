@@ -1,7 +1,7 @@
 // Environment-based API configuration for React Native/Expo
 // For Expo, use .env file or Constants.expoConfig.extra
 //let API_BASE_URL = 'https://deepskyn.loca.lt';
-let API_BASE_URL = 'http://192.168.1.8:3000';
+let API_BASE_URL = 'http://192.168.251.164:3000';
 
 let API_TIMEOUT = 30000;
 

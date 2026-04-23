@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Replace with your actual backend IP/URL
 // Note: Use your machine's local IP (e.g., 192.168.1.XX) instead of localhost for physical devices
 //const BASE_URL = 'https://deepskyn.loca.lt';
-const BASE_URL = 'http://192.168.1.8:3000';
+const BASE_URL = 'http://192.168.251.164:3000';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,

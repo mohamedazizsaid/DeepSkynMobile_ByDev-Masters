@@ -38,3 +38,6 @@ export type { TourStep } from './tour';
 
 // Notification Components
 export { NotificationPanel, NotificationItem } from './notifications';
+
+// Dashboard Components
+export { DigitalTwinCard } from './dashboard/DigitalTwinCard';

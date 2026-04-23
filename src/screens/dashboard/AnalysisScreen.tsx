@@ -3,6 +3,8 @@ import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpa
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis, ProductRecommendationsModal, PreocupentSelectorModal } from '../../components';
 import type { FaceTag } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontWeights, Shadows } from '../../theme';
@@ -20,6 +22,7 @@ type ScreenMode = 'results' | 'upload';
 export function AnalysisScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
+  const navigation = useNavigation<StackNavigationProp<any>>();
   const [mode, setMode] = useState<ScreenMode>('results');
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
   const [stats, setStats] = useState<AnalysisStats | null>(null);
@@ -716,6 +719,27 @@ export function AnalysisScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: Colors.white, fontSize: fontSizes.lg, fontWeight: FontWeights.bold }}>Produits Recommandés IA</Text>
                       <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: fontSizes.sm, marginTop: 4 }}>Découvrez les produits adaptés à votre peau</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color={Colors.white} />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <TouchableOpacity onPress={() => navigation.navigate('MultiPhotoCamera')} activeOpacity={0.9}>
+                <LinearGradient
+                  colors={['#06B6D4', '#0284C7']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: BorderRadius.xl, padding: Spacing.lg, ...Shadows.md }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md }}>
+                      <Ionicons name="camera-outline" size={28} color={Colors.white} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: Colors.white, fontSize: fontSizes.lg, fontWeight: FontWeights.bold }}>Scan Caméra 3 Photos</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: fontSizes.sm, marginTop: 4 }}>Capturez 3 photos en temps réel</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={24} color={Colors.white} />
                   </View>

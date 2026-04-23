@@ -11,6 +11,8 @@ import { useAccessibilityStyles } from '../stores/useAccessibilityStyles';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { AnalysisScreen } from '../screens/dashboard/AnalysisScreen';
 import { CameraScanScreen } from '../screens/dashboard/CameraScanScreen';
+import { MultiPhotoScanScreen } from '../screens/dashboard/MultiPhotoScanScreen';
+import { MultiPhotoCameraScreen } from '../screens/dashboard/MultiPhotoCameraScreen';
 import { AnalysisResultScreen } from '../screens/dashboard/AnalysisResultScreen';
 import { AnalysisHistoryScreen } from '../screens/dashboard/AnalysisHistoryScreen';
 import { EvolutionScreen } from '../screens/dashboard/EvolutionScreen';
@@ -42,6 +44,8 @@ export type HomeStackParamList = {
 export type AnalysisStackParamList = {
   AnalysisHub: undefined;
   CameraScan: undefined;
+  MultiPhotoScan: undefined;
+  MultiPhotoCamera: undefined;
   AnalysisResult: { analysisId?: string };
   AnalysisHistory: undefined;
 };
@@ -68,6 +72,8 @@ function AnalysisStackNavigator() {
     <AnalysisStack.Navigator screenOptions={{ headerShown: false }}>
       <AnalysisStack.Screen name="AnalysisHub" component={AnalysisScreen} />
       <AnalysisStack.Screen name="CameraScan" component={CameraScanScreen} />
+      <AnalysisStack.Screen name="MultiPhotoScan" component={MultiPhotoScanScreen} />
+      <AnalysisStack.Screen name="MultiPhotoCamera" component={MultiPhotoCameraScreen} />
       <AnalysisStack.Screen name="AnalysisResult" component={AnalysisResultScreen} />
       <AnalysisStack.Screen name="AnalysisHistory" component={AnalysisHistoryScreen} />
     </AnalysisStack.Navigator>
