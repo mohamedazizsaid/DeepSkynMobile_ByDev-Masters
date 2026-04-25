@@ -59,12 +59,12 @@ export function LoginScreen({ navigation }: any) {
   // Dynamic styles based on accessibility
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
-    backText: { fontSize: fontSizes.base, color: colors.textSecondary },
+    backText: { fontSize: fontSizes.base, color: colors.textSecondary, flexShrink: 1 },
     title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
     subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' as const },
     formCard: { padding: Spacing.xl, backgroundColor: colors.surface },
-    forgotText: { fontSize: fontSizes.sm, color: colors.primary },
-    faceIdText: { fontSize: fontSizes.sm, color: colors.primary },
+    forgotText: { fontSize: fontSizes.sm, color: colors.primary, flexShrink: 1 },
+    faceIdText: { fontSize: fontSizes.sm, color: colors.primary, flexShrink: 1 },
     dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
     dividerText: { paddingHorizontal: Spacing.md, fontSize: fontSizes.sm, color: colors.textTertiary },
     socialButton: { 
@@ -73,8 +73,8 @@ export function LoginScreen({ navigation }: any) {
       borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
     },
     socialText: { fontSize: fontSizes.sm, fontWeight: FontWeights.medium, color: colors.text },
-    signupText: { fontSize: fontSizes.sm, color: colors.textSecondary },
-    signupLink: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.primary },
+    signupText: { fontSize: fontSizes.sm, color: colors.textSecondary, flexShrink: 1 },
+    signupLink: { fontSize: fontSizes.sm, fontWeight: FontWeights.semibold, color: colors.primary, flexShrink: 1 },
     twoFactorTitle: { fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
     twoFactorSubtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center' as const, marginTop: Spacing.xs },
     cancel2faText: { color: colors.textSecondary, fontWeight: FontWeights.medium },
@@ -85,11 +85,13 @@ export function LoginScreen({ navigation }: any) {
       marginTop: Spacing.sm,
       marginBottom: Spacing.base,
       alignSelf: 'flex-start' as const,
+      flexWrap: 'wrap' as const,
     },
     rememberText: {
       fontSize: fontSizes.xs,
       color: colors.textSecondary,
       fontWeight: FontWeights.medium,
+      flexShrink: 1,
     },
   }), [colors, fontSizes]);
 
@@ -139,13 +141,13 @@ export function LoginScreen({ navigation }: any) {
       const success = await faceLogin(email, imageBase64);
       if (success) {
         setShowFaceID(false);
+        return true;
       } else {
-        Alert.alert(t.common.error, t.auth.faceIdError);
-        setShowFaceID(false);
+        return false;
       }
     } catch (error: any) {
-      Alert.alert(t.common.error, error.response?.data?.message || t.auth.faceIdError);
-      setShowFaceID(false);
+      console.error(error);
+      return false;
     }
   };
 
@@ -355,6 +357,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.xl,
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
   },
   forgotText: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.medium },
   faceIdLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -377,6 +381,7 @@ const styles = StyleSheet.create({
   signupRow: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
     marginTop: Spacing.xl,
+    flexWrap: 'wrap',
   },
   signupText: { fontSize: FontSizes.sm, color: Colors.gray500 },
   signupLink: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: FontWeights.bold },

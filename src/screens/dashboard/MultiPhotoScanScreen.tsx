@@ -10,6 +10,7 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import { subscriptionService } from '../../services/subscription.service';
+import { faceVerificationService } from '../../services/face-verification.service';
 import type { GeminiAnalysisResult } from '../../lib/types';
 import { useFaceReferenceGate } from '../../lib/hooks/useFaceReferenceGate';
 
@@ -42,6 +43,7 @@ export function MultiPhotoScanScreen() {
   const [usage, setUsage] = useState<any>(null);
   const [loadingUsage, setLoadingUsage] = useState(true);
   const [showPreocupentModal, setShowPreocupentModal] = useState(false);
+  const [verifyingFace, setVerifyingFace] = useState(false);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const redirectToSettings = useCallback(() => {
@@ -199,13 +201,50 @@ export function MultiPhotoScanScreen() {
     }
   }, [photos, usage, t]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     const capturedPhotos = photos.filter((photo): photo is CapturedPhoto => Boolean(photo?.base64));
 
     if (capturedPhotos.length < REQUIRED_PHOTOS) {
       Alert.alert(t.common.error, `Veuillez sélectionner ${REQUIRED_PHOTOS} photos`);
       return;
     }
+
+    setVerifyingFace(true);
+    try {
+      let isVerified = false;
+      let lastVerification: any = null;
+
+      // Tester toutes les photos car les profils gauche/droite peuvent échouer à la reconnaissance faciale (SsdMobilenetv1 est optimisé pour les vues de face)
+      for (const photo of capturedPhotos) {
+        try {
+          const verification = await faceVerificationService.verifyFace(photo.base64!);
+          lastVerification = verification;
+          if (verification.verified) {
+            isVerified = true;
+            break;
+          }
+        } catch (e) {
+          console.log('Verification failed for a photo (likely side profile):', e);
+        }
+      }
+
+      if (!isVerified) {
+        Alert.alert('Échec de la vérification', lastVerification?.message || 'Le visage ne correspond pas à votre avatar de profil.', [
+          { text: 'OK', style: 'default' }
+        ]);
+        if (lastVerification?.needsProfilePhoto) {
+          setTimeout(() => redirectToSettings(), 500);
+        }
+        return;
+      }
+    } catch (error: any) {
+      console.error('Face verification error:', error);
+      Alert.alert(t.common.error, 'Erreur lors de la vérification faciale. Veuillez réessayer.');
+      return;
+    } finally {
+      setVerifyingFace(false);
+    }
+
     setShowPreocupentModal(true);
   };
 
@@ -241,7 +280,7 @@ export function MultiPhotoScanScreen() {
 
   if (isScanning && scanResult === null) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.lg, backgroundColor: colors.background }}>
           <View style={styles.scanningContainer}>
             <View style={[styles.circularPhotoLayout, { width: CIRCULAR_LAYOUT_SIZE, height: CIRCULAR_LAYOUT_SIZE }]}> 
@@ -348,7 +387,9 @@ export function MultiPhotoScanScreen() {
 
           {photos.filter((photo): photo is CapturedPhoto => Boolean(photo?.base64)).length === REQUIRED_PHOTOS && !scanResult && (
             <View style={{ paddingHorizontal: Spacing.lg, gap: Spacing.md }}>
-              <Button onPress={handleContinue}>Analyser les {REQUIRED_PHOTOS} photos</Button>
+              <Button onPress={handleContinue} disabled={verifyingFace}>
+                {verifyingFace ? 'Vérification...' : `Analyser les ${REQUIRED_PHOTOS} photos`}
+              </Button>
               <Button variant="outline" onPress={clearSelection}>Recommencer</Button>
             </View>
           )}

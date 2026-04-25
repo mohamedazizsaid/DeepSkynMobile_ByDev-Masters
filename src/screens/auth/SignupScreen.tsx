@@ -48,7 +48,7 @@ export function SignupScreen({ navigation }: any) {
 
   const dynamicStyles = useMemo(() => ({
     safeArea: { flex: 1, backgroundColor: colors.background },
-    backText: { fontSize: fontSizes.base, color: colors.textSecondary },
+    backText: { fontSize: fontSizes.base, color: colors.textSecondary, flexShrink: 1 },
     title: { fontSize: fontSizes['2xl'], fontWeight: FontWeights.bold, color: colors.text, marginTop: Spacing.base },
     subtitle: { fontSize: fontSizes.base, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' as const },
     formCard: { padding: Spacing.xl, backgroundColor: colors.surface },
@@ -64,8 +64,8 @@ export function SignupScreen({ navigation }: any) {
       borderRadius: BorderRadius.base, backgroundColor: colors.surface,
     },
     socialText: { fontSize: fontSizes.base, fontWeight: FontWeights.medium, color: colors.text },
-    loginText: { fontSize: fontSizes.sm, color: colors.textSecondary },
-    loginLink: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.bold },
+    loginText: { fontSize: fontSizes.sm, color: colors.textSecondary, flexShrink: 1 },
+    loginLink: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: FontWeights.bold, flexShrink: 1 },
     verificationCard: {
       marginTop: Spacing.base,
       padding: Spacing.lg,
@@ -370,5 +370,5 @@ const styles = StyleSheet.create({
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, marginBottom: Spacing.xl },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: Spacing.xl },
   socialRow: { flexDirection: 'row', gap: Spacing.md },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.xl },
+  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.xl, flexWrap: 'wrap' },
 });

@@ -12,6 +12,7 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import { subscriptionService } from '../../services/subscription.service';
+import { faceVerificationService } from '../../services/face-verification.service';
 import { predictiveRoutineService } from '../../services/predictive-routine.service';
 import { getLocation } from '../../services/weather.service';
 import type { Analysis, AnalysisStats, SubscriptionUsageSummary, PredictiveRoutine } from '../../lib/types';
@@ -48,6 +49,7 @@ export function AnalysisScreen() {
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
+  const [verifyingFace, setVerifyingFace] = useState(false);
 
   // Predictive Routine State
   const [generatingRoutine, setGeneratingRoutine] = useState(false);
@@ -205,6 +207,27 @@ export function AnalysisScreen() {
       Alert.alert(t.common.error, t.analysis.uploadPhotos);
       return;
     }
+
+    setVerifyingFace(true);
+    try {
+      const verification = await faceVerificationService.verifyFace(selectedImage.base64);
+      if (!verification.verified) {
+        Alert.alert('Échec de la vérification', verification.message || 'Le visage ne correspond pas à votre avatar de profil.', [
+          { text: 'OK', style: 'default' }
+        ]);
+        if (verification.needsProfilePhoto) {
+          setTimeout(() => redirectToSettings(), 500);
+        }
+        return;
+      }
+    } catch (error: any) {
+      console.error('Face verification error:', error);
+      Alert.alert(t.common.error, 'Erreur lors de la vérification faciale. Veuillez réessayer.');
+      return;
+    } finally {
+      setVerifyingFace(false);
+    }
+
     setShowPreocupentModal(true);
   };
 
@@ -555,10 +578,10 @@ export function AnalysisScreen() {
             </Button>
             <Button
               onPress={handleStartAnalysisClick}
-              disabled={!selectedImage || analysisLimitReached}
+              disabled={!selectedImage || analysisLimitReached || verifyingFace}
               style={{ flex: 1 }}
             >
-              {t.analysis.startAnalysis}
+              {verifyingFace ? 'Vérification...' : t.analysis.startAnalysis}
             </Button>
           </View>
 

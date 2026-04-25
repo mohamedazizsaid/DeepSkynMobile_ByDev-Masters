@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card, Badge, Button, LoadingSpinner, EmptyState, ShareRoutineModal, PredictiveRoutineModal, PredictiveRoutineCard } from '../../components';
 import { Colors, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
@@ -238,6 +239,8 @@ function RoutineReminderCard({
 }) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
+  const [showMorningPicker, setShowMorningPicker] = useState(false);
+  const [showEveningPicker, setShowEveningPicker] = useState(false);
 
   const saveReminders = async (next: typeof reminders) => {
     setReminders(next);
@@ -257,6 +260,32 @@ function RoutineReminderCard({
     }
   };
 
+  const parseTime = (timeStr: string) => {
+    const [hours, minutes] = (timeStr || '00:00').split(':').map(Number);
+    const date = new Date();
+    if (!isNaN(hours)) date.setHours(hours);
+    if (!isNaN(minutes)) date.setMinutes(minutes);
+    return date;
+  };
+
+  const handleMorningChange = (event: any, selectedDate?: Date) => {
+    setShowMorningPicker(false);
+    if (selectedDate) {
+      const timeStr = `${selectedDate.getHours().toString().padStart(2, '0')}:${selectedDate.getMinutes().toString().padStart(2, '0')}`;
+      const next = { ...reminders, morningTime: timeStr };
+      saveReminders(next);
+    }
+  };
+
+  const handleEveningChange = (event: any, selectedDate?: Date) => {
+    setShowEveningPicker(false);
+    if (selectedDate) {
+      const timeStr = `${selectedDate.getHours().toString().padStart(2, '0')}:${selectedDate.getMinutes().toString().padStart(2, '0')}`;
+      const next = { ...reminders, eveningTime: timeStr };
+      saveReminders(next);
+    }
+  };
+
   return (
     <Card style={styles.infoCard}>
       <View style={styles.infoHeader}>
@@ -269,38 +298,54 @@ function RoutineReminderCard({
           <Ionicons name="sunny" size={16} color={Colors.primary} />
           <Text style={styles.reminderLabel}>{t.routine.morning || 'Matin'}</Text>
         </View>
-        <TextInput
-          value={reminders.morningTime}
-          onChangeText={(value) => setReminders({ ...reminders, morningTime: value })}
-          onEndEditing={() => saveReminders(reminders)}
-          style={styles.reminderInput}
-          editable={reminders.morningEnabled}
-        />
+        <TouchableOpacity
+          onPress={() => reminders.morningEnabled && setShowMorningPicker(true)}
+          style={[styles.reminderInput, { opacity: reminders.morningEnabled ? 1 : 0.5, justifyContent: 'center' }]}
+        >
+          <Text style={{ textAlign: 'center', color: Colors.gray800 }}>{reminders.morningTime || '08:00'}</Text>
+        </TouchableOpacity>
         <Switch
           value={reminders.morningEnabled}
           onValueChange={(value) => saveReminders({ ...reminders, morningEnabled: value })}
           trackColor={{ false: Colors.gray300, true: Colors.primary }}
         />
       </View>
+      {showMorningPicker && (
+        <DateTimePicker
+          value={parseTime(reminders.morningTime || '08:00')}
+          mode="time"
+          is24Hour={true}
+          display="default"
+          onChange={handleMorningChange}
+        />
+      )}
 
       <View style={styles.reminderRow}>
         <View style={styles.reminderLeft}>
           <Ionicons name="moon" size={16} color={Colors.indigo} />
           <Text style={styles.reminderLabel}>{t.routine.evening || 'Soir'}</Text>
         </View>
-        <TextInput
-          value={reminders.eveningTime}
-          onChangeText={(value) => setReminders({ ...reminders, eveningTime: value })}
-          onEndEditing={() => saveReminders(reminders)}
-          style={styles.reminderInput}
-          editable={reminders.eveningEnabled}
-        />
+        <TouchableOpacity
+          onPress={() => reminders.eveningEnabled && setShowEveningPicker(true)}
+          style={[styles.reminderInput, { opacity: reminders.eveningEnabled ? 1 : 0.5, justifyContent: 'center' }]}
+        >
+          <Text style={{ textAlign: 'center', color: Colors.gray800 }}>{reminders.eveningTime || '20:00'}</Text>
+        </TouchableOpacity>
         <Switch
           value={reminders.eveningEnabled}
           onValueChange={(value) => saveReminders({ ...reminders, eveningEnabled: value })}
           trackColor={{ false: Colors.gray300, true: Colors.indigo }}
         />
       </View>
+      {showEveningPicker && (
+        <DateTimePicker
+          value={parseTime(reminders.eveningTime || '20:00')}
+          mode="time"
+          is24Hour={true}
+          display="default"
+          onChange={handleEveningChange}
+        />
+      )}
 
       {saving ? <Text style={styles.savingText}>{t.routine.saving || 'Enregistrement...'}</Text> : null}
     </Card>

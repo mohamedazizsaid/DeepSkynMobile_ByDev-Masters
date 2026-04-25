@@ -169,22 +169,24 @@ export function ProductAnalysisScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header overlay */}
+      <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text, fontSize: fontSizes.lg }]}>
+          Analyse Produit
+        </Text>
+        <TouchableOpacity onPress={() => console.log('Share')} style={styles.headerIconButton}>
+          <Ionicons name="share-social-outline" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <Animated.ScrollView
         style={[styles.scrollView, { opacity: fadeIn }]}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: 60 }}
       >
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text, fontSize: fontSizes.lg }]}>
-            Analyse Produit
-          </Text>
-          <TouchableOpacity onPress={() => console.log('Share')}>
-            <Ionicons name="share-social-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
 
         <Animated.View
           style={[
@@ -503,19 +505,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
+  },
+  headerIconButton: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontWeight: FontWeights.bold,
   },
   productHeader: {
     marginHorizontal: Spacing.md,
-    marginVertical: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     ...Shadows.lg,

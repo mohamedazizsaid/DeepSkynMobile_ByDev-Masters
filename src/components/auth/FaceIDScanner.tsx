@@ -23,6 +23,7 @@ import { Colors, Spacing, BorderRadius, FontSizes, FontWeights } from '../../the
 import { BlurView } from 'expo-blur';
 import MaskedView from '@react-native-masked-view/masked-view';
 import Svg, { Path } from 'react-native-svg';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_SIZE = width * 0.75;
@@ -32,7 +33,7 @@ const SCAN_CENTER_X = SCAN_LEFT + SCAN_SIZE / 2;
 const SCAN_CENTER_Y = SCAN_TOP + SCAN_SIZE / 2;
 
 interface FaceIDScannerProps {
-    onSuccess: (imageBase64: string) => void;
+    onSuccess: (imageBase64: string) => Promise<boolean>;
     onCancel: () => void;
     email: string;
 }
@@ -88,12 +89,18 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
         try {
             const photo = await cameraRef.current.takePictureAsync({
                 quality: 0.6,
-                base64: true,
+                base64: false,
                 skipProcessing: false,
                 shutterSound: false,
             });
 
-            if (!photo?.base64) {
+            const manipResult = await ImageManipulator.manipulateAsync(
+                photo.uri,
+                [{ resize: { width: 600 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+            );
+
+            if (!manipResult.base64) {
                 attemptsRef.current += 1;
                 setProgress(Math.min(90, 10 + attemptsRef.current * 6));
                 if (attemptsRef.current >= MAX_ATTEMPTS) {
@@ -111,7 +118,16 @@ export function FaceIDScanner({ onSuccess, onCancel, email }: FaceIDScannerProps
             setFaceDetected(true);
             setProgress(100);
             setStatusMessage('Face captured. Verifying...');
-            onSuccess(photo.base64);
+            
+            const success = await onSuccess(manipResult.base64);
+            if (!success) {
+                attemptsRef.current = 0;
+                scanCompleted.current = false;
+                setFaceDetected(false);
+                setProgress(0);
+                setStatusMessage('Verification failed. Retrying...');
+                scheduleNextCapture(2000);
+            }
         } catch (_err) {
             attemptsRef.current += 1;
             if (attemptsRef.current >= MAX_ATTEMPTS) {

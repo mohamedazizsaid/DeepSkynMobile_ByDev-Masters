@@ -17,4 +17,8 @@ export const faceVerificationService = {
     const response = await apiClient.get<FaceReferenceStatus>('/face-verification/status');
     return response.data;
   },
+  async verifyFace(imageBase64: string): Promise<{ verified: boolean; message: string; needsProfilePhoto?: boolean }> {
+    const response = await apiClient.post('/face-verification/verify', { imageBase64 });
+    return response.data;
+  },
 };

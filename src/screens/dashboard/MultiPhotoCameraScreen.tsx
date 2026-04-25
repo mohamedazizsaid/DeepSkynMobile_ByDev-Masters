@@ -18,7 +18,9 @@ import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
 import { subscriptionService } from '../../services/subscription.service';
+import { faceVerificationService } from '../../services/face-verification.service';
 import { useFaceReferenceGate } from '../../lib/hooks/useFaceReferenceGate';
+import * as ImageManipulator from 'expo-image-manipulator';
 import type { GeminiAnalysisResult } from '../../lib/types';
 
 interface CapturedPhoto {
@@ -55,6 +57,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
   const [showPreocupentModal, setShowPreocupentModal] = useState(false);
   const [photosForScan, setPhotosForScan] = useState<CapturedPhoto[]>([]);
 
+  const [verifyingFace, setVerifyingFace] = useState(false);
   const cameraRef = useRef<any>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,20 +114,26 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
       setIsCapturing(true);
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
-        base64: true,
+        base64: false,
         skipProcessing: false,
         shutterSound: false,
       });
 
-      if (!photo?.base64 || !photo?.uri) {
+      if (!photo?.uri) {
         Alert.alert('Erreur', 'Impossible de capturer la photo. Veuillez réessayer.');
         setIsCapturing(false);
         return;
       }
 
+      const manipulated = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
       const newPhoto: CapturedPhoto = {
-        uri: photo.uri,
-        base64: photo.base64,
+        uri: manipulated.uri,
+        base64: manipulated.base64,
         timestamp: Date.now(),
       };
 
@@ -143,7 +152,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
         }, 900);
       } else {
         setIsCapturing(false);
-        setShowPreocupentModal(true);
+        // Do not automatically show modal, let user click the analyze button so we can show loading state properly
       }
     } catch (error) {
       console.error('[MultiPhotoCamera] Capture error:', error);
@@ -162,6 +171,53 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
     setPhotosForScan([]);
     setCurrentPhotoIndex(0);
     capturePhoto(0);
+  };
+
+  const handleContinue = async () => {
+    const validPhotos = photosForScan.filter((photo) => Boolean(photo?.base64));
+    if (validPhotos.length < REQUIRED_PHOTOS) {
+      Alert.alert(t.common.error, `Veuillez capturer ${REQUIRED_PHOTOS} photos`);
+      return;
+    }
+
+    setVerifyingFace(true);
+    try {
+      let isVerified = false;
+      let lastVerification: any = null;
+
+      // Tester toutes les photos car les profils gauche/droite peuvent échouer à la reconnaissance faciale
+      for (const photo of validPhotos) {
+        if (!photo?.base64) continue;
+        try {
+          const verification = await faceVerificationService.verifyFace(photo.base64);
+          lastVerification = verification;
+          if (verification.verified) {
+            isVerified = true;
+            break;
+          }
+        } catch (e) {
+          console.log('Verification failed for a photo (likely side profile):', e);
+        }
+      }
+
+      if (!isVerified) {
+        Alert.alert('Échec de la vérification', lastVerification?.message || 'Le visage ne correspond pas à votre avatar de profil.', [
+          { text: 'OK', style: 'default' }
+        ]);
+        if (lastVerification?.needsProfilePhoto) {
+          setTimeout(() => redirectToSettings(), 500);
+        }
+        return;
+      }
+    } catch (error: any) {
+      console.error('Face verification error:', error);
+      Alert.alert(t.common.error, 'Erreur lors de la vérification faciale. Veuillez réessayer.');
+      return;
+    } finally {
+      setVerifyingFace(false);
+    }
+
+    setShowPreocupentModal(true);
   };
 
   const performScan = useCallback(async (zones: string[] = []) => {
@@ -262,7 +318,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
 
   if (hasPermission === null) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
           <Text style={{ color: colors.text }}>Demande de permission caméra...</Text>
         </View>
@@ -272,9 +328,9 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
 
   if (hasPermission === false) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.lg, backgroundColor: colors.background }}>
-          <Ionicons name="camera-off" size={48} color={colors.warning} style={{ marginBottom: Spacing.md }} />
+          <Ionicons name="camera-outline" size={48} color={colors.warning} style={{ marginBottom: Spacing.md }} />
           <Text style={{ fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.sm, textAlign: 'center' }}>Accès caméra refusé</Text>
           <Text style={{ fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing.lg }}>Veuillez autoriser l'accès à la caméra dans les paramètres</Text>
           <Button onPress={() => onClose ? onClose() : navigation.goBack()}>Retour</Button>
@@ -285,7 +341,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
 
   if (isScanningPhase && scanResult === null) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.lg, backgroundColor: colors.background }}>
           <View style={styles.photosPreviewGrid}>
             {Array(REQUIRED_PHOTOS).fill(null).map((_, index) => (
@@ -321,7 +377,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
 
   if (scanResult) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.lg, backgroundColor: colors.background }}>
           <Ionicons name="checkmark-circle" size={64} color={colors.success} style={{ marginBottom: Spacing.lg }} />
           <Text style={{ fontSize: fontSizes.lg, fontWeight: FontWeights.bold, color: colors.text, marginBottom: Spacing.sm }}>Analyse terminée !</Text>
@@ -333,7 +389,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
         <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
@@ -363,7 +419,9 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
         <View style={styles.bottomSection}>
           {photosForScan.filter((photo) => Boolean(photo?.base64)).length === REQUIRED_PHOTOS ? (
             <View style={{ gap: Spacing.md, width: '100%' }}>
-              <Button onPress={() => setShowPreocupentModal(true)}>Analyser les {REQUIRED_PHOTOS} photos</Button>
+              <Button onPress={handleContinue} disabled={verifyingFace}>
+                {verifyingFace ? 'Vérification...' : `Analyser les ${REQUIRED_PHOTOS} photos`}
+              </Button>
               <Button variant="outline" onPress={() => { setPhotos([null, null, null]); setPhotosForScan([]); setCurrentPhotoIndex(0); }}>Recommencer</Button>
             </View>
           ) : (

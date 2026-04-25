@@ -10,8 +10,8 @@ import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../the
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { useTranslation } from '../../lib/i18n';
 import { analysisService } from '../../services/analysis.service';
-import { authService } from '../../services/auth.service';
 import { subscriptionService } from '../../services/subscription.service';
+import { faceVerificationService } from '../../services/face-verification.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { GeminiAnalysisResult } from '../../lib/types';
 import { useFaceReferenceGate } from '../../lib/hooks/useFaceReferenceGate';
@@ -36,8 +36,7 @@ export function CameraScanScreen() {
   const [scanStatus, setScanStatus] = useState<'scanning' | 'processing' | 'complete' | 'error'>('scanning');
   const [scanMessage, setScanMessage] = useState('Analyse en cours...');
   const [scanResult, setScanResult] = useState<GeminiAnalysisResult | null>(null);
-  const [faceVerified, setFaceVerified] = useState(false);
-  const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [verifyingFace, setVerifyingFace] = useState(false);
   const [usage, setUsage] = useState<any>(null);
   const [loadingUsage, setLoadingUsage] = useState(true);
   const [showPreocupentModal, setShowPreocupentModal] = useState(false);
@@ -93,11 +92,6 @@ export function CameraScanScreen() {
   const performScan = useCallback(async (zones: string[] = []) => {
     const allowed = await ensureFaceReference(redirectToSettings);
     if (!allowed) {
-      return;
-    }
-
-    if (!faceVerified) {
-      setShowFaceVerification(true);
       return;
     }
 
@@ -215,27 +209,36 @@ export function CameraScanScreen() {
         );
       }, 1000);
     }
-  }, [ensureFaceReference, faceVerified, frontCapture, leftCapture, rightCapture, redirectToSettings, usage, t]);
+  }, [ensureFaceReference, frontCapture, leftCapture, rightCapture, redirectToSettings, usage, t]);
 
-  const handleFaceVerificationSuccess = useCallback(async (imageBase64: string) => {
-    if (!user?.email) {
-      Alert.alert(t.common.error, 'Email utilisateur introuvable pour la verification.');
+  const handleContinue = async () => {
+    if (!frontCapture?.base64 || !leftCapture?.base64 || !rightCapture?.base64) {
+      Alert.alert(t.common.error, 'Veuillez capturer les 3 angles: front, gauche, droite');
       return;
     }
 
+    setVerifyingFace(true);
     try {
-      await authService.faceLogin(user.email, imageBase64);
-      setFaceVerified(true);
-      setShowFaceVerification(false);
-      Alert.alert('Verification reussie', 'Identite confirmee. Vous pouvez lancer le scan.');
+      const verification = await faceVerificationService.verifyFace(frontCapture.base64);
+      if (!verification.verified) {
+        Alert.alert('Échec de la vérification', verification.message || 'Le visage ne correspond pas à votre avatar de profil.', [
+          { text: 'OK', style: 'default' }
+        ]);
+        if (verification.needsProfilePhoto) {
+          setTimeout(() => redirectToSettings(), 500);
+        }
+        return;
+      }
     } catch (error: any) {
-      Alert.alert(
-        t.common.error,
-        error?.response?.data?.message || 'Verification faciale echouee.'
-      );
-      setShowFaceVerification(false);
+      console.error('Face verification error:', error);
+      Alert.alert(t.common.error, 'Erreur lors de la vérification faciale. Veuillez réessayer.');
+      return;
+    } finally {
+      setVerifyingFace(false);
     }
-  }, [t.common.error, user?.email]);
+
+    setShowPreocupentModal(true);
+  };
 
   const clearSelection = () => {
     setSelectedImage(null);
@@ -245,7 +248,6 @@ export function CameraScanScreen() {
     setCurrentCaptureStep('front');
     setCapturedImagesForLoading({});
     setScanResult(null);
-    setFaceVerified(false);
     setScanProgress(0);
     setScanStatus('scanning');
   };
@@ -351,9 +353,6 @@ export function CameraScanScreen() {
                 <CaptureStatusChip label="Gauche" ready={!!leftCapture} />
                 <CaptureStatusChip label="Droite" ready={!!rightCapture} />
               </View>
-              <View style={{ marginTop: Spacing.md }}>
-                <CaptureStatusChip label="Verification faciale" ready={faceVerified} />
-              </View>
             </Card>
           )}
 
@@ -361,11 +360,10 @@ export function CameraScanScreen() {
           {(frontCapture || leftCapture || rightCapture) && !isScanning && !scanResult && (
             <View style={{ gap: Spacing.md, marginBottom: Spacing.lg }}>
               <Button
-                onPress={() => setShowPreocupentModal(true)}
-                loading={isScanning}
-                disabled={!frontCapture || !leftCapture || !rightCapture}
+                onPress={handleContinue}
+                disabled={!frontCapture || !leftCapture || !rightCapture || verifyingFace}
               >
-                {faceVerified ? 'Lancer le Scan' : 'Verifier puis scanner'}
+                {verifyingFace ? 'Vérification...' : 'Lancer le Scan'}
               </Button>
               <Button onPress={clearSelection} variant="outline">
                 Annuler
@@ -522,14 +520,6 @@ export function CameraScanScreen() {
           loading={isScanning}
         />
       </View>
-
-      <Modal visible={showFaceVerification} animationType="slide">
-        <FaceIDScanner
-          email={user?.email || ''}
-          onSuccess={handleFaceVerificationSuccess}
-          onCancel={() => setShowFaceVerification(false)}
-        />
-      </Modal>
     </SafeAreaView>
   );
 }
