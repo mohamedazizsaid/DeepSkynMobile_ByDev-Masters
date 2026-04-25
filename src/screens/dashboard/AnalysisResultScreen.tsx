@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Alert, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Alert, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card, Button, PredictiveRoutineModal } from '../../components';
+import { Card, Button, PredictiveRoutineModal, FaceTagsOverlay } from '../../components';
+import type { FaceTag } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
@@ -53,6 +54,63 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
   useEffect(() => {
     setSelectedImageIndex(0);
   }, [analysis?.id]);
+
+  const faceTags: FaceTag[] = React.useMemo(() => {
+    if (!analysis || !analysis.results?.detailedAnalysis) return [];
+    
+    const tags: FaceTag[] = [];
+    const detailedAnalysis = analysis.results.detailedAnalysis;
+    
+    const analysisToTagMap: Array<{
+      key: keyof typeof detailedAnalysis;
+      label: string;
+      condition: string;
+      zones: string[];
+    }> = [
+      { key: 'acne', label: 'Acné', condition: 'acne', zones: ['forehead', 'left_cheek', 'right_cheek', 'chin'] },
+      { key: 'wrinkles', label: 'Rides', condition: 'wrinkles', zones: ['forehead', 'left_eye', 'right_eye'] },
+      { key: 'pigmentation', label: 'Pigmentation', condition: 'hyperpigmentation', zones: ['left_cheek', 'right_cheek'] },
+      { key: 'redness', label: 'Rougeurs', condition: 'redness', zones: ['nose', 'left_cheek', 'right_cheek'] },
+      { key: 'pores', label: 'Pores', condition: 'pores', zones: ['nose', 'left_cheek', 'right_cheek'] },
+      { key: 'hydration', label: 'Déshydratation', condition: 'dehydration', zones: ['left_cheek', 'right_cheek'] },
+      { key: 'texture', label: 'Texture', condition: 'texture', zones: ['left_cheek', 'right_cheek'] },
+    ];
+
+    analysisToTagMap.forEach((item, index) => {
+      const metric = detailedAnalysis[item.key as keyof typeof detailedAnalysis];
+      if (metric && (metric as any).score < 70) {
+        const score = (metric as any).score;
+        const severity = score < 40 ? 'severe' : score < 55 ? 'moderate' : 'mild';
+        const zone = item.zones[index % item.zones.length];
+        tags.push({
+          id: `tag-${item.key}`,
+          condition: item.condition,
+          label: item.label,
+          severity,
+          confidence: Math.max(60, 100 - Math.floor(score / 2)),
+          zone,
+          description: (metric as any).description,
+        });
+      }
+    });
+
+    analysis.conditions?.forEach((condition, idx) => {
+      const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+      const existingTag = tags.find(t => t.condition === conditionKey);
+      if (!existingTag) {
+        tags.push({
+          id: `condition-${idx}`,
+          condition: conditionKey,
+          label: condition,
+          severity: 'moderate',
+          confidence: 75,
+          zone: ['forehead', 'left_cheek', 'right_cheek', 'nose', 'chin'][idx % 5],
+        });
+      }
+    });
+
+    return tags.slice(0, 6);
+  }, [analysis]);
 
   // Generate Predictive Routine
   const handleGeneratePredictiveRoutine = async () => {
@@ -303,6 +361,33 @@ export function AnalysisResultScreen({ navigation, route }: Props) {
                 })}
               </ScrollView>
             )}
+          </Card>
+        )}
+
+        {/* Zones analysées avec FaceTagsOverlay */}
+        {analysis.images && analysis.images.length > 0 && faceTags.length > 0 && (
+          <Card style={{ marginBottom: Spacing.lg, paddingHorizontal: 0 }}>
+            <Text
+              style={{
+                fontSize: fontSizes.lg,
+                fontWeight: FontWeights.bold,
+                color: colors.text,
+                marginBottom: Spacing.md,
+                paddingHorizontal: Spacing.lg,
+              }}
+            >
+              Zones analysées
+            </Text>
+            <View style={{ alignItems: 'center' }}>
+              <FaceTagsOverlay
+                imageUri={analysis.images[0]}
+                tags={faceTags}
+                imageWidth={Dimensions.get('window').width - Spacing.lg * 2}
+                imageHeight={(Dimensions.get('window').width - Spacing.lg * 2) * 1.2}
+                showConnectors={true}
+                animateOnMount={true}
+              />
+            </View>
           </Card>
         )}
 

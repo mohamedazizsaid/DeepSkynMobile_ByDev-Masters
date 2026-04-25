@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,7 +10,7 @@ import { Card, Button, LoadingSpinner } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontSizes, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { chatService } from '../../services/chat.service';
-import type { ChatHistory, ChatMessage } from '../../lib/types';
+import type { ChatHistory, ChatMessage, ChatProduct } from '../../lib/types';
 import { useTranslation } from '../../lib/i18n';
 
 interface DisplayMessage {
@@ -18,6 +18,7 @@ interface DisplayMessage {
   type: 'user' | 'ai';
   text: string;
   timestamp?: string;
+  products?: ChatProduct[];
 }
 
 export function ChatScreen() {
@@ -69,6 +70,10 @@ export function ChatScreen() {
 
   const suggestions = t.chatPage.quickSuggestions;
 
+  const cleanAiText = (text: string): string => {
+    return text.replace(/\[PRODUCT:\s*([^\]]+)\]/gi, '').trim();
+  };
+
   const loadHistory = useCallback(async () => {
     try {
       setLoading(true);
@@ -83,8 +88,9 @@ export function ChatScreen() {
             displayMessages.push({
               id: `${latestChat.id}-${index}`,
               type: msg.role === 'user' ? 'user' : 'ai',
-              text: msg.content,
+              text: cleanAiText(msg.content),
               timestamp: msg.timestamp,
+              products: index === latestChat.messages!.length - 1 ? latestChat.products : undefined, // Attach products to the last message if available
             });
           });
         } else {
@@ -158,16 +164,18 @@ export function ChatScreen() {
       const aiDisplayMessage: DisplayMessage = {
         id: `ai-${Date.now()}`,
         type: 'ai',
-        text: aiResponse,
+        text: cleanAiText(aiResponse),
         timestamp: new Date().toISOString(),
+        products: response.products,
       };
       setMessages((prev) => [...prev, aiDisplayMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Send message error:', error);
+      const backendMessage = error?.response?.data?.message;
       const errorMessage: DisplayMessage = {
         id: `error-${Date.now()}`,
         type: 'ai',
-        text: t.chatPage.toasts.genericError,
+        text: typeof backendMessage === 'string' ? backendMessage : t.chatPage.toasts.genericError,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -177,6 +185,7 @@ export function ChatScreen() {
       }, 100);
     }
   };
+
 
   const handleSuggestion = (suggestion: string) => {
     setMessage(suggestion);
@@ -253,11 +262,34 @@ export function ChatScreen() {
                   <Ionicons name="sparkles" size={14} color={Colors.white} />
                 </LinearGradient>
               )}
-              <View style={[dynamicStyles.messageBubble, msg.type === 'user' ? dynamicStyles.userBubble : dynamicStyles.aiBubble]}>
-                <Text style={[dynamicStyles.messageText, msg.type === 'user' ? dynamicStyles.userMessageText : undefined]}>
-                  {msg.text}
-                </Text>
-              </View>
+                <View style={[dynamicStyles.messageBubble, msg.type === 'user' ? dynamicStyles.userBubble : dynamicStyles.aiBubble]}>
+                  <Text style={[dynamicStyles.messageText, msg.type === 'user' ? dynamicStyles.userMessageText : undefined]}>
+                    {msg.text}
+                  </Text>
+                  {msg.products && msg.products.length > 0 && (
+                    <View style={styles.productsContainer}>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productsScroll}>
+                        {msg.products.map((product, pIndex) => (
+                          <View key={pIndex} style={[styles.productCard, { backgroundColor: colors.surface }]}>
+                            <Image 
+                              source={{ uri: product.imageUrl }} 
+                              style={styles.productImage}
+                              resizeMode="cover"
+                            />
+                            <View style={styles.productInfo}>
+                              <Text style={[styles.productBrand, { color: colors.primary }]} numberOfLines={1}>
+                                {product.brand || 'Skincare'}
+                              </Text>
+                              <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>
+                                {product.name}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
             </View>
           ))}
 
@@ -348,4 +380,38 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full, borderWidth: 1,
   },
   sendButtonDisabled: { opacity: 0.5 },
+  productsContainer: {
+    marginTop: Spacing.sm,
+    width: '100%',
+  },
+  productsScroll: {
+    gap: Spacing.sm,
+    paddingRight: Spacing.md,
+  },
+  productCard: {
+    width: 140,
+    borderRadius: BorderRadius.base,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    ...Shadows.sm,
+  },
+  productImage: {
+    width: '100%',
+    height: 100,
+  },
+  productInfo: {
+    padding: Spacing.sm,
+  },
+  productBrand: {
+    fontSize: 10,
+    fontWeight: FontWeights.bold as any,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  productName: {
+    fontSize: 12,
+    fontWeight: FontWeights.medium as any,
+    lineHeight: 16,
+  },
 });

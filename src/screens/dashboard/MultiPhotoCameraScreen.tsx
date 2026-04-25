@@ -9,6 +9,7 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
+  cancelAnimation,
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -34,8 +35,10 @@ interface MultiPhotoCameraScreenProps {
 }
 
 const { width: screenWidth } = Dimensions.get('window');
-const SCAN_SIZE = screenWidth * 0.75;
+const SCAN_SIZE = screenWidth * 0.8;
 const REQUIRED_PHOTOS = 3;
+const CIRCULAR_LAYOUT_SIZE = Math.min(screenWidth - Spacing.lg * 2, 300);
+const ORBIT_PHOTO_SIZE = 76;
 
 export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps) {
   const { colors, fontSizes } = useAccessibilityStyles();
@@ -63,6 +66,7 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
   const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pulseScale = useSharedValue(1);
+  const orbitRotation = useSharedValue(0);
 
   const redirectToSettings = useCallback(() => {
     navigation.navigate('Home' as never, { screen: 'Settings' } as never);
@@ -102,7 +106,45 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
     }
   }, [isCapturing, isScanningPhase, pulseScale]);
 
+  useEffect(() => {
+    if (isScanningPhase) {
+      orbitRotation.value = 0;
+      orbitRotation.value = withRepeat(
+        withTiming(360, { duration: 5200, easing: Easing.linear }),
+        -1,
+        false,
+      );
+      return;
+    }
+
+    cancelAnimation(orbitRotation);
+    orbitRotation.value = 0;
+  }, [isScanningPhase, orbitRotation]);
+
   const pulseAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulseScale.value }] }));
+  const orbitAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${orbitRotation.value}deg` }],
+  }));
+  const counterOrbitAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${-orbitRotation.value}deg` }],
+  }));
+
+  const renderOrbitPhoto = (index: number) => (
+    <Animated.View style={[styles.orbitPhotoSlot, counterOrbitAnimatedStyle]}>
+      {photos[index] ? (
+        <>
+          <Image source={{ uri: photos[index]!.uri }} style={styles.orbitPhotoImage} />
+          <View style={styles.orbitPhotoCheckmark}>
+            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          </View>
+        </>
+      ) : (
+        <View style={[styles.orbitPhotoImage, { backgroundColor: colors.surface }]}> 
+          <Ionicons name="image-outline" size={16} color={colors.textTertiary} />
+        </View>
+      )}
+    </Animated.View>
+  );
 
   const capturePhoto = async (nextIndex: number) => {
     if (!cameraRef.current) {
@@ -271,8 +313,12 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
     }, 400);
 
     try {
+      const [front, left, right] = photosForScan;
       const result = await analysisService.scan({
-        image: photosForScan[0].base64!,
+        image: front?.base64,
+        frontImage: front?.base64,
+        leftImage: left?.base64,
+        rightImage: right?.base64,
         mimeType: 'image/jpeg',
         saveImage: true,
         saveAnalysis: true,
@@ -343,21 +389,20 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.lg, backgroundColor: colors.background }}>
-          <View style={styles.photosPreviewGrid}>
-            {Array(REQUIRED_PHOTOS).fill(null).map((_, index) => (
-              <View key={index} style={[styles.photoPreview, { borderColor: photos[index] ? colors.success : colors.border }]}>
-                {photos[index] ? (
-                  <>
-                    <Image source={{ uri: photos[index].uri }} style={styles.photoPreviewImage} />
-                    <View style={styles.photoPreviewCheckmark}><Ionicons name="checkmark-circle" size={24} color={colors.success} /></View>
-                  </>
-                ) : (
-                  <View style={[styles.photoPreviewImage, { backgroundColor: colors.surface }]}>
-                    <Ionicons name="image-outline" size={20} color={colors.textTertiary} />
-                  </View>
-                )}
+          <View style={styles.scanningCircularContainer}>
+            <Animated.View style={[styles.circularOrbit, { width: CIRCULAR_LAYOUT_SIZE, height: CIRCULAR_LAYOUT_SIZE }, orbitAnimatedStyle]}>
+              <View style={[styles.orbitTop, styles.orbitAnchor]}>{renderOrbitPhoto(0)}</View>
+              <View style={[styles.orbitLeft, styles.orbitAnchor]}>{renderOrbitPhoto(1)}</View>
+              <View style={[styles.orbitRight, styles.orbitAnchor]}>{renderOrbitPhoto(2)}</View>
+
+              <View style={[styles.orbitCenterBadge, { backgroundColor: colors.surface }]}> 
+                <Ionicons
+                  name={scanStatus === 'complete' ? 'checkmark-circle' : scanStatus === 'error' ? 'alert-circle' : 'sync-outline'}
+                  size={30}
+                  color={scanStatus === 'error' ? colors.warning : scanStatus === 'complete' ? colors.success : colors.primary}
+                />
               </View>
-            ))}
+            </Animated.View>
           </View>
 
           <View style={{ width: '100%', marginTop: Spacing.xl, marginBottom: Spacing.xl }}>
@@ -392,8 +437,13 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
-        <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
-        <View style={styles.scanCutout}>
+        
+        {/* Pro Masking Overlay: Darkens outside, clear inside */}
+        <View style={styles.maskContainer} pointerEvents="none">
+          <View style={styles.maskInner} />
+        </View>
+
+        <View style={styles.scanCutout} pointerEvents="none">
           <Animated.View style={[styles.scanCircle, pulseAnimatedStyle]} />
           <View style={styles.scanBorder} />
         </View>
@@ -410,8 +460,15 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
 
         <View style={styles.photosIndicator}>
           {Array(REQUIRED_PHOTOS).fill(null).map((_, index) => (
-            <View key={index} style={[styles.photoIndicator, { backgroundColor: photos[index] ? colors.success : colors.border, borderColor: currentPhotoIndex === index ? colors.primary : colors.border }]}>
-              {photos[index] && <Ionicons name="checkmark" size={16} color={Colors.white} />}
+            <View key={index} style={[
+              styles.photoIndicator, 
+              { 
+                backgroundColor: photos[index] ? colors.success : 'rgba(255, 255, 255, 0.2)', 
+                borderColor: currentPhotoIndex === index ? colors.primary : 'rgba(255, 255, 255, 0.4)',
+                borderStyle: currentPhotoIndex === index ? 'solid' : 'dashed'
+              }
+            ]}>
+              {photos[index] && <Ionicons name="checkmark" size={18} color={Colors.white} />}
             </View>
           ))}
         </View>
@@ -438,7 +495,20 @@ export function MultiPhotoCameraScreen({ onClose }: MultiPhotoCameraScreenProps)
 }
 
 const styles = StyleSheet.create({
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 },
+  maskContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  maskInner: {
+    width: SCAN_SIZE + 3000,
+    height: SCAN_SIZE + 3000,
+    borderRadius: (SCAN_SIZE + 3000) / 2,
+    borderWidth: 1500,
+    borderColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'transparent',
+  },
   scanCutout: {
     position: 'absolute',
     top: '50%',
@@ -454,17 +524,17 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   scanCircle: {
-    width: SCAN_SIZE * 0.8,
-    height: SCAN_SIZE * 0.8,
-    borderRadius: (SCAN_SIZE * 0.8) / 2,
-    borderWidth: 3,
-    borderColor: '#7DD3FC',
-    backgroundColor: 'rgba(14, 165, 233, 0.14)',
+    width: SCAN_SIZE * 0.82,
+    height: SCAN_SIZE * 0.82,
+    borderRadius: (SCAN_SIZE * 0.82) / 2,
+    borderWidth: 2,
+    borderColor: 'rgba(125, 211, 252, 0.5)',
+    backgroundColor: 'transparent',
     shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 4,
   },
   scanBorder: {
     position: 'absolute',
@@ -483,13 +553,104 @@ const styles = StyleSheet.create({
   closeButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
   headerTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.white, marginBottom: Spacing.xs },
   headerSubtitle: { fontSize: FontSizes.sm, color: 'rgba(255, 255, 255, 0.7)' },
-  photosIndicator: { position: 'absolute', bottom: 180, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: Spacing.md, zIndex: 3 },
-  photoIndicator: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
-  bottomSection: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 3 },
-  photosPreviewGrid: { flexDirection: 'row', gap: Spacing.md, justifyContent: 'center', width: '100%', marginBottom: Spacing.lg },
-  photoPreview: { width: 80, height: 100, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 2, position: 'relative' },
-  photoPreviewImage: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
-  photoPreviewCheckmark: { position: 'absolute', bottom: -4, right: -4, backgroundColor: Colors.white, borderRadius: 12, padding: 2 },
+  photosIndicator: { 
+    position: 'absolute', 
+    bottom: 130, 
+    left: 0, 
+    right: 0, 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    gap: Spacing.md, 
+    zIndex: 3 
+  },
+  photoIndicator: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    borderWidth: 2, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  bottomSection: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    paddingHorizontal: Spacing.lg, 
+    paddingVertical: Spacing.lg, 
+    backgroundColor: 'rgba(0,0,0,0.6)', 
+    zIndex: 3,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+  },
+  scanningCircularContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  circularOrbit: {
+    position: 'relative',
+  },
+  orbitAnchor: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orbitTop: {
+    top: 0,
+    left: '50%',
+    marginLeft: -(ORBIT_PHOTO_SIZE / 2),
+  },
+  orbitLeft: {
+    left: 28,
+    bottom: 24,
+  },
+  orbitRight: {
+    right: 28,
+    bottom: 24,
+  },
+  orbitPhotoSlot: {
+    width: ORBIT_PHOTO_SIZE,
+    height: ORBIT_PHOTO_SIZE,
+    borderRadius: ORBIT_PHOTO_SIZE / 2,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: Colors.primaryAlpha10,
+    position: 'relative',
+    ...Shadows.md,
+  },
+  orbitPhotoImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orbitPhotoCheckmark: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 2,
+  },
+  orbitCenterBadge: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: 72,
+    height: 72,
+    marginLeft: -36,
+    marginTop: -36,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadows.lg,
+  },
   progressBar: { height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: Spacing.sm },
   progressFill: { height: '100%', borderRadius: 4 },
 });

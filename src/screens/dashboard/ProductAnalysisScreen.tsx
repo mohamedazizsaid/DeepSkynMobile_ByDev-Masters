@@ -66,7 +66,7 @@ export function ProductAnalysisScreen() {
 
   if (!product) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.text, marginTop: Spacing.md }]}>

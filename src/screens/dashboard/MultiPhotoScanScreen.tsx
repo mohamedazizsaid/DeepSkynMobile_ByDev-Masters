@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView, Dimensions, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -23,7 +23,6 @@ interface CapturedPhoto {
 const REQUIRED_PHOTOS = 3;
 const { width: screenWidth } = Dimensions.get('window');
 const CIRCULAR_LAYOUT_SIZE = Math.min(screenWidth - Spacing.lg * 2, 300);
-const CENTER_PHOTO_SIZE = 120;
 const SATELLITE_PHOTO_SIZE = 70;
 
 export function MultiPhotoScanScreen() {
@@ -45,9 +44,11 @@ export function MultiPhotoScanScreen() {
   const [showPreocupentModal, setShowPreocupentModal] = useState(false);
   const [verifyingFace, setVerifyingFace] = useState(false);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const orbitRotation = useRef(new Animated.Value(0)).current;
+  const orbitAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const redirectToSettings = useCallback(() => {
-    navigation.navigate('Home' as never, { screen: 'Settings' } as never);
+    (navigation as any).navigate('Home', { screen: 'Settings' });
   }, [navigation]);
 
   useEffect(() => {
@@ -69,8 +70,33 @@ export function MultiPhotoScanScreen() {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+      if (orbitAnimationRef.current) {
+        orbitAnimationRef.current.stop();
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (isScanning) {
+      orbitRotation.setValue(0);
+      orbitAnimationRef.current = Animated.loop(
+        Animated.timing(orbitRotation, {
+          toValue: 1,
+          duration: 5200,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      orbitAnimationRef.current.start();
+      return;
+    }
+
+    if (orbitAnimationRef.current) {
+      orbitAnimationRef.current.stop();
+      orbitAnimationRef.current = null;
+    }
+    orbitRotation.stopAnimation();
+  }, [isScanning, orbitRotation]);
 
   const handleImageSelected = (uri: string, base64?: string) => {
     setSelectedImage({ uri, base64 });
@@ -157,8 +183,12 @@ export function MultiPhotoScanScreen() {
     }, 400);
 
     try {
+      const [front, left, right] = capturedPhotos;
       const result = await analysisService.scan({
-        image: capturedPhotos[0].base64!,
+        image: front?.base64,
+        frontImage: front?.base64,
+        leftImage: left?.base64,
+        rightImage: right?.base64,
         mimeType: 'image/jpeg',
         saveImage: true,
         saveAnalysis: true,
@@ -176,7 +206,7 @@ export function MultiPhotoScanScreen() {
         setScanMessage('Analyse terminée !');
 
         setTimeout(() => {
-          setScanResult(result);
+          setScanResult(result.analysis);
           setIsScanning(false);
         }, 800);
 
@@ -279,28 +309,32 @@ export function MultiPhotoScanScreen() {
   );
 
   if (isScanning && scanResult === null) {
+    const orbitRotate = orbitRotation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+    const orbitCounterRotate = orbitRotation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '-360deg'],
+    });
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.lg, backgroundColor: colors.background }}>
           <View style={styles.scanningContainer}>
-            <View style={[styles.circularPhotoLayout, { width: CIRCULAR_LAYOUT_SIZE, height: CIRCULAR_LAYOUT_SIZE }]}> 
-              <View style={styles.photoTop}>{renderSatellitePhoto(0)}</View>
-              <View style={styles.photoRowContainer}>
-                <View style={styles.photoLeft}>{renderSatellitePhoto(1)}</View>
-                <View style={[styles.centerPhotoContainer, { width: CENTER_PHOTO_SIZE, height: CENTER_PHOTO_SIZE }]}> 
-                  {currentPhotoIndex >= 0 && photos[currentPhotoIndex] ? (
-                    <Image source={{ uri: photos[currentPhotoIndex].uri }} style={styles.centerPhoto} />
-                  ) : photos[0] ? (
-                    <Image source={{ uri: photos[0].uri }} style={styles.centerPhoto} />
-                  ) : (
-                    <View style={[styles.centerPhoto, { backgroundColor: colors.surface }]}> 
-                      <Ionicons name="camera-outline" size={48} color={colors.textTertiary} />
-                    </View>
-                  )}
-                </View>
-                <View style={styles.photoRight}>{renderSatellitePhoto(2)}</View>
+            <Animated.View style={[styles.circularPhotoLayout, { width: CIRCULAR_LAYOUT_SIZE, height: CIRCULAR_LAYOUT_SIZE, transform: [{ rotate: orbitRotate }] }]}> 
+              <Animated.View style={[styles.photoTop, styles.photoAbsolute, { transform: [{ rotate: orbitCounterRotate }] }]}>{renderSatellitePhoto(0)}</Animated.View>
+              <Animated.View style={[styles.photoLeft, styles.photoAbsolute, { transform: [{ rotate: orbitCounterRotate }] }]}>{renderSatellitePhoto(1)}</Animated.View>
+              <Animated.View style={[styles.photoRight, styles.photoAbsolute, { transform: [{ rotate: orbitCounterRotate }] }]}>{renderSatellitePhoto(2)}</Animated.View>
+
+              <View style={[styles.centerStatusBadge, { backgroundColor: colors.surface }]}> 
+                <Ionicons
+                  name={scanStatus === 'complete' ? 'checkmark-circle' : scanStatus === 'error' ? 'alert-circle' : 'sync-outline'}
+                  size={30}
+                  color={scanStatus === 'error' ? Colors.error : scanStatus === 'complete' ? colors.success : colors.primary}
+                />
               </View>
-            </View>
+            </Animated.View>
 
             <View style={styles.progressSection}>
               <View style={styles.statusCheckmark}>
@@ -405,13 +439,24 @@ export function MultiPhotoScanScreen() {
 
 const styles = StyleSheet.create({
   scanningContainer: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, alignItems: 'center' },
-  circularPhotoLayout: { justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
-  photoTop: { justifyContent: 'center', alignItems: 'center' },
-  photoRowContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
-  photoLeft: { justifyContent: 'center', alignItems: 'center' },
-  photoRight: { justifyContent: 'center', alignItems: 'center' },
-  centerPhotoContainer: { borderRadius: CENTER_PHOTO_SIZE / 2, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', ...Shadows.lg, borderWidth: 3, borderColor: Colors.primary },
-  centerPhoto: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  circularPhotoLayout: { position: 'relative', marginBottom: Spacing.xl },
+  photoAbsolute: { position: 'absolute', justifyContent: 'center', alignItems: 'center' },
+  photoTop: { top: 0, left: '50%', marginLeft: -(SATELLITE_PHOTO_SIZE / 2) },
+  photoLeft: { left: 30, bottom: 26 },
+  photoRight: { right: 30, bottom: 26 },
+  centerStatusBadge: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: 72,
+    height: 72,
+    marginLeft: -36,
+    marginTop: -36,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadows.lg,
+  },
   satellitePhoto: { width: SATELLITE_PHOTO_SIZE, height: SATELLITE_PHOTO_SIZE, borderRadius: SATELLITE_PHOTO_SIZE / 2, overflow: 'hidden', borderWidth: 2, position: 'relative', justifyContent: 'center', alignItems: 'center', ...Shadows.md },
   satellitePhotoImage: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   satelliteCheckmark: { position: 'absolute', bottom: -4, right: -4, backgroundColor: Colors.white, borderRadius: 12, padding: 2 },

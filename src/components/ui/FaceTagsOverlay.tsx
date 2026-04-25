@@ -401,6 +401,8 @@ export function createFaceTagsFromAnalysis(analysisResult: any): FaceTag[] {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    zIndex: 999,
+    elevation: 999,
   },
   imageContainer: {
     borderRadius: BorderRadius.xl,
@@ -416,7 +418,8 @@ const styles = StyleSheet.create({
   },
   tagMarkerContainer: {
     position: 'absolute',
-    zIndex: 10,
+    zIndex: 100,
+    elevation: 100,
     alignItems: 'center',
   },
   pulseRing: {
@@ -466,8 +469,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 105,
     minWidth: 80,
+    zIndex: 105,
   },
   tagLabelSelected: {
     transform: [{ scale: 1.05 }],

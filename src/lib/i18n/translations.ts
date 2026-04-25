@@ -1024,7 +1024,7 @@ const fr = {
   // Evolution
   evolution: {
     back: 'Retour au tableau de bord',
-    title: "Suivi de l'évolution du peau",
+    title: "Evolution du peau",
     subtitle: "Suivez l'évolution de votre peau au fil du temps",
     totalAnalyses: 'analyses au total',
     periods: {

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpacity, ActivityIndicator, Dimensions, Image, Modal, Pressable } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, TouchableOpacity, ActivityIndicator, Dimensions, Image, Modal, Pressable, Animated, Easing } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Badge, ProgressBar, Button, ImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis, ProductRecommendationsModal, PreocupentSelectorModal } from '../../components';
+import { Card, Badge, ProgressBar, Button, MultiImagePicker, LoadingOverlay, LoadingSpinner, EmptyState, WeatherWidget, PredictiveRoutineModal, FaceTagsOverlay, createFaceTagsFromAnalysis, ProductRecommendationsModal, PreocupentSelectorModal } from '../../components';
 import type { FaceTag } from '../../components';
 import { Colors, Gradients, Spacing, BorderRadius, FontWeights, Shadows } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
@@ -32,6 +32,10 @@ type AnalysisTimelineItem = {
   summary?: string;
 };
 
+const { width: analysisScreenWidth } = Dimensions.get('window');
+const SIMPLE_SCAN_LAYOUT_SIZE = Math.min(analysisScreenWidth - Spacing.lg * 2, 290);
+const SIMPLE_SCAN_PHOTO_SIZE = 82;
+
 export function AnalysisScreen() {
   const { colors, fontSizes } = useAccessibilityStyles();
   const { t } = useTranslation();
@@ -49,7 +53,14 @@ export function AnalysisScreen() {
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64?: string } | null>(null);
+  const [selectedImages, setSelectedImages] = useState<Array<{ uri: string; base64?: string }>>([]);
   const [verifyingFace, setVerifyingFace] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanStatus, setScanStatus] = useState<'scanning' | 'processing' | 'complete' | 'error'>('scanning');
+  const [scanMessage, setScanMessage] = useState('Analyse en cours...');
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const simpleOrbitRotation = useRef(new Animated.Value(0)).current;
+  const simpleOrbitAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Predictive Routine State
   const [generatingRoutine, setGeneratingRoutine] = useState(false);
@@ -168,6 +179,39 @@ export function AnalysisScreen() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      if (simpleOrbitAnimationRef.current) {
+        simpleOrbitAnimationRef.current.stop();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (uploading) {
+      simpleOrbitRotation.setValue(0);
+      simpleOrbitAnimationRef.current = Animated.loop(
+        Animated.timing(simpleOrbitRotation, {
+          toValue: 1,
+          duration: 5200,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      simpleOrbitAnimationRef.current.start();
+      return;
+    }
+
+    if (simpleOrbitAnimationRef.current) {
+      simpleOrbitAnimationRef.current.stop();
+      simpleOrbitAnimationRef.current = null;
+    }
+    simpleOrbitRotation.stopAnimation();
+  }, [uploading, simpleOrbitRotation]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -175,6 +219,11 @@ export function AnalysisScreen() {
 
   const handleImageSelected = (uri: string, base64?: string) => {
     setSelectedImage({ uri, base64 });
+  };
+
+  const handleImagesSelected = (images: Array<{ uri: string; base64?: string }>) => {
+    setSelectedImages(images);
+    setSelectedImage(images[0] || null);
   };
 
   const redirectToSettings = useCallback(() => {
@@ -190,11 +239,13 @@ export function AnalysisScreen() {
 
     setMode('upload');
     setSelectedImage(null);
+    setSelectedImages([]);
   };
 
   const cancelUpload = () => {
     setMode('results');
     setSelectedImage(null);
+    setSelectedImages([]);
   };
 
   const handleStartAnalysisClick = async () => {
@@ -203,19 +254,37 @@ export function AnalysisScreen() {
       return;
     }
 
-    if (!selectedImage?.base64) {
+    const uploadImages = selectedImages.length > 0 ? selectedImages : (selectedImage ? [selectedImage] : []);
+    const validImages = uploadImages.filter((img): img is { uri: string; base64?: string } => !!img?.base64);
+    if (validImages.length === 0) {
       Alert.alert(t.common.error, t.analysis.uploadPhotos);
       return;
     }
 
     setVerifyingFace(true);
     try {
-      const verification = await faceVerificationService.verifyFace(selectedImage.base64);
-      if (!verification.verified) {
-        Alert.alert('Échec de la vérification', verification.message || 'Le visage ne correspond pas à votre avatar de profil.', [
+      let isVerified = false;
+      let lastVerification: any = null;
+
+      // Reuse multiphoto strategy: side angles may fail, so accept if at least one image verifies.
+      for (const photo of validImages) {
+        try {
+          const verification = await faceVerificationService.verifyFace(photo.base64!);
+          lastVerification = verification;
+          if (verification.verified) {
+            isVerified = true;
+            break;
+          }
+        } catch (e) {
+          console.log('Verification failed for an uploaded photo:', e);
+        }
+      }
+
+      if (!isVerified) {
+        Alert.alert('Échec de la vérification', lastVerification?.message || 'Le visage ne correspond pas à votre avatar de profil.', [
           { text: 'OK', style: 'default' }
         ]);
-        if (verification.needsProfilePhoto) {
+        if (lastVerification?.needsProfilePhoto) {
           setTimeout(() => redirectToSettings(), 500);
         }
         return;
@@ -314,28 +383,84 @@ export function AnalysisScreen() {
       return;
     }
 
-    if (!selectedImage?.base64) {
+    const uploadImages = selectedImages.length > 0 ? selectedImages : (selectedImage ? [selectedImage] : []);
+    const validImages = uploadImages.filter((img): img is { uri: string; base64?: string } => !!img?.base64);
+    if (validImages.length === 0) {
       Alert.alert(t.common.error, t.analysis.uploadPhotos);
       return;
     }
 
     setPreocupentLoading(true);
     setUploading(true);
+    setScanProgress(0);
+    setScanStatus('scanning');
+    setScanMessage('Analyse des photos...');
+
+    let currentProgress = 0;
+    progressIntervalRef.current = setInterval(() => {
+      currentProgress += Math.random() * 7 + 2;
+
+      if (currentProgress >= 20 && currentProgress < 45) {
+        setScanMessage('Analyse de la texture...');
+      } else if (currentProgress >= 45 && currentProgress < 72) {
+        setScanMessage('Détection des conditions...');
+        setScanStatus('processing');
+      } else if (currentProgress >= 72) {
+        setScanMessage('Génération des résultats...');
+      }
+
+      if (currentProgress >= 90) {
+        currentProgress = 90;
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+      }
+
+      setScanProgress(Math.min(Math.round(currentProgress), 90));
+    }, 380);
+
     try {
+      const [front, left, right] = validImages;
+      const scanPayload = validImages.length > 1
+        ? {
+            frontImage: front?.base64,
+            leftImage: left?.base64,
+            rightImage: right?.base64,
+          }
+        : {
+            image: front?.base64,
+            frontImage: front?.base64,
+          };
+
       const result = await analysisService.scan({
-        image: selectedImage.base64,
+        ...scanPayload,
         mimeType: 'image/jpeg',
         saveAnalysis: true,
         saveImage: true,
         preocupent: zones,
       });
 
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+
       if (result) {
+        setScanProgress(100);
+        setScanStatus('complete');
+        setScanMessage('Analyse terminée !');
         await loadData();
         setMode('results');
         Alert.alert(t.common.success, t.dashboard.analysisCompleted);
       }
     } catch (error: any) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setScanStatus('error');
+      setScanMessage('Erreur lors de l\'analyse');
       console.error('Analysis error:', error);
       Alert.alert(t.common.error, error?.response?.data?.message || t.common.error);
     } finally {
@@ -343,6 +468,7 @@ export function AnalysisScreen() {
       setPreocupentLoading(false);
       setShowPreocupentModal(false);
       setSelectedImage(null);
+      setSelectedImages([]);
     }
   };
 
@@ -520,12 +646,72 @@ export function AnalysisScreen() {
     [comparisonCandidates]
   );
   const compareSliderRatio = Math.max(0.06, Math.min(0.94, compareSliderPercent));
+  const simpleOrbitRotate = simpleOrbitRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const simpleOrbitCounterRotate = simpleOrbitRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '-360deg'],
+  });
+
+  const renderSimpleScanPhoto = (slotIndex: number) => {
+    const sourceImage = selectedImages[slotIndex] || selectedImages[slotIndex % (selectedImages.length || 1)] || selectedImage;
+    if (!sourceImage?.uri) {
+      return (
+        <View style={[styles.simpleScanPhotoFallback, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="image-outline" size={18} color={colors.textTertiary} />
+        </View>
+      );
+    }
+
+    return <Image source={{ uri: sourceImage.uri }} style={styles.simpleScanPhotoImage} />;
+  };
 
   if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
         <View style={dynamicStyles.loadingContainer}>
           <LoadingSpinner message={t.common.loading} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (uploading && (selectedImages.length > 0 || selectedImage?.uri)) {
+    return (
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
+        <View style={[styles.simpleScanContainer, { backgroundColor: colors.background }]}> 
+          <Animated.View style={[styles.simpleScanOrbit, { width: SIMPLE_SCAN_LAYOUT_SIZE, height: SIMPLE_SCAN_LAYOUT_SIZE, transform: [{ rotate: simpleOrbitRotate }] }]}> 
+            <Animated.View style={[styles.simpleScanPhotoSlot, styles.simpleScanTop, { transform: [{ rotate: simpleOrbitCounterRotate }] }]}>{renderSimpleScanPhoto(0)}</Animated.View>
+            <Animated.View style={[styles.simpleScanPhotoSlot, styles.simpleScanLeft, { transform: [{ rotate: simpleOrbitCounterRotate }] }]}>{renderSimpleScanPhoto(1)}</Animated.View>
+            <Animated.View style={[styles.simpleScanPhotoSlot, styles.simpleScanRight, { transform: [{ rotate: simpleOrbitCounterRotate }] }]}>{renderSimpleScanPhoto(2)}</Animated.View>
+
+            <View style={[styles.simpleScanCenterBadge, { backgroundColor: colors.surface }]}> 
+              {scanStatus === 'complete' ? (
+                <Ionicons name="checkmark-circle" size={32} color={colors.success} />
+              ) : scanStatus === 'error' ? (
+                <Ionicons name="alert-circle" size={32} color={Colors.error} />
+              ) : (
+                <ActivityIndicator size="small" color={colors.primary} />
+              )}
+            </View>
+          </Animated.View>
+
+          <View style={styles.simpleScanProgressSection}>
+            <View style={styles.simpleScanStatusRow}>
+              <Ionicons
+                name={scanStatus === 'complete' ? 'checkmark-circle' : scanStatus === 'error' ? 'alert-circle' : 'radio-button-on'}
+                size={22}
+                color={scanStatus === 'error' ? Colors.error : scanStatus === 'complete' ? colors.success : colors.primary}
+              />
+              <Text style={[styles.simpleScanStatusText, { color: colors.text }]}>{scanMessage}</Text>
+            </View>
+            <View style={[styles.simpleScanProgressTrack, { backgroundColor: colors.border }]}> 
+              <View style={[styles.simpleScanProgressFill, { width: `${scanProgress}%`, backgroundColor: scanStatus === 'error' ? Colors.error : colors.primary }]} />
+            </View>
+            <Text style={[styles.simpleScanProgressText, { color: colors.textSecondary }]}>{scanProgress}%</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -547,10 +733,10 @@ export function AnalysisScreen() {
           </View>
 
           <View style={styles.uploadSection}>
-            <ImagePicker
-              onImageSelected={handleImageSelected}
+            <MultiImagePicker
+              onImagesSelected={handleImagesSelected}
+              maxImages={5}
               label={t.dashboard.scanFace}
-              showPreview={true}
             />
           </View>
 
@@ -578,7 +764,7 @@ export function AnalysisScreen() {
             </Button>
             <Button
               onPress={handleStartAnalysisClick}
-              disabled={!selectedImage || analysisLimitReached || verifyingFace}
+              disabled={(selectedImages.length === 0 && !selectedImage) || analysisLimitReached || verifyingFace}
               style={{ flex: 1 }}
             >
               {verifyingFace ? 'Vérification...' : t.analysis.startAnalysis}
@@ -1135,7 +1321,7 @@ export function AnalysisScreen() {
 
   return (
     <SafeAreaView style={dynamicStyles.safeArea} edges={['left', 'right']}>
-      <LoadingOverlay visible={uploading && mode === 'results'} message={t.dashboard.analysisInProgress} />
+      <LoadingOverlay visible={uploading && mode === 'results' && !selectedImage?.uri} message={t.dashboard.analysisInProgress} />
       
       {content}
 
@@ -1238,6 +1424,92 @@ function getOverallStatus(score: number, t?: any): string {
 }
 
 const styles = StyleSheet.create({
+  simpleScanContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  simpleScanOrbit: {
+    position: 'relative',
+    marginBottom: Spacing['2xl'],
+  },
+  simpleScanPhotoSlot: {
+    position: 'absolute',
+    width: SIMPLE_SCAN_PHOTO_SIZE,
+    height: SIMPLE_SCAN_PHOTO_SIZE,
+    borderRadius: SIMPLE_SCAN_PHOTO_SIZE / 2,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: Colors.primaryAlpha10,
+    ...Shadows.md,
+  },
+  simpleScanTop: {
+    top: 0,
+    left: '50%',
+    marginLeft: -(SIMPLE_SCAN_PHOTO_SIZE / 2),
+  },
+  simpleScanLeft: {
+    left: 24,
+    bottom: 24,
+  },
+  simpleScanRight: {
+    right: 24,
+    bottom: 24,
+  },
+  simpleScanPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  simpleScanPhotoFallback: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  simpleScanCenterBadge: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: 72,
+    height: 72,
+    marginLeft: -36,
+    marginTop: -36,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.md,
+  },
+  simpleScanProgressSection: {
+    width: '100%',
+    maxWidth: 360,
+  },
+  simpleScanStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  simpleScanStatusText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: FontWeights.medium,
+  },
+  simpleScanProgressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  simpleScanProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  simpleScanProgressText: {
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+    fontSize: 12,
+  },
   header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerIconWrap: {

@@ -115,6 +115,13 @@ export function AuthenticatedAppBar() {
       icon: 'people-outline' as const,
       onPress: () => navigateTo(() => navigation.navigate('Home', { screen: 'Community' })),
     },
+    {
+      key: 'hair-recommendation',
+      label: 'Style Cheveux',
+      icon: 'star' as const,
+      onPress: () => navigateTo(() => navigation.navigate('Analysis', { screen: 'HairRecommendation' })),
+      isNew: true,
+    },
   ]), [t, navigateTo, navigation]);
 
   const drawerTranslateX = drawerProgress.interpolate({
@@ -389,6 +396,11 @@ export function AuthenticatedAppBar() {
                     <Text style={[styles.drawerItemLabel, textStyle, { color: colors.text, fontSize: fontSizes.base }]}>
                       {item.label}
                     </Text>
+                    {item.isNew && (
+                      <View style={styles.newItemBadge}>
+                        <Text style={styles.newItemBadgeText}>NEW</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -561,6 +573,18 @@ const styles = StyleSheet.create({
   },
   drawerLogoutText: {
     fontWeight: '700',
+  },
+  newItemBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: Spacing.xs,
+  },
+  newItemBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#000',
   },
 });
 

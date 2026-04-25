@@ -82,4 +82,15 @@ export const analysisService = {
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/analyses/${id}`);
   },
+  /** Get personalized hair recommendation based on a face photo */
+  async getHairRecommendation(
+    image: string,
+    mimeType: string = 'image/jpeg',
+  ): Promise<{ title: string; description: string; imageUrl: string }> {
+    const res = await apiClient.post('/analyses/hair-recommendation', {
+      image,
+      mimeType,
+    });
+    return res.data;
+  },
 };

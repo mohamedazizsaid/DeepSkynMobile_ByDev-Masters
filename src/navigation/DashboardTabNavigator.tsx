@@ -48,6 +48,7 @@ export type AnalysisStackParamList = {
   AnalysisHistory: undefined;
   ProductScan: undefined;
   ProductAnalysis: { product: any };
+  HairRecommendation: undefined;
 };
 
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
@@ -70,10 +71,9 @@ function HomeStackNavigator() {
 function AnalysisStackNavigator() {
   const { MultiPhotoScanScreen } = require('../screens/dashboard/MultiPhotoScanScreen');
   const { MultiPhotoCameraScreen } = require('../screens/dashboard/MultiPhotoCameraScreen');
-
-  // Import ProductScan screens
   const { ProductScanScreen } = require('../screens/dashboard/ProductScanScreen');
   const { ProductAnalysisScreen } = require('../screens/dashboard/ProductAnalysisScreen');
+  const { HairRecommendationScreen } = require('../screens/dashboard/HairRecommendationScreen');
 
   return (
     <AnalysisStack.Navigator screenOptions={{ headerShown: false }}>
@@ -85,6 +85,7 @@ function AnalysisStackNavigator() {
       <AnalysisStack.Screen name="AnalysisHistory" component={AnalysisHistoryScreen} />
       <AnalysisStack.Screen name="ProductScan" component={ProductScanScreen} />
       <AnalysisStack.Screen name="ProductAnalysis" component={ProductAnalysisScreen} />
+      <AnalysisStack.Screen name="HairRecommendation" component={HairRecommendationScreen} />
     </AnalysisStack.Navigator>
   );
 }

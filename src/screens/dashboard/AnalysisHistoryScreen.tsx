@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, EmptyState } from '../../components';
+import { Card, EmptyState, FaceTagsOverlay } from '../../components';
+import type { FaceTag } from '../../components';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../theme';
 import { useAccessibilityStyles } from '../../stores/useAccessibilityStyles';
 import { analysisService } from '../../services/analysis.service';
@@ -13,6 +14,63 @@ import { formatDate } from '../../lib/utils';
 interface Props {
   navigation: StackNavigationProp<any>;
 }
+
+const getFaceTagsFromAnalysis = (analysisItem: Analysis): FaceTag[] => {
+  if (!analysisItem || !analysisItem.results?.detailedAnalysis) return [];
+  
+  const tags: FaceTag[] = [];
+  const detailedAnalysis = analysisItem.results.detailedAnalysis;
+  
+  const analysisToTagMap: Array<{
+    key: keyof typeof detailedAnalysis;
+    label: string;
+    condition: string;
+    zones: string[];
+  }> = [
+    { key: 'acne', label: 'Acné', condition: 'acne', zones: ['forehead', 'left_cheek', 'right_cheek', 'chin'] },
+    { key: 'wrinkles', label: 'Rides', condition: 'wrinkles', zones: ['forehead', 'left_eye', 'right_eye'] },
+    { key: 'pigmentation', label: 'Pigmentation', condition: 'hyperpigmentation', zones: ['left_cheek', 'right_cheek'] },
+    { key: 'redness', label: 'Rougeurs', condition: 'redness', zones: ['nose', 'left_cheek', 'right_cheek'] },
+    { key: 'pores', label: 'Pores', condition: 'pores', zones: ['nose', 'left_cheek', 'right_cheek'] },
+    { key: 'hydration', label: 'Déshydratation', condition: 'dehydration', zones: ['left_cheek', 'right_cheek'] },
+    { key: 'texture', label: 'Texture', condition: 'texture', zones: ['left_cheek', 'right_cheek'] },
+  ];
+
+  analysisToTagMap.forEach((item, index) => {
+    const metric = detailedAnalysis[item.key as keyof typeof detailedAnalysis];
+    if (metric && (metric as any).score < 70) {
+      const score = (metric as any).score;
+      const severity = score < 40 ? 'severe' : score < 55 ? 'moderate' : 'mild';
+      const zone = item.zones[index % item.zones.length];
+      tags.push({
+        id: `tag-${item.key}`,
+        condition: item.condition,
+        label: item.label,
+        severity,
+        confidence: Math.max(60, 100 - Math.floor(score / 2)),
+        zone,
+        description: (metric as any).description,
+      });
+    }
+  });
+
+  analysisItem.conditions?.forEach((condition, idx) => {
+    const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+    const existingTag = tags.find(t => t.condition === conditionKey);
+    if (!existingTag) {
+      tags.push({
+        id: `condition-${idx}`,
+        condition: conditionKey,
+        label: condition,
+        severity: 'moderate',
+        confidence: 75,
+        zone: ['forehead', 'left_cheek', 'right_cheek', 'nose', 'chin'][idx % 5],
+      });
+    }
+  });
+
+  return tags.slice(0, 6);
+};
 
 export function AnalysisHistoryScreen({ navigation }: Props) {
   const { colors, fontSizes } = useAccessibilityStyles();
@@ -98,39 +156,59 @@ export function AnalysisHistoryScreen({ navigation }: Props) {
         <View style={{ flex: 1 }}>
           {Array.isArray(item.images) && item.images.length > 0 && (
             <View style={{ marginBottom: Spacing.sm }}>
-              <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const, gap: Spacing.sm }}>
-                {item.images.slice(0, 3).map((uri, index) => (
-                  <Image
-                    key={`${item.id}-image-${index}`}
-                    source={{ uri }}
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: BorderRadius.base,
-                      backgroundColor: colors.surface,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                    }}
-                  />
-                ))}
-                {item.images.length > 3 && (
-                  <View
-                    style={{
-                      minWidth: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      paddingHorizontal: Spacing.xs,
-                      justifyContent: 'center' as const,
-                      alignItems: 'center' as const,
-                      backgroundColor: colors.primary + '20',
-                    }}
-                  >
-                    <Text style={{ color: colors.primary, fontSize: fontSizes.xs, fontWeight: FontWeights.semibold }}>
-                      +{item.images.length - 3}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              {(() => {
+                const tags = getFaceTagsFromAnalysis(item);
+                if (tags.length > 0) {
+                  return (
+                    <View style={{ alignItems: 'center', marginBottom: Spacing.sm, marginTop: Spacing.sm }}>
+                      <FaceTagsOverlay
+                        imageUri={item.images[0]}
+                        tags={tags}
+                        imageWidth={Dimensions.get('window').width - Spacing.lg * 4}
+                        imageHeight={(Dimensions.get('window').width - Spacing.lg * 4) * 1.2}
+                        showConnectors={true}
+                        animateOnMount={false}
+                      />
+                    </View>
+                  );
+                } else {
+                  return (
+                    <View style={{ flexDirection: 'row' as const, alignItems: 'center' as const, gap: Spacing.sm }}>
+                      {item.images.slice(0, 3).map((uri, index) => (
+                        <Image
+                          key={`${item.id}-image-${index}`}
+                          source={{ uri }}
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: BorderRadius.base,
+                            backgroundColor: colors.surface,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                          }}
+                        />
+                      ))}
+                      {item.images.length > 3 && (
+                        <View
+                          style={{
+                            minWidth: 36,
+                            height: 36,
+                            borderRadius: 18,
+                            paddingHorizontal: Spacing.xs,
+                            justifyContent: 'center' as const,
+                            alignItems: 'center' as const,
+                            backgroundColor: colors.primary + '20',
+                          }}
+                        >
+                          <Text style={{ color: colors.primary, fontSize: fontSizes.xs, fontWeight: FontWeights.semibold }}>
+                            +{item.images.length - 3}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                }
+              })()}
             </View>
           )}
 

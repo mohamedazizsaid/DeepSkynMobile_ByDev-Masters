@@ -1,22 +1,105 @@
 import apiClient from './api-client';
 import type { ChatHistory, SendMessageDto } from '../lib/types';
 
+type BackendSendMessageResponse = {
+  chatId?: string;
+  isNewChat?: boolean;
+  message?: {
+    role?: string;
+    content?: string;
+    timestamp?: string;
+  };
+  products?: Array<{
+    id?: string;
+    name: string;
+    brand?: string;
+    imageUrl?: string;
+    category?: string;
+  }>;
+};
+
+type BackendHistoryResponse =
+  | ChatHistory[]
+  | {
+      chats?: ChatHistory[];
+      total?: number;
+    };
+
+const nowIso = () => new Date().toISOString();
+
+function normalizeChatHistory(chat: ChatHistory): ChatHistory {
+  const rawMessages = Array.isArray(chat.messages)
+    ? (chat.messages as Array<{ role?: string; content?: string; timestamp?: string }> )
+    : [];
+
+  const lastUser = [...rawMessages].reverse().find((m) => m.role === 'user');
+  const lastAssistant = [...rawMessages].reverse().find((m) => m.role === 'assistant');
+
+  const createdAt = chat.createdAt || lastAssistant?.timestamp || lastUser?.timestamp || nowIso();
+
+  return {
+    ...chat,
+    message: chat.message || lastUser?.content || '',
+    assistantResponse: chat.assistantResponse || lastAssistant?.content || null,
+    createdAt,
+    updatedAt: chat.updatedAt || createdAt,
+  };
+}
+
+function normalizeSendMessageResponse(
+  data: ChatHistory | BackendSendMessageResponse,
+  sentMessage: string,
+  sentContext?: Record<string, unknown>,
+): ChatHistory {
+  if ('assistantResponse' in data || 'createdAt' in data) {
+    return normalizeChatHistory(data as ChatHistory);
+  }
+
+  const timestamp = data.message?.timestamp || nowIso();
+  const assistantText = data.message?.content || null;
+
+  return {
+    id: data.chatId || `chat-${Date.now()}`,
+    userId: '',
+    message: sentMessage,
+    imageUrl: null,
+    modelUsed: null,
+    assistantResponse: assistantText,
+    messages: [
+      { role: 'user' as const, content: sentMessage, timestamp },
+      ...(assistantText
+        ? [{ role: 'assistant' as const, content: assistantText, timestamp }]
+        : []),
+    ],
+    context: sentContext || null,
+    isPremium: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    products: data.products,
+  };
+}
+
 export const chatService = {
   async sendMessage(data: SendMessageDto): Promise<ChatHistory> {
-    const res = await apiClient.post<ChatHistory>('/chat/message', data);
-    return res.data;
+    const res = await apiClient.post<ChatHistory | BackendSendMessageResponse>(
+      '/chat/message',
+      data,
+    );
+    return normalizeSendMessageResponse(res.data, data.message, data.context);
   },
 
   async getHistory(limit = 20, offset = 0): Promise<ChatHistory[]> {
-    const res = await apiClient.get<ChatHistory[]>('/chat/history', {
+    const res = await apiClient.get<BackendHistoryResponse>('/chat/history', {
       params: { limit, offset },
     });
-    return res.data;
+
+    const chats = Array.isArray(res.data) ? res.data : (res.data.chats || []);
+    return chats.map(normalizeChatHistory);
   },
 
   async getById(id: string): Promise<ChatHistory> {
     const res = await apiClient.get<ChatHistory>(`/chat/${id}`);
-    return res.data;
+    return normalizeChatHistory(res.data);
   },
 
   async delete(id: string): Promise<void> {

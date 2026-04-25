@@ -488,13 +488,52 @@ export function ProductScanScreen() {
               : undefined
           }
         >
-          {/* Scan Frame Overlay */}
-          <LinearGradient
-            colors={['rgba(0,0,0,0.1)', 'transparent', 'rgba(0,0,0,0.1)']}
-            style={styles.cameraOverlay}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-          >
+          {/* Cutout Overlay */}
+          <View style={styles.overlayContainer}>
+            <View style={styles.overlayTop} />
+            <View style={styles.overlayMiddle}>
+              <View style={styles.overlaySide} />
+              <Animated.View
+                style={[
+                  styles.scanFrameContainer,
+                  {
+                    transform: [{ scale: framePulseAnim }],
+                  },
+                ]}
+              >
+                <View style={[styles.scanFrame, { borderColor: colors.primary }]}>
+                  {/* Corner indicators */}
+                  <View style={[styles.corner, styles.topLeft, { borderColor: colors.primary }]} />
+                  <View style={[styles.corner, styles.topRight, { borderColor: colors.primary }]} />
+                  <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.primary }]} />
+                  <View style={[styles.corner, styles.bottomRight, { borderColor: colors.primary }]} />
+
+                  {/* Animated scan line */}
+                  <Animated.View
+                    style={[
+                      styles.scanLine,
+                      {
+                        backgroundColor: colors.primary,
+                        transform: [{ translateY: scanLineY }],
+                      },
+                    ]}
+                  />
+                </View>
+              </Animated.View>
+              <View style={styles.overlaySide} />
+            </View>
+            <View style={styles.overlayBottom}>
+              {/* Instruction Text */}
+              <Animated.View style={[styles.instructionContainer, { opacity: fadingText }]}>
+                <Text style={[styles.instructionText, { color: Colors.white }]}>
+                  {currentMode === 'qr'
+                    ? 'Alignez le QR/code-barres dans le cadre'
+                    : 'Positionnez le produit dans le cadre'}
+                </Text>
+              </Animated.View>
+            </View>
+            
+            {/* QR Detection Animation */}
             {currentMode === 'qr' && (
               <Animated.View
                 pointerEvents="none"
@@ -506,43 +545,6 @@ export function ProductScanScreen() {
                 ]}
               />
             )}
-
-            <Animated.View
-              style={[
-                styles.scanFrameContainer,
-                {
-                  transform: [{ scale: framePulseAnim }],
-                },
-              ]}
-            >
-              <View style={[styles.scanFrame, { borderColor: colors.primary }]}> 
-                {/* Corner indicators */}
-                <View style={[styles.corner, styles.topLeft, { borderColor: colors.primary }]} />
-                <View style={[styles.corner, styles.topRight, { borderColor: colors.primary }]} />
-                <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.primary }]} />
-                <View style={[styles.corner, styles.bottomRight, { borderColor: colors.primary }]} />
-
-                {/* Animated scan line */}
-                <Animated.View
-                  style={[
-                    styles.scanLine,
-                    {
-                      backgroundColor: colors.primary,
-                      transform: [{ translateY: scanLineY }],
-                    },
-                  ]}
-                />
-              </View>
-            </Animated.View>
-
-            {/* Instruction Text */}
-            <Animated.View style={[styles.instructionContainer, { opacity: fadingText }]}>
-              <Text style={[styles.instructionText, { color: Colors.white }]}>
-                {currentMode === 'qr'
-                  ? 'Alignez le QR/code-barres dans le cadre'
-                  : 'Positionnez le produit dans le cadre'}
-              </Text>
-            </Animated.View>
 
             {currentMode === 'qr' && qrDetectedAnimating && (
               <Animated.View
@@ -559,7 +561,7 @@ export function ProductScanScreen() {
                 <Text style={styles.qrDetectedText}>QR detecte</Text>
               </Animated.View>
             )}
-          </LinearGradient>
+          </View>
         </CameraView>
       )}
 
@@ -684,14 +686,13 @@ const styles = StyleSheet.create({
     width: width * 0.86,
     maxWidth: 360,
     height: 330,
-    marginTop: -100,
   },
   scanFrame: {
     flex: 1,
     borderWidth: 2,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'transparent',
   },
   corner: {
     position: 'absolute',
@@ -735,9 +736,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   instructionContainer: {
-    position: 'absolute',
-    bottom: 170,
+    marginTop: Spacing.xl,
     paddingHorizontal: Spacing.lg,
+    width: '100%',
   },
   instructionText: {
     fontSize: 16,
@@ -874,6 +875,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.xl,
     lineHeight: 20,
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+  overlayTop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  overlayMiddle: {
+    flexDirection: 'row',
+    height: 330,
+  },
+  overlaySide: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  overlayBottom: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
   },
 });
 

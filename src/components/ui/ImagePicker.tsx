@@ -144,25 +144,46 @@ export function MultiImagePicker({
 }: MultiImagePickerProps) {
   const [images, setImages] = useState<Array<{ uri: string; base64?: string }>>([]);
 
-  const addImage = async () => {
+  const requestMultiPermissions = async () => {
+    if (Platform.OS !== 'web') {
+      const { status: cameraStatus } = await ExpoImagePicker.requestCameraPermissionsAsync();
+      const { status: libraryStatus } = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+        Alert.alert(
+          'Permissions requises',
+          'Veuillez autoriser l\'accès à la caméra et à la galerie pour continuer.',
+          [{ text: 'OK' }]
+        );
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const addImage = async (fromCamera: boolean) => {
     if (images.length >= maxImages) {
       Alert.alert('Maximum atteint', `Vous pouvez ajouter jusqu'à ${maxImages} photos.`);
       return;
     }
 
-    const { status } = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission requise', 'Veuillez autoriser l\'accès à la galerie.');
+    const hasPermission = await requestMultiPermissions();
+    if (!hasPermission) {
       return;
     }
 
-    const result = await ExpoImagePicker.launchImageLibraryAsync({
+    const options: ExpoImagePicker.ImagePickerOptions = {
       mediaTypes: ExpoImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
       base64: true,
-    });
+      exif: false,
+    };
+
+    const result = fromCamera
+      ? await ExpoImagePicker.launchCameraAsync(options)
+      : await ExpoImagePicker.launchImageLibraryAsync(options);
 
     if (!result.canceled && result.assets[0]) {
       const newImage = { uri: result.assets[0].uri, base64: result.assets[0].base64 || undefined };
@@ -170,6 +191,19 @@ export function MultiImagePicker({
       setImages(updatedImages);
       onImagesSelected(updatedImages);
     }
+  };
+
+  const showAddImageOptions = () => {
+    Alert.alert(
+      'Ajouter une photo',
+      'Choisissez une source',
+      [
+        { text: 'Appareil photo', onPress: () => addImage(true) },
+        { text: 'Galerie', onPress: () => addImage(false) },
+        { text: 'Annuler', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
   };
 
   const removeImage = (index: number) => {
@@ -191,7 +225,7 @@ export function MultiImagePicker({
           </View>
         ))}
         {images.length < maxImages && (
-          <TouchableOpacity style={styles.addButton} onPress={addImage}>
+          <TouchableOpacity style={styles.addButton} onPress={showAddImageOptions}>
             <Ionicons name="add" size={32} color={Colors.primary} />
           </TouchableOpacity>
         )}

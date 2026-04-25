@@ -5,6 +5,14 @@ export interface ChatMessage {
   timestamp?: string;
 }
 
+export interface ChatProduct {
+  id?: string;
+  name: string;
+  brand?: string;
+  imageUrl?: string;
+  category?: string;
+}
+
 export interface ChatHistory {
   id: string;
   userId: string;
@@ -17,6 +25,7 @@ export interface ChatHistory {
   isPremium: boolean;
   createdAt: string;
   updatedAt: string;
+  products?: ChatProduct[];
 }
 
 export interface SendMessageDto {
